@@ -63,6 +63,8 @@ pub struct RefineProblem {
 #[serde(rename_all = "camelCase")]
 struct Component {
     #[serde(default)]
+    local_scope: Option<Arc<str>>,
+    #[serde(default)]
     internal_pad_owner: bool,
     designator: Arc<str>,
     pose_index: usize,
@@ -482,6 +484,7 @@ impl RefineProblem {
                 .nets
                 .iter()
                 .map(|net| PostPlaceNet {
+                    local_scopes: net.points.iter().map(|b| self.components[b.component].local_scope.clone()).collect(),
                     name: net.name.clone(),
                     internal_owners: net.points.iter().map(|b| {
                         let c = &self.components[b.component];

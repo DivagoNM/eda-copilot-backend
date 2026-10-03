@@ -337,6 +337,9 @@ pub struct PostPlaceScoreProblem {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostPlaceNet {
+    /// Original assembly scope per point; absent means no local stretch link.
+    #[serde(default)]
+    pub local_scopes: Vec<Option<Arc<str>>>,
     /// IC owner for each point; absent metadata means no exemption.
     #[serde(default)]
     pub internal_owners: Vec<Option<Arc<str>>>,

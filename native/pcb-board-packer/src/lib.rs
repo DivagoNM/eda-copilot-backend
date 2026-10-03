@@ -19,6 +19,7 @@ mod net_class;
 mod ordinary_net;
 mod passive_island_solver;
 mod post_place;
+mod local_stretch;
 mod placement_quality;
 mod signal_path;
 mod solver;
@@ -117,7 +118,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 1 }
+pub fn placement_score_contract_version() -> u32 { 2 }
 
 #[napi]
 pub fn placement_spacing_policy(measurements: Value) -> Result<Value> {

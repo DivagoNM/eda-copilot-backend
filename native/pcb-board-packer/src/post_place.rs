@@ -67,6 +67,11 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
         };
         score += distance * term.weight;
     }
+    for net in &problem.nets {
+        for (source, targets) in local_stretch_targets(net) {
+            score += local_stretch_cost(net, source, &targets);
+        }
+    }
     for path in &problem.paths {
         score += signal_path::topology_penalty_for_ports(
             &path.ports,
@@ -240,7 +245,7 @@ mod incremental_pad_tests {
     fn moving_foreign_pad_and_changing_net_invalidate_only_reusable_contributions() {
         let mut cache = PadCrossingCache::default();
         let mut net = PostPlaceNet { name: Arc::from("signal"), points: vec![Point{x:0.0,y:0.0},Point{x:4.0,y:0.0}],
-            layers: vec![Some(Arc::from("top"));2], internal_owners: vec![None;2], weight: 1.0 };
+            layers: vec![Some(Arc::from("top"));2], internal_owners: vec![None;2], local_scopes: vec![], weight: 1.0 };
         let obstacle = |y| Arc::new(vec![RouteObstacle {
             box_: crate::geometry::Box2{left:1.0,right:2.0,top:y,bottom:y+0.5}, layer:Some(Arc::from("top")),
             reference:Some(Arc::from("R2.1")),net:Some(Arc::from("other")),primitive_id:Some(Arc::from("R2")),
@@ -317,6 +322,7 @@ fn validate(problem: &PostPlaceScoreProblem) -> Result<(), String> {
     let all_finite = problem.pad_crossing_weight.is_finite() && problem.pad_crossing_weight >= 0.0 && problem.nets.iter().all(|net| {
         (net.layers.is_empty() || net.layers.len() == net.points.len()) &&
         (net.internal_owners.is_empty() || net.internal_owners.len() == net.points.len()) &&
+        (net.local_scopes.is_empty() || net.local_scopes.len() == net.points.len()) &&
         net.weight.is_finite()
             && net
                 .points
@@ -348,5 +354,64 @@ pub(crate) fn term_reference(p:&PostPlaceScoreProblem)->Result<Vec<f32>,String>{
  for t in &p.clearances {empty.clearances=vec![*t];result.push(score(&empty)?);}empty.clearances.clear();
  empty.fixed_penalties=p.fixed_penalties.clone();result.push(score(&empty)?);empty.fixed_penalties.clear();
  for t in &p.edges {empty.edges=vec![t.clone()];result.push(score(&empty)?);}empty.edges.clear();
+ for net in &p.nets {for (source,targets) in local_stretch_targets(net) {result.push(local_stretch_cost(net,source,&targets));}}
  for t in &p.paths {empty.paths=vec![t.clone()];result.push(score(&empty)?);}Ok(result)
+}
+
+/// One nearest target pad per connected IC within the original assembly scope.
+/// Shared target selection for the scalar evaluator and GPU term compiler.
+pub(crate) fn local_stretch_targets(net: &PostPlaceNet) -> Vec<(usize, Vec<usize>)> {
+    let mut links = Vec::new();
+    if crate::net_class::is_ground(&net.name) || net.local_scopes.len() != net.points.len()
+        || net.internal_owners.len() != net.points.len() { return links; }
+    for (source, scope) in net.local_scopes.iter().enumerate() {
+        let Some(scope) = scope else { continue };
+        if net.internal_owners[source].is_some() { continue; }
+        let mut owners = Vec::new();
+        for target in 0..net.points.len() {
+            if net.local_scopes[target].as_ref() != Some(scope) { continue; }
+            let Some(owner) = &net.internal_owners[target] else { continue };
+            if owners.contains(&owner) { continue; }
+            owners.push(owner);
+            let targets = (0..net.points.len()).filter(|&i|
+                net.local_scopes[i].as_ref() == Some(scope)
+                && net.internal_owners[i].as_ref() == Some(owner)).collect();
+            links.push((source, targets));
+        }
+    }
+    links
+}
+
+fn local_stretch_cost(net: &PostPlaceNet, source: usize, targets: &[usize]) -> f32 {
+    let nearest = targets.iter().map(|&i| distance(net.points[source], net.points[i]))
+        .fold(f32::INFINITY, f32::min);
+    crate::local_stretch::penalty(nearest, net.weight)
+}
+
+#[cfg(test)]
+mod local_stretch_tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[test]
+    fn nearest_pad_per_local_ic_excludes_foreign_family_and_ground() {
+        let mut net = PostPlaceNet {
+            name: Arc::from("+3V3"), weight: 0.25,
+            points: vec![Point{x:0.0,y:0.0}, Point{x:5.0,y:0.0},
+                Point{x:2.0,y:0.0}, Point{x:0.5,y:0.0}],
+            layers: vec![],
+            internal_owners: vec![None,Some(Arc::from("U5")),Some(Arc::from("U5")),Some(Arc::from("U3"))],
+            local_scopes: vec![Some(Arc::from("rs485")),Some(Arc::from("rs485")),
+                Some(Arc::from("rs485")),Some(Arc::from("mcu"))],
+        };
+        assert_eq!(local_stretch_targets(&net), vec![(0,vec![1,2])]);
+        assert_eq!(local_stretch_cost(&net,0,&[1,2]),3.0);
+        net.points[2].x = 6.0;
+        assert_eq!(local_stretch_cost(&net,0,&[1,2]),39.5);
+        net.name = Arc::from("GND");
+        assert!(local_stretch_targets(&net).is_empty());
+        net.name = Arc::from("signal");
+        net.local_scopes.clear();
+        assert!(local_stretch_targets(&net).is_empty());
+    }
 }

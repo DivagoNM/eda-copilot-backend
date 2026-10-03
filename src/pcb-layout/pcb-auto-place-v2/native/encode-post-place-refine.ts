@@ -10,6 +10,7 @@ import { expandHints } from '../../pcb-auto-place/hints.ts';
 import { createPostPlaceRouteScoreContext, routeLayoutProblem } from '../post-place-route-score.ts';
 import { postPlaceBudget } from '../post-place-budget.ts';
 import { placementPadCrossingWeight } from '../block-policy.ts';
+import { postPlaceLocalScopes } from './encode-post-place-score.ts';
 
 export type RefineTarget = { kind: 'missing' | 'component' | 'pin' | 'group' | 'point'; component?: number; pad?: number; members?: number[]; point?: Point };
 
@@ -67,10 +68,12 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
     const keyRank = new Map([...new Set(keys.flat().map(k => k.key))].sort((a, b) => a.localeCompare(b)).map((key, rank) => [key, rank]));
     for (const entries of keys) for (const key of entries) key.rank = keyRank.get(key.key)!;
     const lexRank = new Map(input.components.map(c => c.designator).sort().map((name, i) => [name, i]));
+    const localScopes = postPlaceLocalScopes(input);
     let obstacleOffset = 0;
     const components = input.components.map((c, i) => ({
         obstacleOffset: (() => { const start = obstacleOffset; obstacleOffset += c.footprint.pads.length; return start; })(),
         internalPadOwner: c.pcb.role === 'main_ic',
+        localScope: localScopes.get(c.designator),
         designator: c.designator, poseIndex: poseIndex.get(c.designator)!, lexRank: lexRank.get(c.designator)!,
         automatic: automatic[i], fixed: fixed[i], diagnostic: fixedMembers.includes(i),
         allowedRotations: (c.pcb.allowedRotations.length ? c.pcb.allowedRotations : [0, 90, 180, 270]).map(normalizeRotation),

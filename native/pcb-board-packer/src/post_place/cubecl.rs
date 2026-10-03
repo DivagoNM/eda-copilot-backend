@@ -59,7 +59,7 @@ impl Engine {
   let mut table=Vec::new();for g in &groups {table.extend([d.ints(g),(g.len()/3) as u32]);}
   d.si[15]=groups.len() as u32;d.si[16]=d.ints(&table);d.si[12]=d.floats(&[p.pad_crossing_weight]);
   d.si[14]=d.floats(&[p.board.left,p.board.right,p.board.top,p.board.bottom]);
-  let mut buckets:[Vec<u32>;4]=Default::default();
+  let mut buckets:[Vec<u32>;5]=Default::default();
   for h in &p.hints {match h.kind.as_str(){
    "distance" if !h.all=>{if let(Some(a),Some(b))=(d.target(&h.source),d.target(&h.target)){let f=d.floats(&[h.weight,h.min.unwrap_or(0.0),h.max.unwrap_or(0.0)]);buckets[0].extend([0,a,b,f,u32::from(h.max.is_some())|u32::from(h.min.is_some())*2]);}},
    "clearance"=>{if let(Some(a),Some(minimum))=(d.target(&h.source),h.min){let f=d.floats(&[h.weight,minimum]);if h.all {
@@ -69,6 +69,20 @@ impl Engine {
    "prefer_layer" if h.source.kind=="component"=>{if let Some(l)=&h.layer{let f=d.floats(&[h.weight*10.0]);buckets[2].extend([2,h.source.component.unwrap() as u32,u32::MAX,f,layer(l)?]);}},
    "edge"=>{if let(Some(a),Some(edge))=(d.target(&h.source),&h.edge){let f=d.floats(&[h.weight]);buckets[3].extend([3,a,0,f,match edge.as_str(){"left"=>0,"right"=>1,"top"=>2,_=>3}]);}},_=>{}
   }}
+  // Compile local nearest-pad groups once; candidate distances stay on GPU.
+  for net in &p.nets {
+   let metadata=crate::model::PostPlaceNet {
+    name:net.name.clone(),weight:net.weight,points:vec![crate::geometry::Point{x:0.0,y:0.0};net.points.len()],layers:vec![],
+    internal_owners:net.points.iter().map(|q|{let c=&p.components[q.component];c.internal_pad_owner.then(||c.designator.clone())}).collect(),
+    local_scopes:net.points.iter().map(|q|p.components[q.component].local_scope.clone()).collect(),
+   };
+   for (source,targets) in crate::post_place::local_stretch_targets(&metadata) {
+    let q=&net.points[source];let src=d.ints(&[2,q.component as u32,q.pad as u32]);
+    let dsts:Vec<_>=targets.iter().map(|&i|{let q=&net.points[i];d.ints(&[2,q.component as u32,q.pad as u32])}).collect();
+    let dst=d.ints(&dsts);let weight=d.floats(&[net.weight]);
+    buckets[4].extend([4,src,dst,weight,dsts.len() as u32]);
+   }
+  }
   let terms:Vec<_>=buckets.into_iter().flatten().collect();d.si[7]=(terms.len()/5) as u32;d.si[8]=d.ints(&terms);
   let mut paths=Vec::new();for path in &p.paths {
    let mut ports:Vec<_>=path.ports.iter().filter(|port|port.target.component.is_some()).filter_map(|port|d.target(&port.target).map(|t|(port,t))).collect();ports.sort_by(|(a,_),(b,_)|a.order.cmp(&b.order).then_with(||a.reference.cmp(&b.reference)));ports.dedup_by_key(|(q,_)|q.order);

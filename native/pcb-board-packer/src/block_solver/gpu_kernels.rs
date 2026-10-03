@@ -1545,8 +1545,7 @@ pub fn cheap(
                                 let mut nearest=f32::from_bits(0x7f800000u32);
                                 for k in 0usize..count {let q=ref_cp(d,start+k,candidate);
                                     if q.owner==core.owner {nearest=min(nearest,distance(P{x:p.x,y:p.y},P{x:q.x,y:q.y}));}}
-                                let excess=max(nearest-3.0,0.0);
-                                stretch+=choose((d.fi[net+7]&32)!=0,0.25,1.0)*(6.0*nearest+32.0*excess*excess);
+                                stretch+=crate::local_stretch::penalty(nearest,choose((d.fi[net+7]&32)!=0,0.25,1.0));
                             }
                         }
                     }

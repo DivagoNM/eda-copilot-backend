@@ -24,6 +24,8 @@ export function encodeNativePostPlaceScoreProblem(
     const placementByDesignator = new Map(placements.map((placement) => [placement.designator, placement]));
     const componentByDesignator = new Map(input.components.map((component) => [component.designator, component]));
     const ignored = new Set(input.solverOptions.ignoredRatsnestSignals.map((signal) => signal.toUpperCase()));
+    const localScopes = postPlaceLocalScopes(input);
+    const scopesByNet = new Map<string, Array<string | null>>();
     const pointsByNet = new Map<string, Array<{ x: number; y: number }>>();
     const ownersByNet = new Map<string, Array<string | null>>();
     const layersByNet = new Map<string, Array<string | null>>();
@@ -50,6 +52,9 @@ export function encodeNativePostPlaceScoreProblem(
             const owners = ownersByNet.get(pin.signal_name) ?? [];
             owners.push(component.pcb.role === 'main_ic' ? component.designator : null);
             ownersByNet.set(pin.signal_name, owners);
+            const scopes = scopesByNet.get(pin.signal_name) ?? [];
+            scopes.push(localScopes.get(component.designator) ?? null);
+            scopesByNet.set(pin.signal_name, scopes);
         }
     }
 
@@ -57,7 +62,7 @@ export function encodeNativePostPlaceScoreProblem(
     const result: NativePostPlaceScoreProblemV1 = {
         version: NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION,
         padCrossingWeight: placementPadCrossingWeight(), routingObstacles,
-        nets: [...pointsByNet.entries()].map(([name, points], index) => ({ name, points, layers: layersByNet.get(name), internalOwners: ownersByNet.get(name), weight: weights[index] })),
+        nets: [...pointsByNet.entries()].map(([name, points], index) => ({ name, points, layers: layersByNet.get(name), internalOwners: ownersByNet.get(name), localScopes: scopesByNet.get(name), weight: weights[index] })),
         distances: [],
         clearances: [],
         fixedPenalties: [],
@@ -151,4 +156,20 @@ function pathPort(
 
 function targetContainsDesignator(target: { type: string; designator?: string }, designator: string) {
     return (target.type === 'component' || target.type === 'pin') && target.designator === designator;
+}
+
+/** Preserve block/family ownership; shared supply nets must not link unrelated ICs. */
+export function postPlaceLocalScopes(input: PlacementInput): Map<string, string> {
+    const blocks = new Map(input.blocks.map(block => [block.name, block]));
+    const scopes = new Map<string, string>();
+    for (const block of input.blocks) {
+        let root = block;
+        const seen = new Set([root.name]);
+        while (root.attachTo && blocks.has(root.attachTo) && !seen.has(root.attachTo)) {
+            root = blocks.get(root.attachTo)!;
+            seen.add(root.name);
+        }
+        for (const designator of block.component_designators) scopes.set(designator, root.name);
+    }
+    return scopes;
 }

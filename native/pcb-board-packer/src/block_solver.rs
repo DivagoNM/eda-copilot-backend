@@ -321,7 +321,7 @@ fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<Worki
         .filter_map(|cp| cp.net.clone()).filter(|n| !n.is_empty() && !is_ground(n)
             && !problem.experiments.ignored_nets.iter().any(|ignored| ignored.eq_ignore_ascii_case(n)))
         .collect::<std::collections::BTreeSet<_>>().into_iter().map(|name| crate::model::PostPlaceNet {
-            weight: if is_power(&name) { 0.25 } else { 1.0 }, name, points: vec![], layers: vec![], internal_owners: vec![],
+            weight: if is_power(&name) { 0.25 } else { 1.0 }, name, points: vec![], layers: vec![], internal_owners: vec![], local_scopes: vec![],
         }).collect();
     let pad_net_indices = problem.primitives.iter().map(|p| p.connection_points.iter().map(|cp|
         cp.net.as_ref().and_then(|name| pad_nets.binary_search_by(|n| n.name.cmp(name)).ok())).collect()).collect();
@@ -1236,7 +1236,7 @@ fn connected_pin_links(primitives: &[WorkingPrimitive], context: &Context,
 fn connected_pin_stretch(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
     let mut score = 0.0;
     connected_pin_links(primitives, context, |_, _, weight, d| {
-        score += weight * (6.0 * d + 32.0 * (d - 3.0).max(0.0).powi(2));
+        score += crate::local_stretch::penalty(d, weight);
     });
     score
 }

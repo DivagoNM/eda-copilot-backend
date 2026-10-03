@@ -124,6 +124,10 @@ pub fn terms(g:&Input,out:&mut Array<f32>){
    if kind==0 {let dist=distance(target_point(g,c,src),target_point(g,c,dst));a=dist*w;if flags&1!=0 && dist>g.sf[f+2] {let x=dist-g.sf[f+2];b=x*x*w*20.0;}if flags&2!=0 && dist<g.sf[f+1] {let x=g.sf[f+1]-dist;d=x*x*w*20.0;}}
    if kind==1 {let x=target_box(g,c,src);let y=target_box(g,c,dst);let gap=max(max(y.l-x.r,x.l-y.r),max(y.t-x.b,x.t-y.b));if gap<g.sf[f+1] {let z=g.sf[f+1]-gap;a=z*z*w*20.0;}}
    if kind==2 {let x=g.geometry[geometry_offset(g,c,src)+2] as u32;let mut y=flags;if dst!=0xffffffffusize {y=g.geometry[geometry_offset(g,c,dst)+2] as u32;}if x!=y {a=w;}}
+   if kind==4 {let source=target_point(g,c,src);let mut nearest=f32::from_bits(0x7f800000u32);
+    for j in 0..flags as usize {nearest=min(nearest,distance(source,target_point(g,c,g.si[dst+j] as usize)));}
+    a=crate::local_stretch::penalty(nearest,w);
+   }
    if kind==3 {let x=target_box(g,c,src);let board=g.si[14] as usize;let mut distance=(g.sf[board+3]-x.b).abs();if flags==0 {distance=(x.l-g.sf[board]).abs();}if flags==1 {distance=(g.sf[board+1]-x.r).abs();}if flags==2 {distance=(x.t-g.sf[board+2]).abs();}a=distance*w;}
   }else{a=path_cost(g,c,i-nt);}
   out[job*3]=a;out[job*3+1]=b;out[job*3+2]=d;

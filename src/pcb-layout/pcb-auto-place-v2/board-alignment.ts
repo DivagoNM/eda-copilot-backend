@@ -191,7 +191,7 @@ export function alignmentHardHintsNoWorse(before: PlacementReport, after: Placem
 export function boardElectricalQuality(input: PlacementInput, placements: Placement[]) {
     const problem=encodeNativePostPlaceScoreProblem(input,placements);
     return {
-        score:loadNativeBoardPacker().scorePostPlace({...problem,distances:[],clearances:[],fixedPenalties:[],edges:[],paths:[]}),
+        score:loadNativeBoardPacker().scorePostPlace({...problem,nets:problem.nets.map(net=>({...net,localScopes:undefined})),distances:[],clearances:[],fixedPenalties:[],edges:[],paths:[]}),
         lengths:loadNativeBoardPacker().postPlaceNetLengths(problem),
     };
 }

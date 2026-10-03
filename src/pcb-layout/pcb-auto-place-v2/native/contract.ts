@@ -366,7 +366,7 @@ export interface NativePostPlaceScoreProblemV1 {
     version: typeof NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION;
     padCrossingWeight?: number;
     routingObstacles?: NativeRoutingObstacle[];
-    nets: Array<{ name: string; points: Point[]; weight: number; layers?: Array<string | null>; internalOwners?: Array<string | null> }>;
+    nets: Array<{ name: string; points: Point[]; weight: number; layers?: Array<string | null>; internalOwners?: Array<string | null>; localScopes?: Array<string | null> }>;
     distances: Array<{ source: Point; target: Point; weight: number; min?: number; max?: number }>;
     clearances: Array<{ source: Box; target: Box; minimum: number; weight: number }>;
     fixedPenalties: number[];
