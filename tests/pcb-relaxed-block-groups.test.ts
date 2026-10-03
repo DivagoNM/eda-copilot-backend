@@ -8,6 +8,7 @@ import { componentBox, getPadWorld } from '../src/pcb-layout/pcb-auto-place/geom
 import { solvePlacementSubtreeSync } from '../src/pcb-layout/pcb-auto-place-v2/tree-solver.ts';
 import { withBlockSolverCapture } from '../src/pcb-layout/pcb-auto-place-v2/block-solver-engine.ts';
 import { relaxBlockGroups } from '../src/pcb-layout/pcb-auto-place-v2/relaxed-block-groups.ts';
+import { blockQuality, withBlockCandidateCapture, type BlockCandidate } from '../src/pcb-layout/pcb-auto-place-v2/block-quality.ts';
 
 function fixture(block: string) {
     const input: PlacementInput = JSON.parse(readFileSync(new URL('./fixtures/block-placement/Telemetry/input.json', import.meta.url), 'utf8'));
@@ -54,6 +55,28 @@ test('satellite relaxation releases passive banks and carries their parent ancho
     const pairs=params.relations.filter(r=>r.kind==='critical_pair');
     for(const pair of pairs) assert.ok(r.relations.includes(pair));
     assert.equal(new Set(r.primitives.flatMap(p=>p.placements.map(q=>q.designator))).size,12);
+});
+
+test('grouped and released checkpoints retain their search relations during portfolio evaluation', () => {
+    const {input,nodes} = fixture('current_iso');
+    const graph = buildPlacementGraph(input), node = nodes.find(n => n.kind === 'block' && n.label === 'current_iso')!;
+    const contexts = new Map<string, BlockSolveParams>();
+    let candidates: BlockCandidate[] = [];
+    withBlockSolverCapture(params => {
+        if (params.node.id !== node.id) return;
+        const kind = params.relations.some(r => r.id.includes(':released:')) ? 'released' : 'grouped';
+        if (!contexts.has(kind)) contexts.set(kind, params);
+    }, () => withBlockCandidateCapture((label, pool) => {
+        if (label === node.label) candidates = pool;
+    }, () => solvePlacementSubtreeSync({input,graph,node})));
+    assert.ok(contexts.has('grouped') && contexts.has('released'));
+    for (const kind of ['grouped', 'released']) assert.ok(candidates.some(c => c.hypothesis === kind));
+    assert.ok(candidates.some(c => c.stage.endsWith('+postrefine')));
+    for (const candidate of candidates) {
+        const params = contexts.get(candidate.hypothesis === 'grouped' ? 'grouped' : 'released')!;
+        assert.deepEqual(candidate.quality, blockQuality(input, candidate.primitives, params),
+            `${candidate.hypothesis}/${candidate.stage} must keep the relations used by its search`);
+    }
 });
 
 test('explicit row topology and fixed components prevent cap relaxation', () => {

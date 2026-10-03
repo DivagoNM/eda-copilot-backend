@@ -463,6 +463,12 @@ function solveBlockNode(
     if (!ordinary) return refine(solveBlockPrimitives(params));
     const pool: BlockCandidate[] = [];
     const expected = childPrimitives.flatMap(p => p.placements.map(q => q.designator)).sort().join('|');
+    // Preserve the endpoint mapping used by each search representation. Source
+    // graph relations can reference groups that no longer exist after release.
+    // Role trials still use the canonical component roles from params.
+    const qualityFor = (primitives: PlacementPrimitive[], hypothesis: string) =>
+        blockQuality(context.input, primitives, { ...params,
+            relations: hypothesis === 'grouped' ? originalRelations : params.relations });
     const add = (primitives: PlacementPrimitive[], stage: string, hypothesis: string, hardCount: number) => {
         if (hardCount || primitives.flatMap(p => p.placements.map(q => q.designator)).sort().join('|') !== expected) return;
         const root = unionPrimitive('quality-check', 'block', node.label, node.id, primitives);
@@ -472,7 +478,7 @@ function solveBlockNode(
             return !c.pcb.allowedRotations.includes(p.rotate) || !c.pcb.allowedLayers.includes(p.layer);
         })) return;
         if (!legalBlockCandidate(context.input, primitives, context.clearanceResolver, hasLockedChild)) return;
-        const candidate = { stage, hypothesis, primitives, quality: blockQuality(context.input, primitives, { ...params, relations: relationsForPrimitives(context.graph.relations, node.id, primitives) }) };
+        const candidate = { stage, hypothesis, primitives, quality: qualityFor(primitives, hypothesis) };
         pool.push(candidate);
         return candidate;
     };
@@ -496,7 +502,7 @@ function solveBlockNode(
                 // Native hard rank covers geometry, whereas final admission also
                 // checks electrical hints. Postrefine can repair those hints.
                 const source = candidate ?? { primitives: checkpoint.primitives, stage: checkpoint.stage,
-                    hypothesis, quality: blockQuality(context.input, checkpoint.primitives, { ...params, relations: relationsForPrimitives(context.graph.relations, node.id, checkpoint.primitives) }) };
+                    hypothesis, quality: qualityFor(checkpoint.primitives, hypothesis) };
                 pendingRefine.push({ ...source, admitted: Boolean(candidate) });
                 if (checkpoint.stage === 'singles') pairSeeds.push({ ...source, index: i });
             }
@@ -525,7 +531,7 @@ function solveBlockNode(
         for (const checkpoint of solved.checkpoints) {
             const candidate = add(checkpoint.primitives, 'pairs', hypothesis, checkpoint.rank.hardCount);
             if (!checkpoint.rank.hardCount) pairCandidates.push({ ...(candidate ?? { primitives: checkpoint.primitives,
-                stage: 'pairs', hypothesis, quality: blockQuality(context.input, checkpoint.primitives, { ...params, relations: relationsForPrimitives(context.graph.relations, node.id, checkpoint.primitives) }) }), admitted: Boolean(candidate) });
+                stage: 'pairs', hypothesis, quality: qualityFor(checkpoint.primitives, hypothesis) }), admitted: Boolean(candidate) });
         }
     });
     refineCandidates(pairCandidates);
