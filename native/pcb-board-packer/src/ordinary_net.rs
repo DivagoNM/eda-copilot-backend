@@ -125,6 +125,7 @@ mod tests {
 
     fn marker(net: &str, weight: f32) -> Relation {
         Relation {
+            score: None,
             id: Arc::from(format!("{MARKER_PREFIX}{net}")),
             kind: Arc::from("net"),
             from: Arc::from(format!("{MARKER_PREFIX}{net}")),

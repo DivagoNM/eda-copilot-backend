@@ -1,6 +1,7 @@
 use crate::geometry::Point;
 use crate::model::{PostPlaceNet, PostPlaceScoreProblem, RouteObstacle};
 use crate::signal_path;
+use std::sync::Arc;
 
 const EPSILON: f32 = 0.001;
 
@@ -35,17 +36,7 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
 
     for term in &problem.distances {
         let value = distance(term.source, term.target);
-        score += value * term.weight;
-        if let Some(max) = term.max {
-            if value > max {
-                score += (value - max).powi(2) * term.weight * 20.0;
-            }
-        }
-        if let Some(min) = term.min {
-            if value < min {
-                score += (min - value).powi(2) * term.weight * 20.0;
-            }
-        }
+        score += distance_score(value, term.weight, term.min, term.max);
     }
     for term in &problem.clearances {
         let gap = box_clearance_gap(&term.source, &term.target);
@@ -76,6 +67,46 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
         return Err("post-place F32 score overflow or invalid arithmetic".into());
     }
     Ok(score)
+}
+
+/// The same soft distance scale for block search and checkpoint/post-place scoring.
+/// Hardness is enforced by legality, rather than changing the price of a legal pose.
+pub(crate) fn distance_score(value: f32, weight: f32, min: Option<f32>, max: Option<f32>) -> f32 {
+    let mut score = value * weight;
+    if let Some(max) = max { if value > max { score += (value-max).powi(2) * weight * 20.0; } }
+    if let Some(min) = min { if value < min { score += (min-value).powi(2) * weight * 20.0; } }
+    score
+}
+
+/// Checkpoint net geometry, including each passive pin's access to connected ICs.
+/// Component owners are distinct from internal IC owners used by pad-hit exemptions.
+pub(crate) fn connection_score(nets: &[PostPlaceNet], owners: &[Vec<Arc<str>>]) -> f32 {
+    let segments: Vec<_> = nets.iter().enumerate().flat_map(|(i,n)| minimum_spanning_segments(i,n)).collect();
+    let mut score = 0.0;
+    for s in &segments {
+        score += s.length * 10.0 * s.weight;
+        score += s.length * s.length * 0.35 * s.weight;
+    }
+    score += crossing_penalty(&segments) * 180.0;
+    let mut stretch = 0.0;
+    for s in &segments {
+        if owners[s.net][s.from] != owners[s.net][s.to] {
+            stretch += s.weight * 2.0 * (s.length-4.0).max(0.0).powi(2);
+        }
+    }
+    for net in nets {
+        let cores: std::collections::BTreeSet<_> = net.internal_owners.iter().flatten().collect();
+        for (i, owner) in net.internal_owners.iter().enumerate() {
+            if owner.is_some() { continue; }
+            for core in &cores {
+                let d = net.points.iter().zip(&net.internal_owners)
+                    .filter(|(_,o)| o.as_ref() == Some(*core))
+                    .map(|(p,_)| distance(net.points[i],*p)).fold(f32::INFINITY,f32::min);
+                stretch += net.weight * (6.0*d + 32.0*(d-3.0).max(0.0).powi(2));
+            }
+        }
+    }
+    score + stretch
 }
 
 #[cfg(test)]
@@ -293,7 +324,7 @@ fn distance(a: Point, b: Point) -> f32 {
     crate::numerics::hypot(a.x - b.x,a.y - b.y)
 }
 
-fn box_clearance_gap(a: &crate::geometry::Box2, b: &crate::geometry::Box2) -> f32 {
+pub(crate) fn box_clearance_gap(a: &crate::geometry::Box2, b: &crate::geometry::Box2) -> f32 {
     let x_separation = (b.left - a.right).max(a.left - b.right);
     let y_separation = (b.top - a.bottom).max(a.top - b.bottom);
     x_separation.max(y_separation)

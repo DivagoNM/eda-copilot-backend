@@ -46,6 +46,7 @@ pub const OUTLINE_F:usize=38;
 pub const OUTLINE_COUNT:usize=39;
 pub const WORLD_OBSTACLE_I:usize=40;
 pub const WORLD_OBSTACLE_COUNT:usize=41;
+pub const ALIGNED:usize=42;
 pub const HEADER: usize = 43;
 
 #[derive(CubeLaunch, CubeType)]
@@ -98,12 +99,15 @@ pub struct Cp {
     pub net: i32,
     pub owner: i32,
     pub layer: i32,
+    pub component: i32,
 }
 
 #[derive(Clone, Copy, CubeType)]
 struct Component {
     id: usize, layer: i32, pins: u32, role: u32, power: u32,
     body: B, through: usize, through_count: usize,
+    score_box:B,
+    dx:f32, dy:f32,
 }
 #[cube]
 fn geometry_box(d: &Input, p: Prim, index: usize) -> B {
@@ -112,10 +116,19 @@ fn geometry_box(d: &Input, p: Prim, index: usize) -> B {
 }
 #[cube]
 fn component(d: &Input, p: Prim, index: usize) -> Component {
-    let t = d.fi[COMPONENT_I] as usize + (p.components+index)*8;
+    let t = d.fi[COMPONENT_I] as usize + (p.components+index)*10;
+    let pose=d.fi[GEOMETRY_F] as usize+d.si[t+9] as usize*4;
+    let dx=rp(rp(d.sf[pose+2]+p.dx)-d.sf[pose]);
+    let dy=rp(rp(d.sf[pose+3]+p.dy)-d.sf[pose+1]);
     Component { id: d.si[t] as usize, layer: d.si[t+1], pins: d.si[t+2] as u32,
         role: d.si[t+3] as u32, power: d.si[t+4] as u32,
-        body: geometry_box(d,p,d.si[t+5] as usize), through: d.si[t+6] as usize, through_count: d.si[t+7] as usize }
+        body: component_box(d,d.si[t+5] as usize,dx,dy), through: d.si[t+6] as usize, through_count: d.si[t+7] as usize,
+        score_box:component_box(d,d.si[t+8] as usize,dx,dy), dx,dy }
+}
+#[cube]
+fn component_box(d:&Input,index:usize,dx:f32,dy:f32)->B {
+    let f=d.fi[GEOMETRY_F] as usize+index*4;
+    B{l:rp(d.sf[f]+dx),r:rp(d.sf[f+1]+dx),t:rp(d.sf[f+2]+dy),b:rp(d.sf[f+3]+dy)}
 }
 #[cube]
 fn can_conflict(d: &Input, a: Prim, b: Prim) -> bool {
@@ -137,11 +150,11 @@ fn component_overlap(d: &Input, a: Prim, b: Prim) -> f32 {
             if ac.layer==bc.layer {
                 result=max(result,overlap(ac.body,bc.body,cl));
                 for ai in 0usize..ac.through_count { for bi in 0usize..bc.through_count {
-                    result=max(result,overlap(geometry_box(d,a,ac.through+ai),geometry_box(d,b,bc.through+bi),cl));
+                    result=max(result,overlap(component_box(d,ac.through+ai,ac.dx,ac.dy),component_box(d,bc.through+bi,bc.dx,bc.dy),cl));
                 }}
             } else {
-                for bi in 0usize..bc.through_count { result=max(result,overlap(ac.body,geometry_box(d,b,bc.through+bi),cl)); }
-                for ai in 0usize..ac.through_count { result=max(result,overlap(geometry_box(d,a,ac.through+ai),bc.body,cl)); }
+                for bi in 0usize..bc.through_count { result=max(result,overlap(ac.body,component_box(d,bc.through+bi,bc.dx,bc.dy),cl)); }
+                for ai in 0usize..ac.through_count { result=max(result,overlap(component_box(d,ac.through+ai,ac.dx,ac.dy),bc.body,cl)); }
             }
         }
     }}
@@ -348,14 +361,14 @@ fn unary_hard(d:&Input,p:Prim,checkpoint:bool)->u32 {
     if d.fi[WORLD_F]!=u32::MAX && p.locked==0 {
         for ci in 0usize..p.component_count {
             let c=component(d,p,ci);let mut valid=inside_world(d,c.body);
-            for j in 0usize..c.through_count {if !inside_world(d,geometry_box(d,p,c.through+j)) {valid=false;}}
+            for j in 0usize..c.through_count {if !inside_world(d,component_box(d,c.through+j,c.dx,c.dy)) {valid=false;}}
             if !valid {hard+=1;}
             for oi in 0usize..d.fi[WORLD_OBSTACLE_COUNT] as usize {
                 let t=d.fi[WORLD_OBSTACLE_I] as usize+oi*3;
                 if d.si[t] as usize==c.id {
                     let layer=d.si[t+1];let f=d.si[t+2] as usize;let b=static_box(d,f);let cl=d.sf[f+4];let mut collides=false;
                     if layer<0 || layer==c.layer {collides=overlap(c.body,b,cl)>0.0;} else {
-                        for j in 0usize..c.through_count {if overlap(geometry_box(d,p,c.through+j),b,cl)>0.0 {collides=true;}}
+                        for j in 0usize..c.through_count {if overlap(component_box(d,c.through+j,c.dx,c.dy),b,cl)>0.0 {collides=true;}}
                     }
                     if collides {hard+=1;}
                 }
@@ -369,7 +382,7 @@ fn unary_hard(d:&Input,p:Prim,checkpoint:bool)->u32 {
         } else {
             for i in 0usize..p.component_count {let c=component(d,p,i);
                 if overlap(c.body,b,d.ff[0])>0.0 {collides=true;}
-                for j in 0usize..c.through_count {if overlap(geometry_box(d,p,c.through+j),b,d.ff[0])>0.0 {collides=true;}}
+                for j in 0usize..c.through_count {if overlap(component_box(d,c.through+j,c.dx,c.dy),b,d.ff[0])>0.0 {collides=true;}}
             }
         }
         if collides {hard+=1;}
@@ -505,13 +518,14 @@ fn load_prim(d: &Input, i: usize, candidate: usize) -> Prim {
 #[cube]
 fn cp_at(d: &Input, p: Prim, j: usize) -> Cp {
     let f = d.fi[CP_F] as usize + (p.cp + j) * 2;
-    let t = d.fi[CP_I] as usize + (p.cp + j) * 4;
+    let t = d.fi[CP_I] as usize + (p.cp + j) * 5;
     Cp {
         x: rp(d.sf[f] + p.dx),
         y: rp(d.sf[f + 1] + p.dy),
         net: d.si[t],
         owner: d.si[t + 1],
         layer: d.si[t + 2],
+        component: d.si[t + 4],
     }
 }
 #[cube]
@@ -523,8 +537,67 @@ fn ref_cp(d: &Input, j: usize, candidate: usize) -> Cp {
         d.fi[r + 1] as usize,
     )
 }
+
 #[cube]
-fn ep(d: &Input, ri: usize, side: usize, candidate: usize) -> P {
+fn checkpoint_connections(d:&Input, ni:usize, candidate:usize, bbox:B, #[comptime] capacity:usize)->f32 {
+    let net=d.fi[NET_I] as usize+ni*8;
+    let n=d.fi[net+1] as usize;
+    let start=d.fi[net] as usize;
+    let weight=d.fi[net+5] as f32*0.25;
+    let mut score=0.0f32;
+    let mut stretch=0.0f32;
+    if weight>0.0 && n>0 {
+        let mut used=Array::<u32>::new(capacity);
+        for i in 0usize..n {used[i]=choose(i==0,1.0,0.0) as u32;}
+        for _edge in 1usize..n {
+            let mut found=false;
+            let mut bf=0usize;let mut bt=0usize;let mut best=0.0f32;
+            for f in 0usize..n {if used[f]!=0 {for t in 0usize..n {if used[t]==0 {
+                let a=ref_cp(d,start+f,candidate);let b=ref_cp(d,start+t,candidate);
+                let dist=distance(P{x:a.x,y:a.y},P{x:b.x,y:b.y});
+                if !found || dist<best-0.001 || ( (dist-best).abs()<=0.001 && (f<bf || (f==bf && t<bt))) {
+                    found=true;bf=f;bt=t;best=dist;
+                }
+            }}}}
+            used[bt]=1;
+            score+=best*10.0*weight;
+            score+=best*best*0.35*weight;
+            let a=ref_cp(d,start+bf,candidate);let b=ref_cp(d,start+bt,candidate);
+            if a.component!=b.component {let x=max(best-4.0,0.0);stretch+=weight*2.0*x*x;}
+        }
+        for i in 0usize..n {
+            let a=ref_cp(d,start+i,candidate);
+            if a.owner<0 {
+                for j in 0usize..n {
+                    let c=ref_cp(d,start+j,candidate);
+                    if c.owner>=0 {
+                        let mut first=true;
+                        for k in 0usize..j {if ref_cp(d,start+k,candidate).owner==c.owner {first=false;}}
+                        if first {
+                            let mut best=f32::from_bits(0x7f800000u32);
+                            for k in 0usize..n {let b=ref_cp(d,start+k,candidate);
+                                if b.owner==c.owner {best=min(best,distance(P{x:a.x,y:a.y},P{x:b.x,y:b.y}));}
+                            }
+                            let x=max(best-3.0,0.0);
+                            stretch+=weight*(6.0*best+32.0*x*x);
+                        }
+                    }
+                }
+            }
+        }
+        score+=stretch;
+        if (d.fi[net+7]&1)!=0 {
+            let mut exposure=f32::from_bits(0x7f800000u32);
+            for i in 0usize..n {let p=ref_cp(d,start+i,candidate);
+                exposure=min(exposure,max(0.0,min(min(p.x-bbox.l,bbox.r-p.x),min(p.y-bbox.t,bbox.b-p.y))));
+            }
+            score+=2.0*weight*exposure;
+        }
+    }
+    score
+}
+#[cube]
+fn ep_point(d: &Input, ri: usize, side: usize, candidate: usize) -> P {
     let t = d.fi[REL_I] as usize + ri * 10 + side * 3;
     let mut result=P{x:0.0,y:0.0};
     if d.fi[t] as i32 == -2 {
@@ -550,6 +623,42 @@ fn ep(d: &Input, ri: usize, side: usize, candidate: usize) -> P {
         result.y = y / count as f32;
     }
     }
+    result
+}
+
+#[cube]
+fn ep(d:&Input,ri:usize,side:usize,candidate:usize)->P {
+    let t=d.fi[REL_I] as usize+ri*10+side*3;
+    let mut p=P{x:0.0,y:0.0};
+    if d.fi[t] as i32== -3 {let q=center(ep_box(d,ri,side,candidate));p.x=q.x;p.y=q.y;}
+    else {let q=ep_point(d,ri,side,candidate);p.x=q.x;p.y=q.y;}
+    p
+}
+
+#[cube]
+fn ep_box(d:&Input,ri:usize,side:usize,candidate:usize)->B {
+    let t=d.fi[REL_I] as usize+ri*10+side*3;
+    let start=d.fi[EP_I] as usize+d.fi[t+1] as usize;
+    let mut b=B{l:0.0,r:0.0,t:0.0,b:0.0};
+    if d.fi[t] as i32!= -3 {
+        let p=ep_point(d,ri,side,candidate);b.l=p.x;b.r=p.x;b.t=p.y;b.b=p.y;
+    } else {for j in 0usize..d.fi[t+2] as usize {
+        let p=load_prim(d,d.fi[start+j*2] as usize,candidate);
+        let c=component(d,p,d.fi[start+j*2+1] as usize).score_box;
+        if j==0 {b.l=c.l;b.r=c.r;b.t=c.t;b.b=c.b;} else {b.l=min(b.l,c.l);b.r=max(b.r,c.r);b.t=min(b.t,c.t);b.b=max(b.b,c.b);}
+    }}
+    b
+}
+
+#[cube]
+fn ep_layer(d:&Input,ri:usize,side:usize,candidate:usize)->i32 {
+    let t=d.fi[REL_I] as usize+ri*10+side*3;
+    let mut result=d.fi[t] as i32*0i32-1i32;
+    if d.fi[t] as i32== -3 && d.fi[t+2]>0 {
+        let r=d.fi[EP_I] as usize+d.fi[t+1] as usize;
+        let p=load_prim(d,d.fi[r] as usize,candidate);
+        result=component(d,p,d.fi[r+1] as usize).layer;
+    } else if d.fi[t] as i32>=0 {result=load_prim(d,d.fi[t] as usize,candidate).layer;}
     result
 }
 #[cube]
@@ -927,8 +1036,22 @@ pub fn full(
             sync_cube();
         }
         if lane == 0 {
-            scores[candidate] += partial[0] as f32 * 45.0;
-            scores[candidate] += topology(d,candidate)*choose(d.fi[HIGH]!=0,2.5,4.0);
+            if (d.fi[ALIGNED]&1)==0 || (d.fi[ALIGNED]&2)!=0 {scores[candidate] += partial[0] as f32 * 45.0;}
+            if (d.fi[ALIGNED]&1)!=0 {
+                let mut crossings=0.0f32;
+                for i in 0usize..d.fi[SEGMENTS] as usize {for j in i+1..d.fi[SEGMENTS] as usize {
+                    let a=P{x:segments[i*4],y:segments[i*4+1]};let b=P{x:segments[i*4+2],y:segments[i*4+3]};
+                    let c=P{x:segments[j*4],y:segments[j*4+1]};let e=P{x:segments[j*4+2],y:segments[j*4+3]};
+                    if meta[i*4]!=meta[j*4] && min(min(distance(a,c),distance(a,e)),min(distance(b,c),distance(b,e)))>=0.001 {
+                        let x1=cross(a,b,c);let x2=cross(a,b,e);let x3=cross(c,e,a);let x4=cross(c,e,b);
+                        if ((x1>0.001 && x2< -0.001)||(x1< -0.001 && x2>0.001)) && ((x3>0.001 && x4< -0.001)||(x3< -0.001 && x4>0.001)) {
+                            crossings+=(meta[i*4+3] as f32*0.25*meta[j*4+3] as f32*0.25).sqrt();
+                        }
+                    }
+                }}
+                scores[candidate]+=crossings*180.0;
+            }
+            scores[candidate] += topology(d,candidate)*choose((d.fi[ALIGNED]&1)!=0,20.0,choose(d.fi[HIGH]!=0,2.5,4.0));
             tags[candidate * 3 + 1] = 1;
         }
     }
@@ -1249,12 +1372,14 @@ pub fn cheap(
     scores: &mut Array<f32>,
     tags: &mut Array<u32>,
     #[comptime] capacity: usize,
+    #[comptime] net_capacity: usize,
 ) {
     let candidate = ABSOLUTE_POS as usize;
     if candidate < d.fi[COUNT] as usize {
         let nprim = d.fi[N] as usize;
         let moving = d.fi[MOVING] as usize;
         let high = d.fi[HIGH] != 0;
+        let aligned = (d.fi[ALIGNED]&1)!=0;
         let mut bbox = load_prim(d, 0usize, candidate).bbox;
         for i in 1usize..nprim {
             let b = load_prim(d, i, candidate).bbox;
@@ -1330,12 +1455,13 @@ pub fn cheap(
             + (w + h) * (choose(high, 5.4, 2.5))
             + area * (choose(high, 14.4, 10.0)) * (choose(d.fi[REDUCED] != 0, 0.25, 1.0))
             + perimeter * (choose(high, 12.0, 1.5));
+        if aligned { score = w*h*0.35 + (w+h)*0.5; }
         let mut excess = 0.0f32;
         if w > 0.0 && h > 0.0 {
             excess = max(max(w / h, h / w) - 5.0, 0.0);
         }
-        score += excess * excess * max(min(w, h), 1.0) * 220.0 * (choose(high, 1.4, 1.0));
-        if d.fi[SMOOTH] != 0 {
+        if !aligned {score += excess * excess * max(min(w, h), 1.0) * 220.0 * (choose(high, 1.4, 1.0));}
+        if d.fi[SMOOTH] != 0 && !aligned {
             let ratio = max(w, h) / max(min(w, h), 0.1);
             let x = max(ratio - 2.0, 0.0);
             score += x * x * min(w, h) * 12.0;
@@ -1347,8 +1473,9 @@ pub fn cheap(
             for j in i + 1..nprim {
                 let b = load_prim(d, j, candidate);
                 if can_conflict(d,a,b) {
-                    let v=primitive_overlap(d,a,b);
-                    if v>0.0 {ov+=choose((d.fi[FLAGS]&1)!=0,250000.0,10000000.0)+v*choose((d.fi[FLAGS]&1)!=0,25000.0,100000.0);}
+                    let mut v=primitive_overlap(d,a,b);
+                    if aligned && (d.fi[FLAGS]&1)==0 {v=component_overlap(d,a,b);}
+                    if v>0.0 {ov+=choose((d.fi[FLAGS]&1)!=0,250000.0,10000000.0)+v*choose((d.fi[FLAGS]&1)!=0,25000.0,choose(aligned,0.0,100000.0));}
                     let mut depth=component_overlap(d,a,b);if (d.fi[FLAGS]&2)!=0 {depth=v;}
                     if depth>0.0 {hard+=1;}
                 }
@@ -1386,8 +1513,10 @@ pub fn cheap(
                 }
             }}
         }
-        score += dense * (choose(high, 0.45, 1.0));
-        score += power_yield(d,candidate)*choose(high,0.3,1.0);
+        if !aligned {
+            score += dense * (choose(high, 0.45, 1.0));
+            score += power_yield(d,candidate)*choose(high,0.3,1.0);
+        }
         let mut relation = 0.0f32;
         let mut exposure = 0.0f32;
         let mut facing = 0.0f32;
@@ -1397,7 +1526,17 @@ pub fn cheap(
             let from = d.fi[t] as i32;
             let to = d.fi[t + 3] as i32;
             let weight = d.ff[f];
-            if (from >= 0 || from == -2) && (to >= 0 || to == -2) && from != to {
+            if (d.fi[t+9]&32)!=0 {
+                let a=ep_layer(d,i,0usize,candidate);let b=choose((d.fi[t+9]&128)!=0,1.0,0.0) as i32;
+                if a>=0 && a!=b {relation+=weight*10.0;}
+            } else if (d.fi[t+9]&64)!=0 {
+                let a=ep_layer(d,i,0usize,candidate);let b=ep_layer(d,i,1usize,candidate);
+                if a>=0 && b>=0 && a!=b {relation+=weight*20.0;}
+            } else if (d.fi[t+9]&16)!=0 && from!= -1 && to!= -1 {
+                let a=ep_box(d,i,0usize,candidate);let b=ep_box(d,i,1usize,candidate);
+                let gap=max(max(b.l-a.r,a.l-b.r),max(b.t-a.b,a.t-b.b));
+                let x=max(d.ff[f+1]-gap,0.0);relation+=x*x*weight*20.0;
+            } else if (from >= 0 || from == -2 || from == -3) && (to >= 0 || to == -2 || to == -3) && (from != to || from== -3 || (d.fi[t+9]&8)!=0) {
                 let a = ep(d, i, 0usize, candidate);
                 let mut b = ep(d, i, 1usize, candidate);
                 if d.fi[t + 7] != 0 {
@@ -1428,7 +1567,12 @@ pub fn cheap(
                     }
                     side = max(1.0 - (dx * d.ff[f + 5] + dy * d.ff[f + 6]), 0.0) * weight * 120.0;
                 }
-                relation += dist * weight + min(limit, 250000.0) + side;
+                if (d.fi[t+9]&8)!=0 {
+                    let mut term=dist*weight;
+                    if d.ff[f+2]>=0.0 {let x=max(dist-d.ff[f+2],0.0);term+=x*x*weight*20.0;}
+                    if d.ff[f+1]>=0.0 {let x=max(d.ff[f+1]-dist,0.0);term+=x*x*weight*20.0;}
+                    relation+=term;
+                } else {relation += dist * weight + min(limit, 250000.0) + side;}
                 if (d.fi[t+9]&2)!=0 {
                     let original_to=ep(d,i,1usize,candidate);
                     if from>=0 {facing+=endpoint_facing(a,original_to,load_prim(d,from as usize,candidate).bbox)*weight*2.5;}
@@ -1459,7 +1603,7 @@ pub fn cheap(
                         let mut count=c.through_count; if c.layer==owner_layer || owner_layer<0 {count=1;}
                         for bi in 0usize..count {
                         let mut b=c.body;
-                        if c.layer!=owner_layer && owner_layer>=0 {let other=geometry_box(d,p,c.through+bi);b.l=other.l;b.r=other.r;b.t=other.t;b.b=other.b;}
+                        if c.layer!=owner_layer && owner_layer>=0 {let other=component_box(d,c.through+bi,c.dx,c.dy);b.l=other.l;b.r=other.r;b.t=other.t;b.b=other.b;}
                         if source.y >= b.t - cl && source.y <= b.b + cl {
                             b0 += max(b.r + cl - max(source.x, b.l - cl), 0.0);
                             b1 += max(min(source.x, b.r + cl) - b.l + cl, 0.0);
@@ -1477,9 +1621,11 @@ pub fn cheap(
                 exposure += blocked * weight * (choose(placed_components < 5, 1.25, 5.0));
             }
         }
-        score += relation * (choose(high, 0.45, 1.0));
-        score += exposure * (choose(high, 0.35, 1.0));
-        score += facing*choose(high,0.55,1.0);
+        score += relation * choose(aligned,1.0,choose(high,0.45,1.0));
+        if !aligned {
+            score += exposure * (choose(high, 0.35, 1.0));
+            score += facing*choose(high,0.55,1.0);
+        }
         let small = ((d.fi[FLAGS]&8)!=0 && d.fi[SMALL]!=0) || ((d.fi[FLAGS]&8)==0 && placed_components>0 && placed_components<5);
         let mut signal = 0.0f32;
         let mut ground = 0.0f32;
@@ -1510,12 +1656,18 @@ pub fn cheap(
             }
         }
         let nw = choose(high, 0.65, 1.0);
-        score += signal * (choose(small, 18.0, 4.0)) * nw;
-        score += ground * (choose(small, 2.5, 0.15)) * nw;
+        if aligned {
+            for ni in 0usize..d.fi[NETS] as usize {
+                score+=checkpoint_connections(d,ni,candidate,bbox,net_capacity);
+            }
+        } else {
+            score += signal * (choose(small, 18.0, 4.0)) * nw;
+            score += ground * (choose(small, 2.5, 0.15)) * nw;
+        }
         let targets=d.fi[TARGET_F] as usize;let mut target=0.0f32;
         if d.sf[targets]>=0.0 {let excess=max(w-d.sf[targets],0.0);target+=excess*excess*20000.0+excess*2000.0;}
         if d.sf[targets+1]>=0.0 {let excess=max(h-d.sf[targets+1],0.0);target+=excess*excess*20000.0+excess*2000.0;}
-        score+=target*choose(high,1.2,1.0);
+        score+=target*choose(aligned,1.0,choose(high,1.2,1.0));
         let mut long_penalty=0.0f32;
         for ni in 0usize..d.fi[NETS] as usize {
             let net=d.fi[NET_I] as usize+ni*8;
@@ -1529,7 +1681,7 @@ pub fn cheap(
                 long_penalty+=excess*excess/scale*12.0;
             }
         }
-        score+=long_penalty;
+        if !aligned {score+=long_penalty;}
         scores[candidate] = score;
         tags[candidate * 3] = hard;
         tags[candidate * 3 + 1] = 0;
@@ -1588,7 +1740,7 @@ pub fn scarcity_probe(d: &Input, scores: &mut Array<f32>, tags: &mut Array<u32>)
         let mut pins = 0u32;
         for j in 0usize..p.nc {
             let cp = cp_at(d, p, j);
-            let t = d.fi[CP_I] as usize + (p.cp + j) * 4;
+            let t = d.fi[CP_I] as usize + (p.cp + j) * 5;
             if d.si[t + 3] != 0 {
                 let mut nearest = f32::from_bits(0x7f800000u32);
                 let mut found = false;

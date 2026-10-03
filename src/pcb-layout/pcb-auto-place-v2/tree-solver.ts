@@ -438,6 +438,7 @@ function solveBlockNode(
         relations: relaxed.relations,
         options: {
             ...(ordinary ? { searchWidth: policy.searchWidth, experiments: policy.experiments } : {}),
+            scoreInput: context.input,
             grid: context.grid,
             clearance: numeric(node.data?.placementClearance) ?? clearance,
             componentByDesignator: context.componentByDesignator,

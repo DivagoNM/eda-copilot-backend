@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Align production block search with checkpoint electrical scoring: share power-net weights, MST/stretch/crossing terms, authored distances and clearances, layer preferences and signal-path prices; give area the same modest weight. Retain existing candidate generators, complete search stages, explicit GND constraints and hard legality. Match GPU component geometry to CPU materialization from the original component origin. Add real STM32 CAN/buck score fixtures and CPU/GPU regression coverage; record replay and full-board evidence in `docs/experimental/pcb/block-score-alignment/README.md`.
+
 - Add the live-exported STM32G0 CAN RS485 Controller 60x40 placement fixture: all 68 components across three schematic pages, functional placement DSL, electrical pin/net validation and assertions for geometry and the hard buck switch-node limit.
 
 - Supplement board local improvement with free/contact positions from separate top/bottom envelopes, preserving narrow off-grid slots and the existing coarse beam portfolio. Add actual same-layer contact repair alongside whole-block escapes. Align final report and post-place edge validation with board packing's body/opposite-face geometry, avoiding false edge errors from decorative footprint bounds.

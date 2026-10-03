@@ -1,0 +1,3056 @@
+{
+  "input": {
+    "board": {
+      "coordinateSystem": "centered",
+      "outline": {
+        "type": "rect",
+        "width": 40,
+        "height": 40
+      },
+      "defaultLayer": "top",
+      "allowedLayers": [
+        "top",
+        "bottom"
+      ],
+      "clearances": {
+        "component": 0.35,
+        "edge": 0.5
+      }
+    },
+    "boardHoles": [],
+    "constraintRegions": [],
+    "silkscreen": {
+      "designators": {
+        "height": 1,
+        "rotations": [
+          0,
+          90
+        ],
+        "margin": 0.25
+      }
+    },
+    "blocks": [
+      {
+        "name": "can",
+        "description": "can",
+        "component_designators": [
+          "U4",
+          "R13",
+          "C18",
+          "C19",
+          "C20"
+        ],
+        "role": "generic",
+        "familyHard": false,
+        "hardAnchor": false
+      }
+    ],
+    "modules": [],
+    "components": [
+      {
+        "designator": "U4",
+        "value": "TCAN1051HGVDR",
+        "pins": [
+          {
+            "pin_number": "1",
+            "name": "TXD",
+            "signal_name": "CAN_TX"
+          },
+          {
+            "pin_number": "2",
+            "name": "GND",
+            "signal_name": "GND"
+          },
+          {
+            "pin_number": "3",
+            "name": "VCC",
+            "signal_name": "+5V"
+          },
+          {
+            "pin_number": "4",
+            "name": "RXD",
+            "signal_name": "CAN_RX"
+          },
+          {
+            "pin_number": "5",
+            "name": "VIO",
+            "signal_name": "+3V3"
+          },
+          {
+            "pin_number": "6",
+            "name": "CANL",
+            "signal_name": "CAN_L"
+          },
+          {
+            "pin_number": "7",
+            "name": "CANH",
+            "signal_name": "CAN_H"
+          },
+          {
+            "pin_number": "8",
+            "name": "S",
+            "signal_name": "GND"
+          }
+        ],
+        "block_name": "can",
+        "search_query": "TCAN1051HGVDR SOIC-8_L4.9-W3.9-P1.27-LS6.0-BL",
+        "part_uuid": "297fd1280fe4448daa4061c7bc273c02",
+        "footprint_uuid": null,
+        "footprint": {
+          "name": "SOIC-8_L4.9-W3.9-P1.27-LS6.0-BL",
+          "width": 5.0524,
+          "height": 7.5079,
+          "pads": [
+            {
+              "pin_number": "5",
+              "name": "5",
+              "x": -1.905,
+              "y": 2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "6",
+              "name": "6",
+              "x": -0.635,
+              "y": 2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "7",
+              "name": "7",
+              "x": 0.635,
+              "y": 2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "8",
+              "name": "8",
+              "x": 1.905,
+              "y": 2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "4",
+              "name": "4",
+              "x": -1.905,
+              "y": -2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "3",
+              "name": "3",
+              "x": -0.635,
+              "y": -2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "2",
+              "name": "2",
+              "x": 0.635,
+              "y": -2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            },
+            {
+              "pin_number": "1",
+              "name": "1",
+              "x": 1.905,
+              "y": -2.5999,
+              "width": 0.588,
+              "height": 1.8,
+              "mount": "smd",
+              "layer": "top",
+              "drillDiameter": 0
+            }
+          ],
+          "graphics": [
+            {
+              "kind": "path",
+              "layer": "marking",
+              "points": [
+                {
+                  "x": 2.4201,
+                  "y": -3
+                },
+                {
+                  "x": 2.4211,
+                  "y": -2.9922
+                },
+                {
+                  "x": 2.4241,
+                  "y": -2.985
+                },
+                {
+                  "x": 2.4289,
+                  "y": -2.9788
+                },
+                {
+                  "x": 2.4351,
+                  "y": -2.974
+                },
+                {
+                  "x": 2.4423,
+                  "y": -2.971
+                },
+                {
+                  "x": 2.4501,
+                  "y": -2.97
+                },
+                {
+                  "x": 2.4501,
+                  "y": -2.97
+                },
+                {
+                  "x": 2.4578,
+                  "y": -2.971
+                },
+                {
+                  "x": 2.4651,
+                  "y": -2.974
+                },
+                {
+                  "x": 2.4713,
+                  "y": -2.9788
+                },
+                {
+                  "x": 2.476,
+                  "y": -2.985
+                },
+                {
+                  "x": 2.479,
+                  "y": -2.9922
+                },
+                {
+                  "x": 2.4801,
+                  "y": -3
+                },
+                {
+                  "x": 2.4801,
+                  "y": -3
+                },
+                {
+                  "x": 2.4801,
+                  "y": -3
+                },
+                {
+                  "x": 2.479,
+                  "y": -3.0078
+                },
+                {
+                  "x": 2.476,
+                  "y": -3.015
+                },
+                {
+                  "x": 2.4713,
+                  "y": -3.0212
+                },
+                {
+                  "x": 2.4651,
+                  "y": -3.026
+                },
+                {
+                  "x": 2.4578,
+                  "y": -3.0289
+                },
+                {
+                  "x": 2.4501,
+                  "y": -3.03
+                },
+                {
+                  "x": 2.4501,
+                  "y": -3.03
+                },
+                {
+                  "x": 2.4423,
+                  "y": -3.0289
+                },
+                {
+                  "x": 2.4351,
+                  "y": -3.026
+                },
+                {
+                  "x": 2.4289,
+                  "y": -3.0212
+                },
+                {
+                  "x": 2.4241,
+                  "y": -3.015
+                },
+                {
+                  "x": 2.4211,
+                  "y": -3.0078
+                },
+                {
+                  "x": 2.4201,
+                  "y": -3
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.0051
+            },
+            {
+              "kind": "path",
+              "layer": "document",
+              "points": [
+                {
+                  "x": 1.7549,
+                  "y": -3.4
+                },
+                {
+                  "x": 1.76,
+                  "y": -3.3612
+                },
+                {
+                  "x": 1.775,
+                  "y": -3.325
+                },
+                {
+                  "x": 1.7989,
+                  "y": -3.2939
+                },
+                {
+                  "x": 1.8299,
+                  "y": -3.27
+                },
+                {
+                  "x": 1.8661,
+                  "y": -3.255
+                },
+                {
+                  "x": 1.905,
+                  "y": -3.2499
+                },
+                {
+                  "x": 1.905,
+                  "y": -3.2499
+                },
+                {
+                  "x": 1.9439,
+                  "y": -3.255
+                },
+                {
+                  "x": 1.9801,
+                  "y": -3.27
+                },
+                {
+                  "x": 2.0111,
+                  "y": -3.2939
+                },
+                {
+                  "x": 2.035,
+                  "y": -3.325
+                },
+                {
+                  "x": 2.05,
+                  "y": -3.3612
+                },
+                {
+                  "x": 2.0551,
+                  "y": -3.4
+                },
+                {
+                  "x": 2.0551,
+                  "y": -3.4
+                },
+                {
+                  "x": 2.0551,
+                  "y": -3.4
+                },
+                {
+                  "x": 2.05,
+                  "y": -3.4389
+                },
+                {
+                  "x": 2.035,
+                  "y": -3.4751
+                },
+                {
+                  "x": 2.0111,
+                  "y": -3.5062
+                },
+                {
+                  "x": 1.9801,
+                  "y": -3.53
+                },
+                {
+                  "x": 1.9439,
+                  "y": -3.545
+                },
+                {
+                  "x": 1.905,
+                  "y": -3.5502
+                },
+                {
+                  "x": 1.905,
+                  "y": -3.5502
+                },
+                {
+                  "x": 1.8661,
+                  "y": -3.545
+                },
+                {
+                  "x": 1.8299,
+                  "y": -3.53
+                },
+                {
+                  "x": 1.7989,
+                  "y": -3.5062
+                },
+                {
+                  "x": 1.775,
+                  "y": -3.4751
+                },
+                {
+                  "x": 1.76,
+                  "y": -3.4389
+                },
+                {
+                  "x": 1.7549,
+                  "y": -3.4
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.3
+            },
+            {
+              "kind": "path",
+              "layer": "body",
+              "points": [
+                {
+                  "x": 2.45,
+                  "y": -1.95
+                },
+                {
+                  "x": 2.45,
+                  "y": 1.95
+                },
+                {
+                  "x": -2.45,
+                  "y": 1.95
+                },
+                {
+                  "x": -2.45,
+                  "y": -1.95
+                },
+                {
+                  "x": 2.45,
+                  "y": -1.95
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.0051
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.5262,
+                  "y": -1.5214
+                },
+                {
+                  "x": -2.5262,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.5262,
+                  "y": 1.5214
+                },
+                {
+                  "x": -2.5262,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.5262,
+                  "y": -0.4354
+                },
+                {
+                  "x": 2.5262,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.5262,
+                  "y": 0.4489
+                },
+                {
+                  "x": 2.5262,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.0676,
+                  "y": -1.5214
+                },
+                {
+                  "x": 2.5262,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.7976,
+                  "y": -1.5214
+                },
+                {
+                  "x": 1.7424,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.4724,
+                  "y": -1.5214
+                },
+                {
+                  "x": 0.4724,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.7424,
+                  "y": -1.5214
+                },
+                {
+                  "x": -0.7976,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -2.5262,
+                  "y": -1.5214
+                },
+                {
+                  "x": -2.0676,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -2.5262,
+                  "y": 1.5214
+                },
+                {
+                  "x": -2.5262,
+                  "y": -1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.0676,
+                  "y": 1.5214
+                },
+                {
+                  "x": 2.5262,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.7976,
+                  "y": 1.5214
+                },
+                {
+                  "x": 1.7424,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.4724,
+                  "y": 1.5214
+                },
+                {
+                  "x": 0.4724,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.7424,
+                  "y": 1.5214
+                },
+                {
+                  "x": -0.7976,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -2.5262,
+                  "y": 1.5214
+                },
+                {
+                  "x": -2.0676,
+                  "y": 1.5214
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.7549,
+                  "y": -1.016
+                },
+                {
+                  "x": 1.76,
+                  "y": -0.9771
+                },
+                {
+                  "x": 1.775,
+                  "y": -0.9409
+                },
+                {
+                  "x": 1.7989,
+                  "y": -0.9099
+                },
+                {
+                  "x": 1.8299,
+                  "y": -0.886
+                },
+                {
+                  "x": 1.8661,
+                  "y": -0.871
+                },
+                {
+                  "x": 1.905,
+                  "y": -0.8659
+                },
+                {
+                  "x": 1.905,
+                  "y": -0.8659
+                },
+                {
+                  "x": 1.9439,
+                  "y": -0.871
+                },
+                {
+                  "x": 1.9801,
+                  "y": -0.886
+                },
+                {
+                  "x": 2.0111,
+                  "y": -0.9099
+                },
+                {
+                  "x": 2.035,
+                  "y": -0.9409
+                },
+                {
+                  "x": 2.05,
+                  "y": -0.9771
+                },
+                {
+                  "x": 2.0551,
+                  "y": -1.016
+                },
+                {
+                  "x": 2.0551,
+                  "y": -1.016
+                },
+                {
+                  "x": 2.0551,
+                  "y": -1.016
+                },
+                {
+                  "x": 2.05,
+                  "y": -1.0549
+                },
+                {
+                  "x": 2.035,
+                  "y": -1.0911
+                },
+                {
+                  "x": 2.0111,
+                  "y": -1.1221
+                },
+                {
+                  "x": 1.9801,
+                  "y": -1.146
+                },
+                {
+                  "x": 1.9439,
+                  "y": -1.161
+                },
+                {
+                  "x": 1.905,
+                  "y": -1.1661
+                },
+                {
+                  "x": 1.905,
+                  "y": -1.1661
+                },
+                {
+                  "x": 1.8661,
+                  "y": -1.161
+                },
+                {
+                  "x": 1.8299,
+                  "y": -1.146
+                },
+                {
+                  "x": 1.7989,
+                  "y": -1.1221
+                },
+                {
+                  "x": 1.775,
+                  "y": -1.0911
+                },
+                {
+                  "x": 1.76,
+                  "y": -1.0549
+                },
+                {
+                  "x": 1.7549,
+                  "y": -1.016
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.3
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 2.5262,
+                  "y": -0.4354
+                },
+                {
+                  "x": 2.4118,
+                  "y": -0.4203
+                },
+                {
+                  "x": 2.3051,
+                  "y": -0.3761
+                },
+                {
+                  "x": 2.2136,
+                  "y": -0.3059
+                },
+                {
+                  "x": 2.1433,
+                  "y": -0.2143
+                },
+                {
+                  "x": 2.0991,
+                  "y": -0.1077
+                },
+                {
+                  "x": 2.0841,
+                  "y": 0.0068
+                },
+                {
+                  "x": 2.0841,
+                  "y": 0.0068
+                },
+                {
+                  "x": 2.0991,
+                  "y": 0.1212
+                },
+                {
+                  "x": 2.1433,
+                  "y": 0.2278
+                },
+                {
+                  "x": 2.2136,
+                  "y": 0.3194
+                },
+                {
+                  "x": 2.3051,
+                  "y": 0.3897
+                },
+                {
+                  "x": 2.4118,
+                  "y": 0.4338
+                },
+                {
+                  "x": 2.5262,
+                  "y": 0.4489
+                },
+                {
+                  "x": 2.5262,
+                  "y": 0.4489
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.15
+            }
+          ],
+          "bodyBox": {
+            "left": -2.5262,
+            "right": 2.5262,
+            "top": -3.4999,
+            "bottom": 3.4999
+          },
+          "bodyBoxSource": "body",
+          "sourceOriginOffset": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        "pcb": {
+          "role": "main_ic",
+          "allowedLayers": [
+            "top"
+          ],
+          "allowedRotations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "generatedGeometry": []
+        }
+      },
+      {
+        "designator": "C18",
+        "value": "100nF",
+        "pins": [
+          {
+            "pin_number": "1",
+            "name": "1",
+            "signal_name": "+5V"
+          },
+          {
+            "pin_number": "2",
+            "name": "2",
+            "signal_name": "GND"
+          }
+        ],
+        "block_name": "can",
+        "search_query": "100nF C0603",
+        "part_uuid": "95a6afd081a14f5085d7be49cdb838eb",
+        "footprint_uuid": null,
+        "footprint": {
+          "name": "C0603",
+          "width": 2.7799,
+          "height": 1.4201,
+          "pads": [
+            {
+              "pin_number": "2",
+              "name": "2",
+              "x": -0.7,
+              "y": 0,
+              "width": 0.8,
+              "height": 0.9,
+              "mount": "smd",
+              "layer": "top"
+            },
+            {
+              "pin_number": "1",
+              "name": "1",
+              "x": 0.7001,
+              "y": 0,
+              "width": 0.8,
+              "height": 0.9,
+              "mount": "smd",
+              "layer": "top"
+            }
+          ],
+          "graphics": [
+            {
+              "kind": "path",
+              "layer": "body",
+              "points": [
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.7999,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.7999,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.0508
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.2802,
+                  "y": -0.7096
+                },
+                {
+                  "x": 1.0802,
+                  "y": -0.7096
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.2802,
+                  "y": -0.7101
+                },
+                {
+                  "x": -1.0802,
+                  "y": -0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.2802,
+                  "y": 0.7101
+                },
+                {
+                  "x": 1.0802,
+                  "y": 0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.2802,
+                  "y": 0.7096
+                },
+                {
+                  "x": -1.0802,
+                  "y": 0.7096
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.39,
+                  "y": -0.3998
+                },
+                {
+                  "x": 1.39,
+                  "y": 0.4003
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.39,
+                  "y": 0.3997
+                },
+                {
+                  "x": -1.39,
+                  "y": -0.4003
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.0801,
+                  "y": 0.7096
+                },
+                {
+                  "x": -1.1491,
+                  "y": 0.7018
+                },
+                {
+                  "x": -1.2146,
+                  "y": 0.6789
+                },
+                {
+                  "x": -1.2733,
+                  "y": 0.642
+                },
+                {
+                  "x": -1.3224,
+                  "y": 0.5929
+                },
+                {
+                  "x": -1.3593,
+                  "y": 0.5342
+                },
+                {
+                  "x": -1.3822,
+                  "y": 0.4687
+                },
+                {
+                  "x": -1.39,
+                  "y": 0.3998
+                },
+                {
+                  "x": -1.39,
+                  "y": 0.3997
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.39,
+                  "y": -0.4002
+                },
+                {
+                  "x": -1.3794,
+                  "y": -0.4804
+                },
+                {
+                  "x": -1.3485,
+                  "y": -0.5552
+                },
+                {
+                  "x": -1.2992,
+                  "y": -0.6193
+                },
+                {
+                  "x": -1.235,
+                  "y": -0.6686
+                },
+                {
+                  "x": -1.1603,
+                  "y": -0.6995
+                },
+                {
+                  "x": -1.0801,
+                  "y": -0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.0802,
+                  "y": -0.7096
+                },
+                {
+                  "x": 1.1603,
+                  "y": -0.699
+                },
+                {
+                  "x": 1.2351,
+                  "y": -0.6681
+                },
+                {
+                  "x": 1.2992,
+                  "y": -0.6189
+                },
+                {
+                  "x": 1.3485,
+                  "y": -0.5547
+                },
+                {
+                  "x": 1.3794,
+                  "y": -0.48
+                },
+                {
+                  "x": 1.39,
+                  "y": -0.3998
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.39,
+                  "y": 0.4002
+                },
+                {
+                  "x": 1.39,
+                  "y": 0.4002
+                },
+                {
+                  "x": 1.3822,
+                  "y": 0.4691
+                },
+                {
+                  "x": 1.3593,
+                  "y": 0.5346
+                },
+                {
+                  "x": 1.3224,
+                  "y": 0.5934
+                },
+                {
+                  "x": 1.2733,
+                  "y": 0.6425
+                },
+                {
+                  "x": 1.2146,
+                  "y": 0.6794
+                },
+                {
+                  "x": 1.1491,
+                  "y": 0.7023
+                },
+                {
+                  "x": 1.0802,
+                  "y": 0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "circle",
+              "layer": "marking",
+              "x": 0.8002,
+              "y": -0.4001,
+              "radius": 0.06,
+              "strokeWidth": 0.0051
+            }
+          ],
+          "bodyBox": {
+            "left": -1.39,
+            "right": 1.39,
+            "top": -0.7101,
+            "bottom": 0.7101
+          },
+          "bodyBoxSource": "body",
+          "sourceOriginOffset": {
+            "x": 0.0001,
+            "y": 0
+          }
+        },
+        "pcb": {
+          "role": "decoupling_cap",
+          "allowedLayers": [
+            "top"
+          ],
+          "allowedRotations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "generatedGeometry": [],
+          "fixedPlacement": {
+            "designator": "C18",
+            "x": -4.814000129699707,
+            "y": -0.36500000953674316,
+            "rotate": 90,
+            "layer": "top",
+            "score": 0
+          }
+        }
+      },
+      {
+        "designator": "C19",
+        "value": "100nF",
+        "pins": [
+          {
+            "pin_number": "1",
+            "name": "1",
+            "signal_name": "+3V3"
+          },
+          {
+            "pin_number": "2",
+            "name": "2",
+            "signal_name": "GND"
+          }
+        ],
+        "block_name": "can",
+        "search_query": "100nF C0603",
+        "part_uuid": "95a6afd081a14f5085d7be49cdb838eb",
+        "footprint_uuid": null,
+        "footprint": {
+          "name": "C0603",
+          "width": 2.7799,
+          "height": 1.4201,
+          "pads": [
+            {
+              "pin_number": "2",
+              "name": "2",
+              "x": -0.7,
+              "y": 0,
+              "width": 0.8,
+              "height": 0.9,
+              "mount": "smd",
+              "layer": "top"
+            },
+            {
+              "pin_number": "1",
+              "name": "1",
+              "x": 0.7001,
+              "y": 0,
+              "width": 0.8,
+              "height": 0.9,
+              "mount": "smd",
+              "layer": "top"
+            }
+          ],
+          "graphics": [
+            {
+              "kind": "path",
+              "layer": "body",
+              "points": [
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.7999,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.7999,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.0508
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.2802,
+                  "y": -0.7096
+                },
+                {
+                  "x": 1.0802,
+                  "y": -0.7096
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.2802,
+                  "y": -0.7101
+                },
+                {
+                  "x": -1.0802,
+                  "y": -0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.2802,
+                  "y": 0.7101
+                },
+                {
+                  "x": 1.0802,
+                  "y": 0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.2802,
+                  "y": 0.7096
+                },
+                {
+                  "x": -1.0802,
+                  "y": 0.7096
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.39,
+                  "y": -0.3998
+                },
+                {
+                  "x": 1.39,
+                  "y": 0.4003
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.39,
+                  "y": 0.3997
+                },
+                {
+                  "x": -1.39,
+                  "y": -0.4003
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.0801,
+                  "y": 0.7096
+                },
+                {
+                  "x": -1.1491,
+                  "y": 0.7018
+                },
+                {
+                  "x": -1.2146,
+                  "y": 0.6789
+                },
+                {
+                  "x": -1.2733,
+                  "y": 0.642
+                },
+                {
+                  "x": -1.3224,
+                  "y": 0.5929
+                },
+                {
+                  "x": -1.3593,
+                  "y": 0.5342
+                },
+                {
+                  "x": -1.3822,
+                  "y": 0.4687
+                },
+                {
+                  "x": -1.39,
+                  "y": 0.3998
+                },
+                {
+                  "x": -1.39,
+                  "y": 0.3997
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.39,
+                  "y": -0.4002
+                },
+                {
+                  "x": -1.3794,
+                  "y": -0.4804
+                },
+                {
+                  "x": -1.3485,
+                  "y": -0.5552
+                },
+                {
+                  "x": -1.2992,
+                  "y": -0.6193
+                },
+                {
+                  "x": -1.235,
+                  "y": -0.6686
+                },
+                {
+                  "x": -1.1603,
+                  "y": -0.6995
+                },
+                {
+                  "x": -1.0801,
+                  "y": -0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.0802,
+                  "y": -0.7096
+                },
+                {
+                  "x": 1.1603,
+                  "y": -0.699
+                },
+                {
+                  "x": 1.2351,
+                  "y": -0.6681
+                },
+                {
+                  "x": 1.2992,
+                  "y": -0.6189
+                },
+                {
+                  "x": 1.3485,
+                  "y": -0.5547
+                },
+                {
+                  "x": 1.3794,
+                  "y": -0.48
+                },
+                {
+                  "x": 1.39,
+                  "y": -0.3998
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.39,
+                  "y": 0.4002
+                },
+                {
+                  "x": 1.39,
+                  "y": 0.4002
+                },
+                {
+                  "x": 1.3822,
+                  "y": 0.4691
+                },
+                {
+                  "x": 1.3593,
+                  "y": 0.5346
+                },
+                {
+                  "x": 1.3224,
+                  "y": 0.5934
+                },
+                {
+                  "x": 1.2733,
+                  "y": 0.6425
+                },
+                {
+                  "x": 1.2146,
+                  "y": 0.6794
+                },
+                {
+                  "x": 1.1491,
+                  "y": 0.7023
+                },
+                {
+                  "x": 1.0802,
+                  "y": 0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "circle",
+              "layer": "marking",
+              "x": 0.8002,
+              "y": -0.4001,
+              "radius": 0.06,
+              "strokeWidth": 0.0051
+            }
+          ],
+          "bodyBox": {
+            "left": -1.39,
+            "right": 1.39,
+            "top": -0.7101,
+            "bottom": 0.7101
+          },
+          "bodyBoxSource": "body",
+          "sourceOriginOffset": {
+            "x": 0.0001,
+            "y": 0
+          }
+        },
+        "pcb": {
+          "role": "decoupling_cap",
+          "allowedLayers": [
+            "top"
+          ],
+          "allowedRotations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "generatedGeometry": [],
+          "fixedPlacement": {
+            "designator": "C19",
+            "x": 2.4000000953674316,
+            "y": 2.5869998931884766,
+            "rotate": 0,
+            "layer": "top",
+            "score": 0
+          }
+        }
+      },
+      {
+        "designator": "C20",
+        "value": "1uF",
+        "pins": [
+          {
+            "pin_number": "1",
+            "name": "1",
+            "signal_name": "+5V"
+          },
+          {
+            "pin_number": "2",
+            "name": "2",
+            "signal_name": "GND"
+          }
+        ],
+        "block_name": "can",
+        "search_query": "1uF C0603",
+        "part_uuid": "dfa1460585a84bf8b796e0b56e7dd345",
+        "footprint_uuid": null,
+        "footprint": {
+          "name": "C0603",
+          "width": 2.7799,
+          "height": 1.4201,
+          "pads": [
+            {
+              "pin_number": "2",
+              "name": "2",
+              "x": -0.7,
+              "y": 0,
+              "width": 0.8,
+              "height": 0.9,
+              "mount": "smd",
+              "layer": "top"
+            },
+            {
+              "pin_number": "1",
+              "name": "1",
+              "x": 0.7001,
+              "y": 0,
+              "width": 0.8,
+              "height": 0.9,
+              "mount": "smd",
+              "layer": "top"
+            }
+          ],
+          "graphics": [
+            {
+              "kind": "path",
+              "layer": "body",
+              "points": [
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.7999,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.7999,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.0508
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.2802,
+                  "y": -0.7096
+                },
+                {
+                  "x": 1.0802,
+                  "y": -0.7096
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.2802,
+                  "y": -0.7101
+                },
+                {
+                  "x": -1.0802,
+                  "y": -0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.2802,
+                  "y": 0.7101
+                },
+                {
+                  "x": 1.0802,
+                  "y": 0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.2802,
+                  "y": 0.7096
+                },
+                {
+                  "x": -1.0802,
+                  "y": 0.7096
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.39,
+                  "y": -0.3998
+                },
+                {
+                  "x": 1.39,
+                  "y": 0.4003
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.39,
+                  "y": 0.3997
+                },
+                {
+                  "x": -1.39,
+                  "y": -0.4003
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.0801,
+                  "y": 0.7096
+                },
+                {
+                  "x": -1.1491,
+                  "y": 0.7018
+                },
+                {
+                  "x": -1.2146,
+                  "y": 0.6789
+                },
+                {
+                  "x": -1.2733,
+                  "y": 0.642
+                },
+                {
+                  "x": -1.3224,
+                  "y": 0.5929
+                },
+                {
+                  "x": -1.3593,
+                  "y": 0.5342
+                },
+                {
+                  "x": -1.3822,
+                  "y": 0.4687
+                },
+                {
+                  "x": -1.39,
+                  "y": 0.3998
+                },
+                {
+                  "x": -1.39,
+                  "y": 0.3997
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.39,
+                  "y": -0.4002
+                },
+                {
+                  "x": -1.3794,
+                  "y": -0.4804
+                },
+                {
+                  "x": -1.3485,
+                  "y": -0.5552
+                },
+                {
+                  "x": -1.2992,
+                  "y": -0.6193
+                },
+                {
+                  "x": -1.235,
+                  "y": -0.6686
+                },
+                {
+                  "x": -1.1603,
+                  "y": -0.6995
+                },
+                {
+                  "x": -1.0801,
+                  "y": -0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.0802,
+                  "y": -0.7096
+                },
+                {
+                  "x": 1.1603,
+                  "y": -0.699
+                },
+                {
+                  "x": 1.2351,
+                  "y": -0.6681
+                },
+                {
+                  "x": 1.2992,
+                  "y": -0.6189
+                },
+                {
+                  "x": 1.3485,
+                  "y": -0.5547
+                },
+                {
+                  "x": 1.3794,
+                  "y": -0.48
+                },
+                {
+                  "x": 1.39,
+                  "y": -0.3998
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.39,
+                  "y": 0.4002
+                },
+                {
+                  "x": 1.39,
+                  "y": 0.4002
+                },
+                {
+                  "x": 1.3822,
+                  "y": 0.4691
+                },
+                {
+                  "x": 1.3593,
+                  "y": 0.5346
+                },
+                {
+                  "x": 1.3224,
+                  "y": 0.5934
+                },
+                {
+                  "x": 1.2733,
+                  "y": 0.6425
+                },
+                {
+                  "x": 1.2146,
+                  "y": 0.6794
+                },
+                {
+                  "x": 1.1491,
+                  "y": 0.7023
+                },
+                {
+                  "x": 1.0802,
+                  "y": 0.7101
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.254
+            },
+            {
+              "kind": "circle",
+              "layer": "marking",
+              "x": 0.8002,
+              "y": -0.4001,
+              "radius": 0.06,
+              "strokeWidth": 0.0051
+            }
+          ],
+          "bodyBox": {
+            "left": -1.39,
+            "right": 1.39,
+            "top": -0.7101,
+            "bottom": 0.7101
+          },
+          "bodyBoxSource": "body",
+          "sourceOriginOffset": {
+            "x": 0.0001,
+            "y": 0
+          }
+        },
+        "pcb": {
+          "role": "decoupling_cap",
+          "allowedLayers": [
+            "top"
+          ],
+          "allowedRotations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "generatedGeometry": []
+        }
+      },
+      {
+        "designator": "R13",
+        "value": "10kΩ",
+        "pins": [
+          {
+            "pin_number": "2",
+            "name": "2",
+            "signal_name": "CAN_TX"
+          },
+          {
+            "pin_number": "1",
+            "name": "1",
+            "signal_name": "+3V3"
+          }
+        ],
+        "block_name": "can",
+        "search_query": "10kΩ R0603",
+        "part_uuid": "fa459f1466df4014badd43e0b80fd058",
+        "footprint_uuid": null,
+        "footprint": {
+          "name": "R0603",
+          "width": 2.8212,
+          "height": 1.372,
+          "pads": [
+            {
+              "pin_number": "2",
+              "name": "2",
+              "x": -0.7534,
+              "y": 0,
+              "width": 0.8065,
+              "height": 0.864,
+              "mount": "smd",
+              "layer": "top"
+            },
+            {
+              "pin_number": "1",
+              "name": "1",
+              "x": 0.7534,
+              "y": 0,
+              "width": 0.8065,
+              "height": 0.864,
+              "mount": "smd",
+              "layer": "top"
+            }
+          ],
+          "graphics": [
+            {
+              "kind": "circle",
+              "layer": "marking",
+              "x": 0.8001,
+              "y": -0.4,
+              "radius": 0.06,
+              "strokeWidth": 0.0051
+            },
+            {
+              "kind": "path",
+              "layer": "body",
+              "points": [
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.8,
+                  "y": 0.4
+                },
+                {
+                  "x": -0.8,
+                  "y": -0.4
+                },
+                {
+                  "x": 0.8,
+                  "y": -0.4
+                }
+              ],
+              "closed": true,
+              "strokeWidth": 0.0508
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -0.4262,
+                  "y": -0.6606
+                },
+                {
+                  "x": -1.3851,
+                  "y": -0.6606
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.1524
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.3851,
+                  "y": -0.6606
+                },
+                {
+                  "x": -1.3851,
+                  "y": 0.6606
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.1524
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": -1.3851,
+                  "y": 0.6606
+                },
+                {
+                  "x": -0.4262,
+                  "y": 0.6606
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.1524
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 0.4262,
+                  "y": -0.6606
+                },
+                {
+                  "x": 1.3851,
+                  "y": -0.6606
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.1524
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.3851,
+                  "y": -0.6606
+                },
+                {
+                  "x": 1.3851,
+                  "y": 0.6606
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.1524
+            },
+            {
+              "kind": "path",
+              "layer": "silk",
+              "side": "top",
+              "points": [
+                {
+                  "x": 1.3851,
+                  "y": 0.6606
+                },
+                {
+                  "x": 0.4262,
+                  "y": 0.6606
+                }
+              ],
+              "closed": false,
+              "strokeWidth": 0.1524
+            }
+          ],
+          "bodyBox": {
+            "left": -1.3851,
+            "right": 1.3851,
+            "top": -0.6606,
+            "bottom": 0.6606
+          },
+          "bodyBoxSource": "body",
+          "sourceOriginOffset": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        "pcb": {
+          "role": "passive",
+          "allowedLayers": [
+            "top"
+          ],
+          "allowedRotations": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "generatedGeometry": []
+        }
+      }
+    ],
+    "hints": [
+      {
+        "relation": "bypass",
+        "capacitors": [
+          "C18"
+        ],
+        "target": {
+          "type": "pin",
+          "designator": "U4",
+          "pin_number": "3"
+        },
+        "priority": "high"
+      },
+      {
+        "relation": "bypass",
+        "capacitors": [
+          "C19"
+        ],
+        "target": {
+          "type": "pin",
+          "designator": "U4",
+          "pin_number": "5"
+        },
+        "priority": "high"
+      },
+      {
+        "relation": "near",
+        "source": {
+          "type": "component",
+          "designator": "C20"
+        },
+        "target": {
+          "type": "pin",
+          "designator": "U4",
+          "pin_number": "3"
+        },
+        "priority": "high"
+      }
+    ],
+    "paths": [],
+    "refineGroups": [],
+    "solverOptions": {
+      "candidateRadii": [
+        1.2,
+        2,
+        3.5,
+        5,
+        8,
+        12,
+        18
+      ],
+      "candidateAngles": [
+        0,
+        45,
+        90,
+        135,
+        180,
+        225,
+        270,
+        315
+      ],
+      "fallbackGridStep": 4,
+      "placementGridStep": 0.5,
+      "ignoredRatsnestSignals": [
+        "GND"
+      ],
+      "localImproveIterations": 16,
+      "localImproveMinDelta": 0.05,
+      "hierarchicalBlocks": true,
+      "compactness": "normal",
+      "preview": false,
+      "placeOnlyComponents": [],
+      "ignoreComponents": []
+    }
+  },
+  "primitives": [
+    {
+      "id": "primitive:tree:component:U4",
+      "kind": "component",
+      "label": "U4",
+      "sourceNodeId": "tree:component:U4",
+      "locked": false,
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -3.753999948501587,
+        "right": 3.753999948501587,
+        "top": -3.5260000228881836,
+        "bottom": 1.5260000228881836
+      },
+      "collisionBoxes": [
+        {
+          "left": -3.753999948501587,
+          "right": 3.753999948501587,
+          "top": -3.5260000228881836,
+          "bottom": 1.5260000228881836
+        }
+      ],
+      "width": 7.507999897003174,
+      "height": 5.052000045776367,
+      "placements": [
+        {
+          "designator": "U4",
+          "x": 0,
+          "y": -1,
+          "rotate": 270,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "U4.1",
+          "net": "CAN_TX",
+          "x": -2.5999999046325684,
+          "y": -2.9049999713897705
+        },
+        {
+          "ref": "U4.2",
+          "net": "GND",
+          "x": -2.5999999046325684,
+          "y": -1.6349999904632568
+        },
+        {
+          "ref": "U4.3",
+          "net": "+5V",
+          "x": -2.5999999046325684,
+          "y": -0.36500000953674316
+        },
+        {
+          "ref": "U4.4",
+          "net": "CAN_RX",
+          "x": -2.5999999046325684,
+          "y": 0.9049999713897705
+        },
+        {
+          "ref": "U4.5",
+          "net": "+3V3",
+          "x": 2.5999999046325684,
+          "y": 0.9049999713897705
+        },
+        {
+          "ref": "U4.6",
+          "net": "CAN_L",
+          "x": 2.5999999046325684,
+          "y": -0.36500000953674316
+        },
+        {
+          "ref": "U4.7",
+          "net": "CAN_H",
+          "x": 2.5999999046325684,
+          "y": -1.6349999904632568
+        },
+        {
+          "ref": "U4.8",
+          "net": "GND",
+          "x": 2.5999999046325684,
+          "y": -2.9049999713897705
+        }
+      ],
+      "pathPorts": [
+        {
+          "pathId": "can_h",
+          "order": 0,
+          "ref": "U4.7",
+          "role": "source",
+          "x": 2.5999999046325684,
+          "y": -1.6349999904632568,
+          "normal": {
+            "x": 0.9714469313621521,
+            "y": -0.2372572273015976
+          }
+        },
+        {
+          "pathId": "can_l",
+          "order": 0,
+          "ref": "U4.6",
+          "role": "source",
+          "x": 2.5999999046325684,
+          "y": -0.36500000953674316,
+          "normal": {
+            "x": 0.9714469313621521,
+            "y": 0.2372572273015976
+          }
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:island:bypass:30",
+      "kind": "island",
+      "label": "bypass:30",
+      "sourceNodeId": "tree:island:bypass:30",
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -5.52400016784668,
+        "right": -4.104000091552734,
+        "top": -1.7549999952316284,
+        "bottom": 1.024999976158142
+      },
+      "collisionBoxes": [
+        {
+          "left": -5.52400016784668,
+          "right": -4.104000091552734,
+          "top": -1.7549999952316284,
+          "bottom": 1.024999976158142
+        }
+      ],
+      "width": 1.4199999570846558,
+      "height": 2.7799999713897705,
+      "placements": [
+        {
+          "designator": "C18",
+          "x": -4.814000129699707,
+          "y": -0.36500000953674316,
+          "rotate": 90,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "C18.1",
+          "net": "+5V",
+          "x": -4.814000129699707,
+          "y": 0.33500000834465027
+        },
+        {
+          "ref": "C18.2",
+          "net": "GND",
+          "x": -4.814000129699707,
+          "y": -1.065000057220459
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:component:R13",
+      "kind": "component",
+      "label": "R13",
+      "sourceNodeId": "tree:component:R13",
+      "locked": false,
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": 4.105000019073486,
+        "right": 5.4770002365112305,
+        "top": -2.4110000133514404,
+        "bottom": 0.41100001335144043
+      },
+      "collisionBoxes": [
+        {
+          "left": 4.105000019073486,
+          "right": 5.4770002365112305,
+          "top": -2.4110000133514404,
+          "bottom": 0.41100001335144043
+        }
+      ],
+      "width": 1.371999979019165,
+      "height": 2.822000026702881,
+      "placements": [
+        {
+          "designator": "R13",
+          "x": 4.790999889373779,
+          "y": -1,
+          "rotate": 90,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "R13.2",
+          "net": "CAN_TX",
+          "x": 4.790999889373779,
+          "y": -1.753000020980835
+        },
+        {
+          "ref": "R13.1",
+          "net": "+3V3",
+          "x": 4.790999889373779,
+          "y": -0.24699999392032623
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:island:bypass:31",
+      "kind": "island",
+      "label": "bypass:31",
+      "sourceNodeId": "tree:island:bypass:31",
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": 1.0099999904632568,
+        "right": 3.7899999618530273,
+        "top": 1.8769999742507935,
+        "bottom": 3.296999931335449
+      },
+      "collisionBoxes": [
+        {
+          "left": 1.0099999904632568,
+          "right": 3.7899999618530273,
+          "top": 1.8769999742507935,
+          "bottom": 3.296999931335449
+        }
+      ],
+      "width": 2.7799999713897705,
+      "height": 1.4199999570846558,
+      "placements": [
+        {
+          "designator": "C19",
+          "x": 2.4000000953674316,
+          "y": 2.5869998931884766,
+          "rotate": 0,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "C19.1",
+          "net": "+3V3",
+          "x": 3.0999999046325684,
+          "y": 2.5869998931884766
+        },
+        {
+          "ref": "C19.2",
+          "net": "GND",
+          "x": 1.7000000476837158,
+          "y": 2.5869998931884766
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:component:C20",
+      "kind": "component",
+      "label": "C20",
+      "sourceNodeId": "tree:component:C20",
+      "locked": false,
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -3.7899999618530273,
+        "right": -1.0099999904632568,
+        "top": 1.8769999742507935,
+        "bottom": 3.296999931335449
+      },
+      "collisionBoxes": [
+        {
+          "left": -3.7899999618530273,
+          "right": -1.0099999904632568,
+          "top": 1.8769999742507935,
+          "bottom": 3.296999931335449
+        }
+      ],
+      "width": 2.7799999713897705,
+      "height": 1.4199999570846558,
+      "placements": [
+        {
+          "designator": "C20",
+          "x": -2.4000000953674316,
+          "y": 2.5869998931884766,
+          "rotate": 180,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "C20.1",
+          "net": "+5V",
+          "x": -3.0999999046325684,
+          "y": 2.5869998931884766
+        },
+        {
+          "ref": "C20.2",
+          "net": "GND",
+          "x": -1.7000000476837158,
+          "y": 2.5869998931884766
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    }
+  ],
+  "signalSide": [
+    {
+      "id": "primitive:tree:component:U4",
+      "kind": "component",
+      "label": "U4",
+      "sourceNodeId": "tree:component:U4",
+      "locked": false,
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -3.753999948501587,
+        "right": 3.753999948501587,
+        "top": -3.5260000228881836,
+        "bottom": 1.5260000228881836
+      },
+      "collisionBoxes": [
+        {
+          "left": -3.753999948501587,
+          "right": 3.753999948501587,
+          "top": -3.5260000228881836,
+          "bottom": 1.5260000228881836
+        }
+      ],
+      "width": 7.507999897003174,
+      "height": 5.052000045776367,
+      "placements": [
+        {
+          "designator": "U4",
+          "x": 0,
+          "y": -1,
+          "rotate": 270,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "U4.1",
+          "net": "CAN_TX",
+          "x": -2.5999999046325684,
+          "y": -2.9049999713897705
+        },
+        {
+          "ref": "U4.2",
+          "net": "GND",
+          "x": -2.5999999046325684,
+          "y": -1.6349999904632568
+        },
+        {
+          "ref": "U4.3",
+          "net": "+5V",
+          "x": -2.5999999046325684,
+          "y": -0.36500000953674316
+        },
+        {
+          "ref": "U4.4",
+          "net": "CAN_RX",
+          "x": -2.5999999046325684,
+          "y": 0.9049999713897705
+        },
+        {
+          "ref": "U4.5",
+          "net": "+3V3",
+          "x": 2.5999999046325684,
+          "y": 0.9049999713897705
+        },
+        {
+          "ref": "U4.6",
+          "net": "CAN_L",
+          "x": 2.5999999046325684,
+          "y": -0.36500000953674316
+        },
+        {
+          "ref": "U4.7",
+          "net": "CAN_H",
+          "x": 2.5999999046325684,
+          "y": -1.6349999904632568
+        },
+        {
+          "ref": "U4.8",
+          "net": "GND",
+          "x": 2.5999999046325684,
+          "y": -2.9049999713897705
+        }
+      ],
+      "pathPorts": [
+        {
+          "pathId": "can_h",
+          "order": 0,
+          "ref": "U4.7",
+          "role": "source",
+          "x": 2.5999999046325684,
+          "y": -1.6349999904632568,
+          "normal": {
+            "x": 0.9714469313621521,
+            "y": -0.2372572273015976
+          }
+        },
+        {
+          "pathId": "can_l",
+          "order": 0,
+          "ref": "U4.6",
+          "role": "source",
+          "x": 2.5999999046325684,
+          "y": -0.36500000953674316,
+          "normal": {
+            "x": 0.9714469313621521,
+            "y": 0.2372572273015976
+          }
+        }
+      ],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:island:bypass:30",
+      "kind": "island",
+      "label": "bypass:30",
+      "sourceNodeId": "tree:island:bypass:30",
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -5.52400016784668,
+        "right": -4.104000091552734,
+        "top": -1.7549999952316284,
+        "bottom": 1.024999976158142
+      },
+      "collisionBoxes": [
+        {
+          "left": -5.52400016784668,
+          "right": -4.104000091552734,
+          "top": -1.7549999952316284,
+          "bottom": 1.024999976158142
+        }
+      ],
+      "width": 1.4199999570846558,
+      "height": 2.7799999713897705,
+      "placements": [
+        {
+          "designator": "C18",
+          "x": -4.814000129699707,
+          "y": -0.36500000953674316,
+          "rotate": 90,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "C18.1",
+          "net": "+5V",
+          "x": -4.814000129699707,
+          "y": 0.33500000834465027
+        },
+        {
+          "ref": "C18.2",
+          "net": "GND",
+          "x": -4.814000129699707,
+          "y": -1.065000057220459
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:component:R13",
+      "kind": "component",
+      "label": "R13",
+      "sourceNodeId": "tree:component:R13",
+      "locked": false,
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -5.685999870300293,
+        "right": -4.314000129699707,
+        "top": -4.910999774932861,
+        "bottom": -2.0889999866485596
+      },
+      "collisionBoxes": [
+        {
+          "left": -5.685999870300293,
+          "right": -4.314000129699707,
+          "top": -4.910999774932861,
+          "bottom": -2.0889999866485596
+        }
+      ],
+      "width": 1.371999979019165,
+      "height": 2.822000026702881,
+      "placements": [
+        {
+          "designator": "R13",
+          "x": -5,
+          "y": -3.5,
+          "rotate": 90,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "R13.2",
+          "net": "CAN_TX",
+          "x": -5,
+          "y": -4.252999782562256
+        },
+        {
+          "ref": "R13.1",
+          "net": "+3V3",
+          "x": -5,
+          "y": -2.746999979019165
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:island:bypass:31",
+      "kind": "island",
+      "label": "bypass:31",
+      "sourceNodeId": "tree:island:bypass:31",
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": 1.0099999904632568,
+        "right": 3.7899999618530273,
+        "top": 1.8769999742507935,
+        "bottom": 3.296999931335449
+      },
+      "collisionBoxes": [
+        {
+          "left": 1.0099999904632568,
+          "right": 3.7899999618530273,
+          "top": 1.8769999742507935,
+          "bottom": 3.296999931335449
+        }
+      ],
+      "width": 2.7799999713897705,
+      "height": 1.4199999570846558,
+      "placements": [
+        {
+          "designator": "C19",
+          "x": 2.4000000953674316,
+          "y": 2.5869998931884766,
+          "rotate": 0,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "C19.1",
+          "net": "+3V3",
+          "x": 3.0999999046325684,
+          "y": 2.5869998931884766
+        },
+        {
+          "ref": "C19.2",
+          "net": "GND",
+          "x": 1.7000000476837158,
+          "y": 2.5869998931884766
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    },
+    {
+      "id": "primitive:tree:component:C20",
+      "kind": "component",
+      "label": "C20",
+      "sourceNodeId": "tree:component:C20",
+      "locked": false,
+      "canRotate": true,
+      "allowedOrientations": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "bbox": {
+        "left": -3.7899999618530273,
+        "right": -1.0099999904632568,
+        "top": 1.8769999742507935,
+        "bottom": 3.296999931335449
+      },
+      "collisionBoxes": [
+        {
+          "left": -3.7899999618530273,
+          "right": -1.0099999904632568,
+          "top": 1.8769999742507935,
+          "bottom": 3.296999931335449
+        }
+      ],
+      "width": 2.7799999713897705,
+      "height": 1.4199999570846558,
+      "placements": [
+        {
+          "designator": "C20",
+          "x": -2.4000000953674316,
+          "y": 2.5869998931884766,
+          "rotate": 180,
+          "layer": "top",
+          "score": 0
+        }
+      ],
+      "connectionPoints": [
+        {
+          "ref": "C20.1",
+          "net": "+5V",
+          "x": -3.0999999046325684,
+          "y": 2.5869998931884766
+        },
+        {
+          "ref": "C20.2",
+          "net": "GND",
+          "x": -1.7000000476837158,
+          "y": 2.5869998931884766
+        }
+      ],
+      "pathPorts": [],
+      "children": []
+    }
+  ]
+}

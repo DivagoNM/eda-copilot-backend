@@ -1,7 +1,8 @@
 import * as fp from '../../f32.ts';
 import type { PcbComponent, Placement } from '#types/pcb/layout-model.ts';
 import { isGroundSignalName, isPowerSignalName } from '#utils/signals.ts';
-import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
+import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, getBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
+import { expandHints } from '../../pcb-auto-place/hints.ts';
 import { createFixedPlacement } from '../../pcb-auto-place/fixed.ts';
 import { placementsCanConflict } from '../../pcb-auto-place/utils.ts';
 import type { BlockSolveParams } from '../block-solver.ts';
@@ -34,6 +35,8 @@ export function encodeNativeBlockSolveProblem(params: BlockSolveParams): NativeB
 
     return {
         world: params.options.worldInput ? encodeBlockWorld(params, components) : undefined,
+        netWeights: params.options.experiments?.alignedScore ? Object.fromEntries(params.primitives.flatMap(p=>p.connectionPoints)
+            .filter(p=>p.net).map(p=>[p.net!,isPowerSignalName(p.net)?0.25:1])) : undefined,
         experiments: params.options.experiments,
         routingObstacles: components.flatMap(({component, placement, primitiveId}) => component.footprint.pads.map(pad => ({
             box: componentPadBox(placement, pad), primitiveId, ref: `${component.designator}.${pad.pin_number}`,
@@ -55,7 +58,20 @@ export function encodeNativeBlockSolveProblem(params: BlockSolveParams): NativeB
         hardCollisionMode: params.options.hardCollisionMode ?? 'components',
         candidateBoxMode: params.options.candidateBoxMode ?? 'bbox',
         primitives: params.primitives.map((primitive) => encodePrimitive(primitive)),
-        relations: params.relations.map(encodeRelation),
+        relations: params.relations.flatMap(relation => {
+            const encoded = encodeRelation(relation, params);
+            const index = relation.data?.hintIndex;
+            const hint = typeof index === 'number' ? params.options.scoreInput?.hints[index] : undefined;
+            if (encoded.score?.kind !== 'clearance' || !hint || !('source' in hint) || !('target' in hint) || hint.target !== 'all') return [encoded];
+            // Expand only score terms. These net/score_only records cannot add
+            // relation-anchored candidates or change hard constraints.
+            const own = hint.source.type === 'component' || hint.source.type === 'pin' ? hint.source.designator : undefined;
+            return [{ ...encoded, score: { kind: 'none' as const, weight: 0 } },
+                ...components.filter(({component}) => component.designator !== own).map(({component}) => ({
+                    ...encoded, id: `${encoded.id}:checkpoint:${component.designator}`, kind: 'net' as const, effect: 'score_only' as const,
+                    hard: false, to: `component:${component.designator}`,
+                }))];
+        }),
         obstacles: params.options.obstacles ?? [],
         components: components.map(({ component, placement, primitiveId }) => ({
             designator: component.designator,
@@ -63,6 +79,7 @@ export function encodeNativeBlockSolveProblem(params: BlockSolveParams): NativeB
             blockName: component.block_name,
             layer: placement.layer,
             bodyBox: componentBodyBox(component, placement),
+            scoreBox: getBox(component, placement),
             throughHoleBoxes: componentCollisionBoxes(component, placement, placement.layer === 'top' ? 'bottom' : 'top'),
             pinCount: component.pins.length,
             role: component.pcb.role,
@@ -140,11 +157,12 @@ function collectSourceNodeIds(primitive: PlacementPrimitive) {
     return [...result];
 }
 
-function encodeRelation(relation: BlockSolveParams['relations'][number]): NativeRelation {
+function encodeRelation(relation: BlockSolveParams['relations'][number], params: BlockSolveParams): NativeRelation {
     const number = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
     const offset = relation.data?.anchorOffset as { x?: unknown; y?: unknown } | undefined;
     const side = relation.data?.sidePreference;
     return {
+        score: relationScore(relation, params),
         id: relation.id,
         kind: relation.kind,
         from: relation.from,
@@ -163,6 +181,30 @@ function encodeRelation(relation: BlockSolveParams['relations'][number]): Native
         pathShape: relation.data?.pathShape === 'straight' ? 'straight' : relation.data?.pathShape === 'flexible' ? 'flexible' : undefined,
         preferFacingPads: relation.data?.preferFacingPads === true,
     };
+}
+
+function relationScore(relation: BlockSolveParams['relations'][number], params: BlockSolveParams): NativeRelation['score'] {
+    const input = params.options.scoreInput;
+    if (!input || !params.options.experiments?.alignedScore) return undefined;
+    const index = relation.data?.hintIndex;
+    const hint = typeof index === 'number' ? input.hints[index] : undefined;
+    const rule = hint ? expandHints({ ...input, hints: [hint] })[0] : undefined;
+    if (rule?.kind === 'prefer_layer' && rule.source.type === 'component' && rule.layer) {
+        return { kind: rule.kind, weight: fp.max(1, rule.weight), layer: rule.layer };
+    }
+    if (rule?.kind === 'same_side' && rule.source.type === 'component' && rule.target && rule.target !== 'all' && rule.target.type === 'component') {
+        return { kind: rule.kind, weight: fp.max(1, rule.weight) };
+    }
+    if (rule?.kind === 'clearance' && rule.source.type !== 'board_anchor' && rule.target === 'all') {
+        return { kind: rule.kind, weight: fp.max(1, rule.weight), min: rule.min };
+    }
+    if (rule && (rule.kind === 'distance' || rule.kind === 'clearance')
+        && rule.source.type !== 'board_anchor' && rule.target && rule.target !== 'all' && rule.target.type !== 'board_anchor') {
+        return { kind: rule.kind, weight: fp.max(1, rule.weight), min: rule.min, max: rule.max };
+    }
+    // Bypass/island/attachment heuristics guide existing proposals; they are not
+    // additional electrical requirements in the authored checkpoint objective.
+    return { kind: 'none', weight: 0 };
 }
 
 function isPowerComponent(component: PcbComponent, params: BlockSolveParams) {

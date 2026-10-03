@@ -50,6 +50,18 @@ pub fn topology_penalty(primitives: &[&Primitive], relations: &[Relation]) -> f3
     path_penalty + ordinary_net::penalty(primitives, relations)
 }
 
+/// Authored paths use the checkpoint's unit weight; ordinary-net proposal
+/// markers do not create extra acceptance requirements.
+pub(crate) fn checkpoint_topology_penalty(primitives:&[&Primitive], relations:&[Relation])->f32 {
+    let metadata=path_metadata(relations);
+    let mut paths:BTreeMap<&str,Vec<&PathPort>>=BTreeMap::new();
+    for p in primitives {for port in p.path_ports.iter() {paths.entry(&port.path_id).or_default().push(port);}}
+    paths.into_iter().filter_map(|(id,ports)| {
+        let meta=metadata.get(id).copied().map(|mut m| {m.weight=1.0;m});
+        evaluate_path_ports(id,&ports,meta)
+    }).map(|p|p.penalty).sum()
+}
+
 pub fn topology_penalty_for_ports(
     ports: &[PathPort],
     straight: bool,
