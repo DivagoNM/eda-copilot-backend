@@ -62,7 +62,6 @@ struct Cp {
     owner: i32,
     layer: i32,
     unused: i32,
-    component: i32,
 }
 #[repr(C)]
 #[derive(Clone, Copy, Default, serde::Serialize)]
@@ -208,18 +207,6 @@ fn endpoint(e: &CompiledEndpoint, prims: &[WorkingPrimitive], indices: &mut Vec<
     }
 }
 
-fn checkpoint_box_endpoint(target:&str, current:&[WorkingPrimitive], refs:&mut Vec<u32>)->Option<Endpoint> {
-    let component=target.strip_prefix("component:");let block=target.strip_prefix("block:");
-    if component.is_none() && block.is_none() {return None;}
-    let start=refs.len() as u32;
-    for (pi,p) in current.iter().enumerate() {for (ci,(_,c)) in p.components.iter().enumerate() {
-        if component==Some(c.designator.as_ref()) || block==Some(c.block_name.as_ref()) {refs.extend([pi as u32,ci as u32]);}
-    }}
-    let count=(refs.len() as u32-start)/2;
-    // Box endpoints use pairs of primitive/component indices instead of pad indices.
-    Some(Endpoint {primitive:if count>0 {-3}else{-1},start,count,..Default::default()})
-}
-
 #[path = "compact_candidates.rs"]
 mod candidates;
 #[path = "gpu_frontier.rs"]
@@ -350,7 +337,6 @@ impl Engine {
                             .and_then(|n| owners.get(n).copied())
                             .unwrap_or(-1),
                         layer: layer(l.as_deref()),
-                        component: v.reference.rsplit_once('.').and_then(|(d,_)| owners.get(d)).copied().unwrap_or(-1),
                         unused: v.net.as_ref().is_some_and(|name| {
                             !name.is_empty()
                                 && !is_ground(name)
@@ -386,28 +372,14 @@ impl Engine {
                         unused: 0,
                     });
                 }
-                let components = (engine.component_data.len() / 10) as u32;
+                let components = (engine.component_data.len() / 8) as u32;
                 for (index, component) in p.components.iter() {
-                    // Materialize bodies from the original component origin, as
-                    // rebuild_component_geometry does. Translating an already
-                    // rounded template can lose a 0.001 mm grid residual.
-                    let source = &p.source_components.iter().find(|(i,_)|i==index).unwrap().1;
-                    let before = p.source_placements.iter().find(|v|v.designator==component.designator).unwrap();
-                    let after = p.primitive.placements.iter().find(|v|v.designator==component.designator).unwrap();
-                    let origin = Point{x:before.x,y:before.y};
-                    let angle = crate::geometry::subtract_rotation(after.rotate,before.rotate);
                     let body = (engine.geometry.len() / 4) as i32;
-                    let b=rotate_box(&source.body_box,&origin,angle);
-                    engine.geometry.extend([b.left,b.right,b.top,b.bottom]);
+                    engine.geometry.extend([component.body_box.left, component.body_box.right, component.body_box.top, component.body_box.bottom]);
                     let through = (engine.geometry.len() / 4) as i32;
-                    for b in source.through_hole_boxes.iter() {let b=rotate_box(b,&origin,angle);engine.geometry.extend([b.left,b.right,b.top,b.bottom]);}
-                    let score_box=(engine.geometry.len()/4) as i32;
-                    let b=rotate_box(&source.score_box.unwrap_or(source.body_box),&origin,angle);
-                    engine.geometry.extend([b.left,b.right,b.top,b.bottom]);
-                    let pose=(engine.geometry.len()/4) as i32;
-                    engine.geometry.extend([before.x,before.y,after.x,after.y]);
+                    for b in component.through_hole_boxes.iter() { engine.geometry.extend([b.left,b.right,b.top,b.bottom]); }
                     let role = match component.role.as_deref() {Some("main_ic")=>1,Some("decoupling_cap")=>2,Some("passive")=>3,Some("connector")=>4,_=>0};
-                    engine.component_data.extend([*index as i32,layer(Some(&component.layer)),component.pin_count as i32,role,component.power_component as i32,body,through,component.through_hole_boxes.len() as i32,score_box,pose]);
+                    engine.component_data.extend([*index as i32,layer(Some(&component.layer)),component.pin_count as i32,role,component.power_component as i32,body,through,component.through_hole_boxes.len() as i32]);
                 }
                 let boxes = (engine.geometry.len() / 4) as u32;
                 let collision = primitive_collision_boxes(&p, context);
@@ -514,10 +486,12 @@ fn prepare(
                 .ignored_nets
                 .iter()
                 .any(|s| s.eq_ignore_ascii_case(name));
-        let units = if eligible && (context.problem.experiments.pad_crossings || context.problem.experiments.aligned_score) {
-            if context.problem.experiments.aligned_score {
-                (context.problem.net_weights.get(name).copied().unwrap_or_else(||if is_power(name){0.25}else{1.0})*4.0) as i32
-            } else if is_power(name) {1} else {4}
+        let units = if eligible && context.problem.experiments.pad_crossings {
+            if is_power(name) {
+                1
+            } else {
+                4
+            }
         } else {
             0
         };
@@ -554,7 +528,7 @@ fn prepare(
     let mut relations = Vec::new();
     for r in &context.relations {
         let rel = &r.relation;
-        if (rel.kind.as_ref() == "net" && !(context.problem.experiments.aligned_score && rel.score.is_some())) || rel.effect.as_ref() == "lock" {
+        if rel.kind.as_ref() == "net" || rel.effect.as_ref() == "lock" {
             continue;
         }
         let (dx, dy) = match rel.side_preference.as_deref() {
@@ -565,20 +539,12 @@ fn prepare(
             _ => (0., 0.),
         };
         let o = rel.anchor_offset.unwrap_or(Point { x: 0., y: 0. });
-        let scoring=rel.score.as_ref().filter(|_|context.problem.experiments.aligned_score);
-        if scoring.is_some_and(|s|s.kind.as_ref()=="none") {continue;}
-        let from=if scoring.is_some() {checkpoint_box_endpoint(&rel.from,current,&mut eprefs)} else {None}
-            .unwrap_or_else(||endpoint(&r.from,&current,&mut eprefs));
-        let to=if scoring.is_some() {checkpoint_box_endpoint(&rel.to,current,&mut eprefs)} else {None}
-            .unwrap_or_else(||endpoint(&r.to,&current,&mut eprefs));
         relations.push(Rel {
-            from,
-            to,
-            weight: if let Some(s)=scoring {s.weight} else if context.problem.experiments.aligned_score && rel.kind.as_ref()=="critical_pair" {
-                rel.weight.unwrap_or(432.0).max(1.0)
-            } else { relation_weight(rel) },
-            min: scoring.map_or(rel.min_distance,|s|s.min).unwrap_or(-1.),
-            max: scoring.map_or(rel.max_distance,|s|s.max).unwrap_or(-1.),
+            from: endpoint(&r.from, &current, &mut eprefs),
+            to: endpoint(&r.to, &current, &mut eprefs),
+            weight: relation_weight(rel),
+            min: rel.min_distance.unwrap_or(-1.),
+            max: rel.max_distance.unwrap_or(-1.),
             ox: o.x,
             oy: o.y,
             dx,
@@ -594,12 +560,7 @@ fn prepare(
                     r.to,
                     CompiledEndpoint::Missing | CompiledEndpoint::Anchor(None)
                 ))) as u32
-                | (u32::from(rel.effect.as_ref() != "score_only" && (matches!(rel.kind.as_ref(), "critical_pair" | "island_target") || matches!(rel.relation.as_deref(), Some("very_near" | "cap_cluster")))) << 1) | (u32::from(rel.effect.as_ref()=="score_only")<<2)
-                | (u32::from(scoring.is_some_and(|s|s.kind.as_ref()=="distance") || (scoring.is_none() && context.problem.experiments.aligned_score && rel.kind.as_ref()=="critical_pair"))<<3)
-                | (u32::from(scoring.is_some_and(|s|s.kind.as_ref()=="clearance"))<<4)
-                | (u32::from(scoring.is_some_and(|s|s.kind.as_ref()=="prefer_layer"))<<5)
-                | (u32::from(scoring.is_some_and(|s|s.kind.as_ref()=="same_side"))<<6)
-                | (u32::from(scoring.is_some_and(|s|s.layer.as_deref()==Some("bottom")))<<7),
+                | (u32::from(rel.effect.as_ref() != "score_only" && (matches!(rel.kind.as_ref(), "critical_pair" | "island_target") || matches!(rel.relation.as_deref(), Some("very_near" | "cap_cluster")))) << 1) | (u32::from(rel.effect.as_ref()=="score_only")<<2),
         });
     }
     let c = Config {
@@ -664,7 +625,7 @@ impl Engine {
         self.offsets[3] = self.si.len() as u32;
         for p in &self.cp {
             self.sf.extend([p.x, p.y]);
-            self.si.extend([p.net, p.owner, p.layer, p.unused, p.component]);
+            self.si.extend([p.net, p.owner, p.layer, p.unused]);
         }
         self.offsets[1] = self.sf.len() as u32;
         self.offsets[4] = self.si.len() as u32;
@@ -716,12 +677,11 @@ impl Engine {
         for (i,(name,ports)) in paths.iter().enumerate() {
             let meta=metadata.get(name.as_ref());let f=ff.len() as u32;
             ff.extend([if meta.is_some_and(|m|m.straight){22.0}else{8.0},if meta.is_some_and(|m|m.straight){18.0}else{5.0},
-                match meta.map(|m|m.priority){Some(3)=>1.8,Some(2)=>1.35,Some(0)=>0.65,_=>1.0},if context.problem.experiments.aligned_score {1.0}else{meta.map_or(1.0,|m|m.weight)},if meta.is_some_and(|m|m.prefer_facing_pads){1.0}else{0.0}]);
+                match meta.map(|m|m.priority){Some(3)=>1.8,Some(2)=>1.35,Some(0)=>0.65,_=>1.0},meta.map_or(1.0,|m|m.weight),if meta.is_some_and(|m|m.prefer_facing_pads){1.0}else{0.0}]);
             let refs=fi.len() as u32;
             for (&order,(_,p,j)) in ports {fi.extend([*p as u32,*j as u32,order as u32]);}
             fi[start+i*3..start+i*3+3].copy_from_slice(&[refs,ports.len() as u32,f]);
         }
-        if context.problem.experiments.aligned_score {fi[k::ORDINARY_I]=fi.len() as u32;fi[k::ORDINARY_COUNT]=0;return;}
         let markers:std::collections::BTreeMap<&str,f32>=context.problem.relations.iter().filter_map(|r|{
             let net=r.from.strip_prefix(crate::ordinary_net::MARKER_PREFIX)?;let weight=r.weight.unwrap_or(1.0);
             (r.from==r.to && weight.is_finite() && weight>0.0).then_some((net,weight))
@@ -816,8 +776,6 @@ impl Engine {
         fi[k::SOURCES] = context.problem.primitives.len() as u32;
         fi[k::PORT_F]=self.port_offset;
         fi[k::FLAGS..k::FLAGS+11].copy_from_slice(&self.options);
-        fi[k::ALIGNED]=u32::from(context.problem.experiments.aligned_score)
-            |(u32::from(context.problem.experiments.pad_crossings)<<1);
         fi[k::FIXED_I] = fi.len() as u32;
         for &p in &prims {
             fi.extend(prim_i(p).map(|v| v as u32));
@@ -994,7 +952,6 @@ impl Engine {
                     a!(scores, poses.len()),
                     a!(tags, poses.len() * 3),
                     cheap_capacity,
-                    self.net_capacity,
                 );
                 if !no_prune {
                     k::clear_best::launch_unchecked::<WgpuRuntime>(

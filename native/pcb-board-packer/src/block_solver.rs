@@ -320,8 +320,7 @@ fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<cr
         .filter_map(|cp| cp.net.clone()).filter(|n| !n.is_empty() && !is_ground(n)
             && !problem.experiments.ignored_nets.iter().any(|ignored| ignored.eq_ignore_ascii_case(n)))
         .collect::<std::collections::BTreeSet<_>>().into_iter().map(|name| crate::model::PostPlaceNet {
-            weight: if problem.experiments.aligned_score {problem.net_weights.get(&name).copied().unwrap_or_else(||if is_power(&name){0.25}else{1.0})}
-                else if is_power(&name) { 0.25 } else { 1.0 }, name, points: vec![], layers: vec![], internal_owners: vec![],
+            weight: if is_power(&name) { 0.25 } else { 1.0 }, name, points: vec![], layers: vec![], internal_owners: vec![],
         }).collect();
     let pad_net_indices = problem.primitives.iter().map(|p| p.connection_points.iter().map(|cp|
         cp.net.as_ref().and_then(|name| pad_nets.binary_search_by(|n| n.name.cmp(name)).ok())).collect()).collect();
@@ -865,28 +864,6 @@ fn direct_pad_crossing_penalty(primitives: &[WorkingPrimitive], context: &Contex
     let score = context.pad_crossings.borrow_mut().score(&nets, &groups);
     if context.validate_incremental_scoring { assert!((score - fresh()).abs() < 1e-8, "incremental pad score mismatch"); }
     score * 180.0
-}
-
-fn checkpoint_connection_penalty(primitives: &[WorkingPrimitive], context: &Context, bbox: Box2) -> f32 {
-    let mut nets = context.pad_nets.borrow_mut();
-    let mut owners: Vec<Vec<Arc<str>>> = vec![vec![]; nets.len()];
-    for n in nets.iter_mut() { n.points.clear(); n.layers.clear(); n.internal_owners.clear(); }
-    for p in primitives {
-        for (i, cp) in p.primitive.connection_points.iter().enumerate() {
-            let Some(index) = context.pad_net_indices[p.source_index][i] else { continue };
-            let net = &mut nets[index];
-            net.points.push(Point {x:cp.x,y:cp.y});
-            net.internal_owners.push(context.pad_point_metadata[p.source_index][i].1.clone());
-            owners[index].push(Arc::from(cp.reference.rsplit_once('.').map_or(cp.reference.as_ref(), |(d,_)|d)));
-        }
-    }
-    let mut score = crate::post_place::connection_score(&nets, &owners);
-    for net in nets.iter().filter(|n| context.problem.external_nets.contains(&n.name)) {
-        let exposure = net.points.iter().map(|p| (p.x-bbox.left).min(bbox.right-p.x)
-            .min(p.y-bbox.top).min(bbox.bottom-p.y).max(0.0)).fold(f32::INFINITY,f32::min);
-        if exposure.is_finite() { score += 2.0 * net.weight * exposure; }
-    }
-    score
 }
 
 fn micro_route_bounds(
@@ -1603,7 +1580,6 @@ fn rebuild_component_geometry(primitive: &mut WorkingPrimitive) {
                         dx,
                         dy,
                     );
-                    component.score_box = component.score_box.map(|b| translate_box(&rotate_box(&b, &source_origin, delta_rotation), dx, dy));
                     component.through_hole_boxes = Arc::new(
                         component
                             .through_hole_boxes
@@ -1850,7 +1826,7 @@ fn primitive_overlap_matrix(primitives: &[WorkingPrimitive], context: &Context) 
             if !primitive_can_conflict(&primitives[i], &primitives[j], context) {
                 continue;
             }
-            let depth = scoring_overlap_depth(&primitives[i], &primitives[j], context);
+            let depth = primitive_overlap_depth(&primitives[i], &primitives[j], context);
             depths[i * size + j] = depth;
             depths[j * size + i] = depth;
         }
@@ -1876,7 +1852,7 @@ fn extend_primitive_overlap_matrix(
         if !primitive_can_conflict(primitive, candidate, context) {
             continue;
         }
-        let depth = scoring_overlap_depth(primitive, candidate, context);
+        let depth = primitive_overlap_depth(primitive, candidate, context);
         depths[index * size + old_size] = depth;
         depths[old_size * size + index] = depth;
     }
@@ -2116,7 +2092,6 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
     );
     let width = bbox.right - bbox.left;
     let height = bbox.bottom - bbox.top;
-    let aligned = context.problem.experiments.aligned_score;
     let high = context.problem.compactness.as_ref() == "high";
     let (
         bbox_area,
@@ -2127,9 +2102,7 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
         relation_weight_,
         net_weight,
         target_weight,
-    ) = if aligned {
-        (0.35, 0.5, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0)
-    } else if high {
+    ) = if high {
         (4.2, 5.4, 14.4, 12.0, 1.4, 0.45, 0.65, 1.2)
     } else {
         (3.2, 2.5, 10.0, 1.5, 1.0, 1.0, 1.0, 1.0)
@@ -2148,7 +2121,7 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
         + hull_a * hull_area * if context.problem.experiments.reduced_hull { 0.25 } else { 1.0 }
         + hull_p * hull_perimeter;
     score += aspect_ratio_penalty(width, height) * aspect_weight;
-    if context.problem.experiments.smooth_aspect && !aligned {
+    if context.problem.experiments.smooth_aspect {
         let ratio = width.max(height) / width.min(height).max(0.1);
         score += (ratio - 2.0).max(0.0).powi(2) * width.min(height) * 12.0;
     }
@@ -2160,18 +2133,14 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
     // apply yet, even when its later bound is infinite.
     if score > ceiling { return None; }
     let safe_ceiling = ceiling + cached_roundoff;
-    if !aligned {
     score += dense_ic_access_penalty(primitives, context) * if high { 0.45 } else { 1.0 };
     score += power_frame.map_or_else(|| power_yield_penalty(primitives, context), |frame| {
         frame.with_candidate(primitives.last().expect("appended candidate"), context)
     }) * if high { 0.3 } else { 1.0 };
-    }
     score += scoped_relation_penalty(primitives, context) * relation_weight_;
     if score > safe_ceiling { return None; }
-    if !aligned {
     score += external_port_exposure_penalty(primitives, context) * if high { 0.35 } else { 1.0 };
     score += port_facing_penalty(primitives, context) * if high { 0.55 } else { 1.0 };
-    }
     if score > safe_ceiling { return None; }
     let component_count: usize = primitives
         .iter()
@@ -2181,9 +2150,6 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
         context.problem.components.len()
     } else { component_count };
     let small = count_for_weight > 0 && count_for_weight < 5;
-    if aligned {
-        score += checkpoint_connection_penalty(primitives, context, bbox);
-    } else {
     let (signal_spread, ground_spread) = same_net_spread_penalties(
         primitives,
         context,
@@ -2192,9 +2158,8 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
     );
     score += signal_spread * if small { 18.0 } else { 4.0 } * net_weight;
     score += ground_spread * if small { 2.5 } else { 0.15 } * net_weight;
-    }
     score += target_size_penalty(width, height, context) * target_weight;
-    if context.problem.experiments.long_nets && !aligned {
+    if context.problem.experiments.long_nets {
         score += long_net_frame.map_or_else(|| long_local_net_penalty(primitives, context),
             |frame| frame.with_candidate(primitives.last().expect("appended candidate"), context));
     }
@@ -2203,10 +2168,8 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
         score += direct_pad_crossing_penalty(primitives, context);
     }
     let path_primitives: Vec<_> = primitives.iter().map(|item| &item.primitive).collect();
-    score += { let _span = context.detail.span("signal_path_topology");
-        if aligned {signal_path::checkpoint_topology_penalty(&path_primitives,&context.problem.relations)}
-        else {signal_path::topology_penalty(&path_primitives, &context.problem.relations)} }
-        * if aligned {20.0} else if high { 2.5 } else { 4.0 };
+    score += { let _span = context.detail.span("signal_path_topology"); signal_path::topology_penalty(&path_primitives, &context.problem.relations) }
+        * if high { 2.5 } else { 4.0 };
     if score > safe_ceiling { return None; }
     Some(score)
 }
@@ -2228,15 +2191,10 @@ fn overlap_penalty(
             let overlap = primitive_overlap_depths
                 .map(|depths| depths[i * primitives.len() + j])
                 .unwrap_or_else(|| {
-                    scoring_overlap_depth(&primitives[i], &primitives[j], context)
+                    primitive_overlap_depth(&primitives[i], &primitives[j], context)
                 });
             if overlap > 0.0 {
-                // Aligned ranking already orders physical violations by hardCount.
-                // Keep a fixed barrier, not a depth reward absent from checkpoint
-                // quality (and sensitive to component-origin grid residuals).
-                penalty += if context.problem.experiments.aligned_score && !envelope {
-                    10_000_000.0
-                } else if envelope {
+                penalty += if envelope {
                     250_000.0 + overlap * 25_000.0
                 } else {
                     10_000_000.0 + overlap * 100_000.0
@@ -2575,32 +2533,6 @@ fn scoped_relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -
     let mut penalty = 0.0;
     for compiled in &context.relations {
         let relation = &compiled.relation;
-        if context.problem.experiments.aligned_score {
-            if let Some(rule) = &relation.score {
-                let layer=|target:&str| target.strip_prefix("component:").and_then(|d|primitives.iter()
-                    .flat_map(|p|p.components.iter()).find(|(_,c)|c.designator.as_ref()==d).map(|(_,c)|c.layer.as_ref()));
-                if rule.kind.as_ref()=="prefer_layer" {
-                    if let (Some(a),Some(b))=(layer(&relation.from),rule.layer.as_deref()) {if a!=b {penalty+=rule.weight*10.0;}}
-                } else if rule.kind.as_ref()=="same_side" {
-                    if let (Some(a),Some(b))=(layer(&relation.from),layer(&relation.to)) {if a!=b {penalty+=rule.weight*20.0;}}
-                } else if rule.kind.as_ref()=="clearance" {
-                    let bounds = |target:&str, endpoint:&CompiledEndpoint| checkpoint_target_box(target,primitives)
-                        .or_else(||endpoint_point(primitives,endpoint).map(|p|Box2{left:p.point.x,right:p.point.x,top:p.point.y,bottom:p.point.y}));
-                    if let (Some(a),Some(b),Some(min)) = (bounds(&relation.from,&compiled.from),
-                        bounds(&relation.to,&compiled.to),rule.min) {
-                        let gap=crate::post_place::box_clearance_gap(&a,&b);
-                        if gap<min {penalty+=(min-gap).powi(2)*rule.weight*20.0;}
-                    }
-                } else if rule.kind.as_ref()=="distance" {
-                    let point = |target:&str, endpoint:&CompiledEndpoint| checkpoint_target_box(target,primitives)
-                        .map(|b| box_center(&b)).or_else(|| endpoint_point(primitives,endpoint).map(|p|p.point));
-                    if let (Some(a),Some(b))=(point(&relation.from,&compiled.from),point(&relation.to,&compiled.to)) {
-                        penalty+=crate::post_place::distance_score(distance(a,b),rule.weight,rule.min,rule.max);
-                    }
-                }
-                continue;
-            }
-        }
         if relation.effect.as_ref() == "lock" || relation.kind.as_ref() == "net" {
             continue;
         }
@@ -2615,33 +2547,13 @@ fn scoped_relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -
         if from.primitive_id == to.primitive_id {
             continue;
         }
-        let weight = if context.problem.experiments.aligned_score && relation.kind.as_ref()=="critical_pair" {
-            relation.weight.unwrap_or(432.0).max(1.0)
-        } else { relation_weight(relation) };
+        let weight = relation_weight(relation);
         let value = distance(from.point, to.point);
-        penalty += if context.problem.experiments.aligned_score && relation.kind.as_ref()=="critical_pair" {
-            crate::post_place::distance_score(value, weight, relation.min_distance, relation.max_distance)
-        } else { value * weight
+        penalty += value * weight
             + relation_distance_limit_penalty(relation, value, weight)
-            + relation_side_penalty(relation, from.point, to.point, weight) };
+            + relation_side_penalty(relation, from.point, to.point, weight);
     }
     penalty
-}
-
-fn scoring_overlap_depth(a:&WorkingPrimitive,b:&WorkingPrimitive,context:&Context)->f32 {
-    if context.problem.experiments.aligned_score && context.problem.collision_mode.as_ref()=="components" {
-        component_overlap_depth(a,b,context)
-    } else {primitive_overlap_depth(a,b,context)}
-}
-
-fn checkpoint_target_box(target:&str, primitives:&[WorkingPrimitive])->Option<Box2> {
-    let component=target.strip_prefix("component:");
-    let block=target.strip_prefix("block:");
-    if component.is_none() && block.is_none() {return None;}
-    let boxes:Vec<_>=primitives.iter().flat_map(|p| p.components.iter()).filter(|(_,c)|
-        component==Some(c.designator.as_ref()) || block==Some(c.block_name.as_ref()))
-        .map(|(_,c)| c.score_box.unwrap_or(c.body_box)).collect();
-    (!boxes.is_empty()).then(||union_boxes(&boxes))
 }
 
 fn external_port_exposure_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f32 {

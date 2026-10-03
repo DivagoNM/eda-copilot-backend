@@ -1,6 +1,6 @@
 import * as fp from '../../f32.ts';
 import type { Box, PcbComponent, Placement, PlacementInput } from '#types/pcb/layout-model.ts';
-import { isConnectedSignalName, isPowerSignalName } from '#utils/signals.ts';
+import { isConnectedSignalName } from '#utils/signals.ts';
 import { boardBox, getBox, getPadWorld, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { placementPadCrossingWeight } from '../block-policy.ts';
 import { expandHints } from '../../pcb-auto-place/hints.ts';
@@ -146,7 +146,7 @@ function pathPort(
 }
 
 function netSignalWeight(net: string) {
-    return isPowerSignalName(net) ? 0.25 : 1;
+    return /^(?:VBUS|VCC|VDD|VIN|BAT|AVDD|DVDD|IOVDD|ADC_AVDD|VREG|[+]\w+)/i.test(net) ? 0.25 : 1;
 }
 
 function targetContainsDesignator(target: { type: string; designator?: string }, designator: string) {

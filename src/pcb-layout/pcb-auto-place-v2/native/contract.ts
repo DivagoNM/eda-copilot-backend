@@ -115,7 +115,6 @@ export interface NativePrimitive {
 }
 
 export interface NativeRelation {
-    score?: { kind: 'distance' | 'clearance' | 'same_side' | 'prefer_layer' | 'none'; weight: number; min?: number; max?: number; layer?: Layer };
     id: string;
     kind: PlacementRelationKind;
     from: string;
@@ -243,7 +242,6 @@ export interface NativeBoardPackerAddon {
 }
 
 export interface NativeBlockComponentGeometry extends NativeComponentGeometry {
-    scoreBox?: Box;
     pinCount: number;
     role?: string;
     powerComponent: boolean;
@@ -252,16 +250,12 @@ export interface NativeBlockComponentGeometry extends NativeComponentGeometry {
 export interface NativeBlockPairSeed { primitive: NativePrimitive; rotation: number }
 
 export interface NativeBlockSolveProblemV4 {
-    /** Same signal/power classification as checkpoint scoring (unit or quarter weight). */
-    netWeights?: Record<string, number>;
     deferPairs?: boolean;
     pairSeed?: NativeBlockPairSeed[];
     world?: { outline: Point[]; bounds: Box; edgeClearance: number;
         obstacles: Array<{designator: string; layer?: Layer; box: Box; clearance: number}> };
     /** Opt-in research controls; deliberately not exposed by the placement DSL. */
     experiments?: {
-        /** Use the checkpoint electrical/compactness scale during existing search stages. */
-        alignedScore?: boolean;
         routingMetric?: 'micro' | 'off' | 'geometric';
         ignoredNets?: string[];
         keepDenseAccess?: boolean;

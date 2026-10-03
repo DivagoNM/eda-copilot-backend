@@ -8,7 +8,7 @@ export function placementPadCrossingWeight() { return 180; }
  * in the native input/cache; obsolete A/B environment switches are not read. */
 export function blockPolicy(ignoredNets: string[] = []) {
     const experiments: BlockExperiments = {
-        alignedScore: true, netCandidates: true, stableNetWeight: true, reducedHull: true, smoothAspect: true,
+        netCandidates: true, stableNetWeight: true, reducedHull: true, smoothAspect: true,
         frontierOrder: true, padOwnerCandidates: true, localAccess: true,
         orderEqualCritical: true, orderCoreAffinity: true, orderBranching: true, orderScarcity: true,
         candidateClearance: true, candidateRings: true, padCrossings: true,

@@ -111,8 +111,6 @@ pub struct EdgePlaceIntent {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Relation {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub score: Option<RelationScore>,
     pub id: Arc<str>,
     pub kind: Arc<str>,
     pub from: Arc<str>,
@@ -131,15 +129,6 @@ pub struct Relation {
     pub path_shape: Option<Arc<str>>,
     #[serde(default)]
     pub prefer_facing_pads: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RelationScore {
-    pub kind: Arc<str>,
-    pub weight: f32,
-    pub min: Option<f32>,
-    pub max: Option<f32>,
-    pub layer: Option<Arc<str>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -179,8 +168,6 @@ pub struct BoardOverflow {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockComponentGeometry {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub score_box: Option<Box2>,
     pub designator: Arc<str>,
     pub primitive_id: Arc<str>,
     pub block_name: Arc<str>,
@@ -195,8 +182,6 @@ pub struct BlockComponentGeometry {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockSolveProblem {
-    #[serde(default)]
-    pub net_weights: std::collections::BTreeMap<Arc<str>,f32>,
     #[serde(default)]
     pub defer_pairs: bool,
     /// Resume only pair refinement from this ordered checkpoint (no new beam).
@@ -252,7 +237,6 @@ pub struct BlockWorldObstacle {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct BlockExperiments {
-    pub aligned_score: bool,
     pub routing_metric: BlockRoutingMetric,
     pub ignored_nets: Vec<Arc<str>>,
     pub keep_dense_access: bool,
@@ -608,20 +592,6 @@ impl BlockSolveProblem {
         }
         finite(self.grid, "grid")?;
         finite(self.clearance, "clearance")?;
-        if self.net_weights.values().any(|w| *w!=0.25 && *w!=1.0) {
-            return Err("block net weights must be unit or quarter weights".into());
-        }
-        for r in &self.relations {
-            if let Some(s)=&r.score {
-                if !matches!(s.kind.as_ref(),"none"|"distance"|"clearance"|"same_side"|"prefer_layer") || !s.weight.is_finite() || s.weight<0.0
-                    || s.min.is_some_and(|v|!v.is_finite()||v<0.0) || s.max.is_some_and(|v|!v.is_finite()||v<0.0) {
-                    return Err("invalid block checkpoint scoring rule".into());
-                }
-            }
-        }
-        if self.components.iter().any(|c| c.score_box.is_some_and(|b|!is_finite_box(&b))) {
-            return Err("invalid block checkpoint component bounds".into());
-        }
         for obstacle in &self.routing_obstacles {
             if !is_finite_box(&obstacle.box_) || obstacle.box_.left > obstacle.box_.right || obstacle.box_.top > obstacle.box_.bottom {
                 return Err("routing obstacle has invalid bounds".into());

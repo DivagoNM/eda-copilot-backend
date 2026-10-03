@@ -10,8 +10,6 @@ import type { PlacementPrimitive } from './primitives.ts';
 
 /** Input contract for the Rust block solver. Search and scoring live in the native crate. */
 export interface BlockSolverOptions {
-    /** Authored input for the same scoped numeric hints used by checkpoint scoring. */
-    scoreInput?: import('#types/pcb/layout-model.ts').PlacementInput;
     /** Real board frame for a family with fixed mechanical anchors. */
     worldInput?: import('#types/pcb/layout-model.ts').PlacementInput;
     experiments?: import('./block-policy.ts').BlockExperiments;
