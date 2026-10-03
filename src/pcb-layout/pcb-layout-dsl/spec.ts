@@ -1253,9 +1253,8 @@ class PcbLayoutDslBuilder {
                     `Expected segment ${index} to leave ${previous.target.designator}, got ${current.source.designator}.`,
                 ].join(" "));
             }
-            if (String(previous.target.pin_number) === String(current.source.pin_number)) {
-                throw new Error(`signalPath("${name}") stage ${previous.target.designator} must use different entry and exit pins.`);
-            }
+            // The same pin is a waypoint on one net; distinct pins describe a
+            // pass-through component. Both retain the two external segments.
         }
 
         this.paths.set(name, {

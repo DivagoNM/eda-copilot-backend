@@ -80,8 +80,9 @@ test.describe('post-place refinement', () => {
             hard: true,
         });
 
-        const result = refinePostPlacement(input, pairPlacements());
+        const result = loadNativeBoardPacker().refinePostPlacement(encodeNativePostPlaceRefineProblem(input, pairPlacements(), 1));
 
+        assert.equal(refinePostPlacement(input, pairPlacements()).diagnostics.length, 0, 'final threshold suppresses this small opportunity');
         assert.deepEqual(result.placements, pairPlacements());
         assert.equal(result.moves.length, 0);
         assert.equal(result.diagnostics.length, 1);
@@ -462,7 +463,7 @@ test('whole refinement crosses the native boundary once and preserves caller dat
         prepareRouteLayoutComparison: addon.prepareRouteLayoutComparison, compareRouteLayoutCandidate: addon.compareRouteLayoutCandidate };
     let calls = 0;
     try {
-        addon.refinePostPlacement = problem => { calls++; return original.refinePostPlacement(problem); };
+        addon.refinePostPlacement = problem => { calls++; assert.equal(problem.minDelta, 100); return original.refinePostPlacement(problem); };
         const unexpected = () => { throw new Error('Per-candidate native boundary must not be used'); };
         addon.scorePostPlace = unexpected;
         addon.prepareRouteLayoutComparison = unexpected;

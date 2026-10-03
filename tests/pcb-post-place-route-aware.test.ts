@@ -6,6 +6,8 @@ import test from 'node:test';
 import { refinePostPlacementAsync, refinePostPlacement, globalPostPlaceScore } from '../src/pcb-layout/pcb-auto-place-v2/post-place-refiner.ts';
 import { defaultSolverOptions } from '../src/pcb-layout/pcb-auto-place/utils.ts';
 import type { FootprintSpec, PcbComponent, Placement, PlacementInput } from '../src/types/pcb/layout-model.ts';
+import { loadNativeBoardPacker } from '../src/pcb-layout/pcb-auto-place-v2/native/load-native-board-packer.ts';
+import { encodeNativePostPlaceRefineProblem } from '../src/pcb-layout/pcb-auto-place-v2/native/encode-post-place-refine.ts';
 
 test('post-place swap can be selected purely by Micro-A* routability', () => {
     const input = routeAwareSwapInput();
@@ -19,13 +21,15 @@ test('post-place swap can be selected purely by Micro-A* routability', () => {
     // Euclidean/global post-place scoring sees the assignments as symmetric.
     assert.ok(Math.abs(globalPostPlaceScore(input, before) - globalPostPlaceScore(input, swapped)) < 0.001);
 
-    const result = refinePostPlacement(input, before);
+    const result = loadNativeBoardPacker().refinePostPlacement(encodeNativePostPlaceRefineProblem(input, before, 1));
     const move = result.moves.find((candidate) => candidate.kind === 'swap');
     assert.ok(move, 'route-aware refinement should choose the A/B swap');
     assert.equal(placement(result.placements, 'A').x, 2);
     assert.equal(placement(result.placements, 'B').x, -2);
     assert.ok(move.routePenaltyBefore > move.routePenaltyAfter, JSON.stringify(move));
     assert.ok(move.effectiveImprovement > 0);
+    assert.ok(move.effectiveImprovement < 100);
+    assert.deepEqual(refinePostPlacement(input, before).placements, before, 'final post-place rejects this sub-100 route-only gain');
 });
 
 function routeAwareSwapInput(): PlacementInput {

@@ -11,6 +11,41 @@ import type { ExplainCircuit } from '../src/types/circuit.ts';
 import type { FootprintSpec, PlacementInput, PlacementRelation } from '../src/types/pcb/layout-model.ts';
 
 test.describe('ordered signal-path placement', () => {
+    test('accepts a same-pad waypoint and preserves both external segments', async () => {
+        const circuit = pathCircuit();
+        circuit.components.find(c => c.designator === 'U1')!.pins[0].signal_name = 'RF_IN';
+        const rules = runPcbLayoutDsl(`${baseDsl()}
+            signalPath("protection", [[pin("IN1", "2"), pin("C1", "1")],
+                [pin("C1", "1"), pin("U1", "1")]], {priority:"high"});
+        `);
+        validatePlacementRulesForCircuit(circuit, rules);
+        const input = await buildPlacementInput(circuit, rules, footprintMap(circuit));
+        assert.equal(input.paths![0].stages[0].entryPin, '1');
+        assert.equal(input.paths![0].stages[0].exitPin, '1');
+        assert.equal(buildPlacementGraph(input).relations.filter(r => r.data?.pathId === 'protection').length, 2);
+        circuit.components.find(c => c.designator === 'U1')!.pins[0].signal_name = 'OTHER';
+        assert.throws(() => validatePlacementRulesForCircuit(circuit, rules), /net "RF_IN".*net "OTHER"/);
+    });
+
+    test('same-pad waypoint has no internal turn and remains a movable bridge', () => {
+        const straight = pathPrimitive('straight', [[0,0],[4,0],[4,0],[8,0]]);
+        straight.pathPorts![2].ref = straight.pathPorts![1].ref;
+        straight.pathPorts![2].normal = straight.pathPorts![1].normal;
+        const score = evaluateSignalPathTopology([straight], [pathRelation()])[0];
+        assert.equal(score.pathDistance, 8);
+        assert.equal(score.turns, 0);
+        assert.equal(score.detour, 0);
+        const bent = pathPrimitive('bent', [[0,0],[4,3],[4,3],[8,0]]);
+        bent.pathPorts![2].ref = bent.pathPorts![1].ref;
+        bent.pathPorts![2].normal = bent.pathPorts![1].normal;
+        assert.ok(evaluateSignalPathTopology([bent], [pathRelation()])[0].penalty > score.penalty);
+        const moving = pathPrimitive('moving', [[4,3],[4,3]], 1);
+        moving.pathPorts![1].ref = moving.pathPorts![0].ref;
+        moving.pathPorts![1].normal = moving.pathPorts![0].normal;
+        const deltas = signalPathBridgeDeltas(moving, [pathPrimitive('a', [[0,0]], 0), pathPrimitive('b', [[8,0]], 3)]);
+        assert.ok(deltas.some(d => Math.abs(d.y + 3) < .001));
+    });
+
     test('compiles the DSL with existing pin aliases and per-segment overrides', () => {
         const rules = runPcbLayoutDsl(`
             signalPath("rf_main", [

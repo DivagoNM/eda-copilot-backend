@@ -107,12 +107,10 @@ block("can_termination", ["R11", "JP1"], "generic", { anchor: comp("J4") });
 bypass(["C18"], pin("U4", "3"), "high");
 bypass(["C19"], pin("U4", "5"), "high");
 near(comp("C20"), pin("U4", "3"), "high");
-criticalPair(pin("D4", "1"), pin("J4", "1"), { maxDistance: 5, priority: "high", hard: false });
-criticalPair(pin("D4", "2"), pin("J4", "2"), { maxDistance: 5, priority: "high", hard: false });
 criticalPair(pin("R11", "1"), pin("U4", "7"), { maxDistance: 7, priority: "high", hard: false });
 criticalPair(pin("JP1", "2"), pin("U4", "6"), { maxDistance: 7, priority: "high", hard: false });
-signalPath("can_h", [[pin("U4", "7"), pin("J4", "1")]], { priority: "high" });
-signalPath("can_l", [[pin("U4", "6"), pin("J4", "2")]], { priority: "high" });
+signalPath("can_h", [[pin("U4", "7"), pin("D4", "1")], [pin("D4", "1"), pin("J4", "1"), { maxDistance: 5 }]], { priority: "high" });
+signalPath("can_l", [[pin("U4", "6"), pin("D4", "2")], [pin("D4", "2"), pin("J4", "2"), { maxDistance: 5 }]], { priority: "high" });
 
 // RS485: shared DE/RE control, defaults and local 3.3 V supply.
 block("rs485", ["U5", "R14", "R15", "R16", "C21", "C22"], "generic", { anchor: comp("J5") });
@@ -120,12 +118,10 @@ block("rs485_protection", ["D5"], "generic", { anchor: comp("J5") });
 block("rs485_termination", ["R12", "JP2"], "generic", { anchor: comp("J5") });
 bypass(["C21"], pin("U5", "8"), "high");
 near(comp("C22"), pin("U5", "8"), "high");
-criticalPair(pin("D5", "1"), pin("J5", "1"), { maxDistance: 5, priority: "high", hard: false });
-criticalPair(pin("D5", "2"), pin("J5", "2"), { maxDistance: 5, priority: "high", hard: false });
 criticalPair(pin("R12", "1"), pin("U5", "6"), { maxDistance: 7, priority: "high", hard: false });
 criticalPair(pin("JP2", "2"), pin("U5", "7"), { maxDistance: 7, priority: "high", hard: false });
-signalPath("rs485_a", [[pin("U5", "6"), pin("J5", "1")]], { priority: "high" });
-signalPath("rs485_b", [[pin("U5", "7"), pin("J5", "2")]], { priority: "high" });
+signalPath("rs485_a", [[pin("U5", "6"), pin("D5", "1")], [pin("D5", "1"), pin("J5", "1"), { maxDistance: 5 }]], { priority: "high" });
+signalPath("rs485_b", [[pin("U5", "7"), pin("D5", "2")], [pin("D5", "2"), pin("J5", "2"), { maxDistance: 5 }]], { priority: "high" });
 
 for (const ref of ["U1", "U2", "U3", "U4", "U5", "X1"]) component(ref).role("main_ic").top();
 for (let i = 1; i <= 22; i++) component(`C${i}`).role(i === 4 || i === 16 || i === 17 ? "passive" : "decoupling_cap").top();

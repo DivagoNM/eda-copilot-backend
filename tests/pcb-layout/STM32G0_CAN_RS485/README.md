@@ -11,6 +11,11 @@ The placement DSL covers protected input power, the asynchronous 5 V buck and fe
 
 The 5 mm U1.SW-to-L1 pad distance is hard. Other electrical distance goals are soft and remain visible in the placement report. These are placement rules, including 0.35 mm body clearance and 0.5 mm board edge clearance; they do not configure native EasyEDA copper DRC, create routing or establish impedance compliance.
 
+CAN_H/CAN_L signal paths explicitly pass through D4.1/D4.2; RS485 A/B pass through
+D5.1/D5.2. Consecutive segments repeat the protection pad as a same-net waypoint,
+not as a two-pin series component. Protection-to-connector segments retain the
+soft 5 mm limit; duplicate criticalPair rules for those segments are removed.
+
 From the backend root, validate the DSL, complete block ownership, resolved part references and electrical pin/net pairs without resolving footprints or running placement:
 
 ```powershell

@@ -8,6 +8,10 @@
 
 ### PCB layout
 
+- Require more than 100 units of effective improvement in final post-place refinement. Preserve local block thresholds and the existing Micro-A* routing evaluation.
+
+- Allow consecutive signalPath segments to share the same intermediate pad as a same-net waypoint. Preserve net/continuity validation and reuse native zero-length-edge handling. Route the STM32 fixture's CAN and RS485 placement paths through D4/D5, retaining the soft 5 mm protection-to-connector limits without duplicate criticalPair rules.
+
 - Preserve each grouped/released block hypothesis's relation endpoints when evaluating checkpoints, pair seeds, and postrefined candidates. Released satellite anchors must not disappear during portfolio selection; keep canonical component roles and existing search budgets/weights.
 
 - Make Rust authoritative for PCB placement scoring: use the block search evaluator for checkpoint selection and the board packer evaluator for board portfolios; reuse native spacing/alignment and MST measurements. Move remaining island/orientation/quality criteria into Rust, obtain net classification and default weights from Rust, and require the native score API contract. Restore the original CPU/GPU compactness costs. Preserve the preceding power-spread and passive-to-IC stretch changes; document retired TypeScript formulas and stage boundaries in docs/experimental/pcb/rust-score-authority/README.md.

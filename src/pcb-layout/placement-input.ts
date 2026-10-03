@@ -875,8 +875,6 @@ function collectSignalPathErrors(circuit: ExplainCircuit, rules: PlacementRules)
             const previous = path.segments[index - 1];
             if (previous.target.designator !== segment.source.designator) {
                 errors.push(`${label} is discontinuous between segments ${index - 1} and ${index}: expected a stage on ${previous.target.designator}, got ${segment.source.designator}.`);
-            } else if (String(previous.target.pin_number) === String(segment.source.pin_number)) {
-                errors.push(`${label} stage ${segment.source.designator} must use different entry and exit pins.`);
             }
         }
     }
