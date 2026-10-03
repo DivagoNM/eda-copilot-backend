@@ -202,6 +202,25 @@ export interface NativeBlockSolveSolutionV4 extends NativePrimitivePackSolution 
 }
 
 export interface NativeBoardPackerAddon {
+    evaluateBlockQuality(problem: NativeBlockSolveProblemV4): import('../block-quality.ts').BlockQuality;
+    evaluateBoardQuality(problem: NativeBoardPackProblemV7): { rank: NativePrimitivePackSolution['rank']; spacing: number; alignment: number };
+    scoreBoardSpacing(problem: NativeBoardPackProblemV7): number;
+    scoreBoardAlignment(primitives: NativePrimitive[], policy: import('../board-alignment.ts').BoardSoftAlignment): number;
+    placementScoreSum(scores: number[]): number;
+    postPlaceNetLengths(problem: NativePostPlaceScoreProblemV1): number[];
+    placementNetWeights(names: string[], board: boolean): number[];
+    placementNetClass(name: string): {ground: boolean; power: boolean; switching: boolean};
+    placementOrientationWeight(problem: {kind: 'external'; role: string; net: string} | {kind: 'side'; hard: boolean; gap?: number}): number;
+    placementPadCrossingWeight(): number;
+    placementLayerPenalties(terms: Array<[number, boolean]>): number[];
+    placementScoreContractVersion(): number;
+    placementSpacingPolicy(measurements: [number, number]): {gap: number; compactnessScale: number; density: number};
+    placementAlignmentPolicy(pairCount: number, normalize: boolean): {weight: number; tolerance: number; orientationWeight: number};
+    placementBlockSimilarity(problem: {nodesA: Array<[string, number]>; nodesB: Array<[string, number]>; edgesA: Array<[string, number]>; edgesB: Array<[string, number]>; dimensions?: [number, number, number, number]}): number;
+    scoreIslandQuality(problem: import('./placement-quality.ts').NativeIslandQuality): number;
+    scorePlacementOrientation(problem: import('./placement-quality.ts').NativeOrientationQuality): number;
+    compareBlockQuality(a: import('../block-quality.ts').BlockQuality, b: import('../block-quality.ts').BlockQuality, kind: 'comparable' | 'dominates' | 'near'): boolean;
+    boardElectricalRegression(before: { score: number; lengths: number[] }, after: { score: number; lengths: number[] }): string | null;
     numericContract?: () => string;
     contractVersion(): number;
     solveBoardPacked(problem: NativeBoardPackProblemV7): NativeBoardPackSolutionV7;

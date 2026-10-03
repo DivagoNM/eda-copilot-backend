@@ -1,6 +1,8 @@
+import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
+import { encodeBoardQualityProblem } from './native/evaluate-board-quality.ts';
 import * as fp from '../f32.ts';
-import type { Box, Layer, PcbComponent, PlacementInput, TargetRef } from '#types/pcb/layout-model.ts';
-import { componentBodyBox, componentCollisionBoxes, boardHoleKeepoutRadius, pointInBoard, boxGap } from '../pcb-auto-place/geometry.ts';
+import type { Box, PlacementInput, TargetRef } from '#types/pcb/layout-model.ts';
+import { componentBodyBox, componentCollisionBoxes, boardHoleKeepoutRadius, pointInBoard } from '../pcb-auto-place/geometry.ts';
 import type { PlacementPrimitive } from './primitives.ts';
 
 export function boardSpacingExemptPairs(input: PlacementInput, roots: PlacementPrimitive[]): Array<[string,string]> {
@@ -40,41 +42,10 @@ export function boardSpacingPolicy(input: PlacementInput) {
         if((input.constraintRegions ?? []).some(r=>r.layers.includes(layer)&&p.x>=r.box.left&&p.x<=r.box.right&&p.y>=r.box.top&&p.y<=r.box.bottom)) continue;
         usable++;
     }
-    const density=fp.div(occupied, fp.max(1, fp.div(fp.mul(fp.mul(usable, width), height), (fp.mul(samples, samples)))));
-    const freedom=fp.max(0, fp.min(1, fp.div((fp.sub(.60, density)), .35)));
-    return {gap:fp.mul(3, freedom), compactnessScale:fp.sub(1, fp.mul(.9, freedom)), density};
+    return loadNativeBoardPacker().placementSpacingPolicy([occupied, fp.div(fp.mul(fp.mul(usable, width), height), fp.mul(samples, samples))]);
 }
 
 /** Same pair penalty as the native board objective. No reward beyond the gap. */
 export function boardSpacingPenalty(input: PlacementInput, roots: PlacementPrimitive[], gap=boardSpacingPolicy(input).gap) {
-    if(gap<=0)return 0;
-    let score=0;
-    const exempt=boardSpacingExemptPairs(input,roots);
-    const components=new Map(input.components.map(component=>[component.designator,component]));
-    const envelopes=new Map(roots.map(root=>[root.id,{
-        top:primitiveLayerBox(components,root,'top'),bottom:primitiveLayerBox(components,root,'bottom'),
-    }]));
-    for(let i=0;i<roots.length;i++)for(let j=i+1;j<roots.length;j++) {
-        const a=roots[i],b=roots[j];
-        if(exempt.some(([x,y])=>x===a.id&&y===b.id||x===b.id&&y===a.id))continue;
-        if(a.locked&&b.locked)continue;
-        const distances=(['top','bottom'] as Layer[]).flatMap(layer=>{
-            const x=envelopes.get(a.id)?.[layer],y=envelopes.get(b.id)?.[layer];
-            return x&&y?[boxGap(x,y)]:[];
-        });
-        if(!distances.length)continue;
-        const deficit=fp.max(0, fp.sub(fp.add(input.board.clearances.component, gap), fp.min(...distances)));
-        score = fp.add(score, fp.mul(fp.mul(18, deficit), deficit));
-    }
-    return score;
-}
-
-function primitiveLayerBox(components: Map<string,PcbComponent>, primitive: PlacementPrimitive, layer: Layer): Box | undefined {
-    const boxes=primitive.placements.flatMap(placement=>{
-        const component=components.get(placement.designator);
-        return component?componentCollisionBoxes(component,placement,layer):[];
-    });
-    if(!boxes.length)return undefined;
-    return {left:fp.min(...boxes.map(box=>box.left)),right:fp.max(...boxes.map(box=>box.right)),
-        top:fp.min(...boxes.map(box=>box.top)),bottom:fp.max(...boxes.map(box=>box.bottom))};
+    return loadNativeBoardPacker().scoreBoardSpacing(encodeBoardQualityProblem(input, roots, undefined, undefined, gap, true));
 }

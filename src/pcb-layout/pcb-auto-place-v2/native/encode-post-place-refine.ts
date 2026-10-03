@@ -1,3 +1,4 @@
+import { loadNativeBoardPacker } from './load-native-board-packer.ts';
 import * as fp from '../../f32.ts';
 import type { PlacementInput, Placement, TargetRef, Point } from '#types/pcb/layout-model.ts';
 import { normalizeRotation } from '#utils/math.ts';
@@ -91,7 +92,8 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
     for (const [i, c] of components.entries()) for (const pin of c.pins) if (!ignored.has(pin.net.toUpperCase())) {
         const list = netPoints.get(pin.net) ?? []; list.push({ component: i, pad: pin.pad }); netPoints.set(pin.net, list);
     }
-    const nets = [...netPoints].map(([name, points]) => ({ name, points, weight: /^(?:VBUS|VCC|VDD|VIN|BAT|AVDD|DVDD|IOVDD|ADC_AVDD|VREG|[+]\w+)/i.test(name) ? 0.25 : 1 }));
+    const weights = loadNativeBoardPacker().placementNetWeights([...netPoints.keys()], false);
+    const nets = [...netPoints].map(([name, points], index) => ({ name, points, weight: weights[index] }));
     const hints = expandHints(input).map(h => ({ ...h, source: target(h.source), target: target(h.target), all: h.target === 'all', weight: fp.max(1, h.weight) }));
     const hierarchy: Array<{ key: string; source: RefineTarget; maxWidth?: number | null; maxHeight?: number | null; anchor?: RefineTarget; offset?: Point; maxGap?: number }> = [];
     for (const b of input.blocks) {

@@ -135,6 +135,7 @@ struct Context {
     problem: BlockSolveProblem,
     relations: Vec<CompiledRelation>,
     net_ground: Vec<bool>,
+    net_weights: Vec<f32>,
     net_signal: Vec<bool>,
     evaluation_cache: RefCell<FxHashMap<Vec<PrimitivePoseKey>, Evaluation>>,
     net_scoring_scratch: RefCell<NetScoringScratch>,
@@ -244,7 +245,7 @@ pub fn solve_block(problem: BlockSolveProblem) -> Result<crate::model::BlockSolv
     }
     solve_block_inner(problem,false)
 }
-fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<crate::model::BlockSolveSolution, String> {
+fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<WorkingPrimitive>, Context) {
     let primitive_ids = lexical_ids(
         problem
             .primitives
@@ -332,6 +333,8 @@ fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<cr
         (layer, core)
     }).collect()).collect();
     let mut net_signal = vec![false; net_ids.len()];
+    let mut net_weights = vec![1.0; net_ids.len()];
+    for (net, id) in &net_ids { net_weights[*id as usize] = if is_power(net) { 0.25 } else { 1.0 }; }
     for (net, id) in &net_ids { net_signal[*id as usize] = !(is_ground(net) || is_power(net) || is_switching_power(net)); }
     let context = Context {
         #[cfg(feature = "gpu")]
@@ -339,7 +342,7 @@ fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<cr
         #[cfg(feature = "gpu")]
         gpu_engine: Default::default(),
         corridor_cache: Default::default(), escape_cache: Default::default(),
-        net_signal,
+        net_signal, net_weights,
         pad_nets: RefCell::new(pad_nets), pad_net_indices, pad_point_metadata,
         pad_geometry: RefCell::new(vec![None; source_pads.len()]), source_pads,
         pad_crossings: RefCell::new(Default::default()), split_pad_cache_safe, net_endpoint_counts,
@@ -358,6 +361,11 @@ fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<cr
         validate_incremental_scoring: std::env::var_os("PCB_NATIVE_VALIDATE_INCREMENTAL_SCORING")
             .is_some_and(|value| value == "1"),
     };
+    (primitives, context)
+}
+
+fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<crate::model::BlockSolveSolution, String> {
+    let (primitives, context) = prepare_context(problem, _gpu_enabled);
     #[cfg(feature = "gpu")]
     if _gpu_enabled {
         let engine=cubecl::init(&context).unwrap_or_else(|reason|cubecl::fail(reason));
@@ -1189,6 +1197,86 @@ fn net_anchored_candidates(
     candidates
 }
 
+fn net_has_passive_ic_link(net: &str, context: &Context) -> bool {
+    let mut core = false;
+    let mut passive = false;
+    for (p, primitive) in context.problem.primitives.iter().enumerate() {
+        for (i, cp) in primitive.connection_points.iter().enumerate() {
+            if cp.net.as_deref() != Some(net) { continue; }
+            if context.pad_point_metadata[p][i].1.is_some() { core = true; } else { passive = true; }
+        }
+    }
+    core && passive
+}
+
+fn connected_pin_links(primitives: &[WorkingPrimitive], context: &Context,
+    mut visit: impl FnMut(&str, &str, f32, f32)) {
+    for p in primitives {
+        for (i, cp) in p.primitive.connection_points.iter().enumerate() {
+            let Some(net_index) = context.pad_net_indices[p.source_index][i] else { continue };
+            if context.pad_point_metadata[p.source_index][i].1.is_some() { continue; }
+            let weight = context.pad_nets.borrow()[net_index].weight;
+            for core in primitives.iter().flat_map(|p| p.components.iter().map(|(_, c)| c))
+                .filter(|c| c.role.as_deref() == Some("main_ic")) {
+                let mut nearest = f32::INFINITY;
+                for q in primitives {
+                    for (j, target) in q.primitive.connection_points.iter().enumerate() {
+                        if context.pad_net_indices[q.source_index][j] == Some(net_index)
+                            && context.pad_point_metadata[q.source_index][j].1.as_ref() == Some(&core.designator) {
+                            nearest = nearest.min(distance(Point { x: cp.x, y: cp.y }, Point { x: target.x, y: target.y }));
+                        }
+                    }
+                }
+                if nearest.is_finite() { visit(&cp.reference, &core.designator, weight, nearest); }
+            }
+        }
+    }
+}
+
+fn connected_pin_stretch(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
+    let mut score = 0.0;
+    connected_pin_links(primitives, context, |_, _, weight, d| {
+        score += weight * (6.0 * d + 32.0 * (d - 3.0).max(0.0).powi(2));
+    });
+    score
+}
+
+/// Evaluate a supplied layout with the search evaluator, without generating or
+/// moving candidates. Diagnostics are measurements, never extra score terms.
+pub fn quality(problem: BlockSolveProblem) -> Result<serde_json::Value, String> {
+    let (primitives, context) = prepare_context(problem, false);
+    let score = score_block(&primitives, &context);
+    if !score.is_finite() { return Err("block quality score is not finite".into()); }
+    let bbox = union_boxes(&primitives.iter().map(|p| p.primitive.bbox).collect::<Vec<_>>());
+    let width = bbox.right - bbox.left;
+    let height = bbox.bottom - bbox.top;
+    let mut links = std::collections::BTreeMap::new();
+    connected_pin_links(&primitives, &context, |reference, core, _, d| {
+        links.insert(format!("{reference}->{core}"), d);
+    });
+    let mut ports = std::collections::BTreeMap::new();
+    let mut wire = 0.0;
+    for net in context.pad_nets.borrow().iter() {
+        let mut measured = net.clone();
+        measured.points = primitives.iter().flat_map(|p| p.primitive.connection_points.iter())
+            .filter(|cp| cp.net.as_ref() == Some(&net.name)).map(|cp| Point { x: cp.x, y: cp.y }).collect();
+        wire += crate::post_place::net_length(&measured) * net.weight;
+    }
+    for cp in primitives.iter().flat_map(|p| p.primitive.connection_points.iter()) {
+        if cp.net.as_ref().is_some_and(|n| context.problem.external_nets.contains(n) && !is_ground(n)) {
+            ports.insert(cp.reference.clone(), Point { x: cp.x - (bbox.left + bbox.right) / 2.0,
+                y: cp.y - (bbox.top + bbox.bottom) / 2.0 });
+        }
+    }
+    let electrical = score_block_terms(&primitives, &context, None, f32::INFINITY, 0.0, None, None, false)
+        .ok_or("unbounded block electrical score was pruned")?;
+    Ok(serde_json::json!({"score":score,"electrical":electrical,
+        "localStretch": if context.problem.experiments.long_nets { connected_pin_stretch(&primitives,&context) } else {0.0},
+        "wire":wire,"maxLocal":links.values().copied().fold(0.0,f32::max),
+        "area":width*height,"width":width,"height":height,
+        "exposure":external_port_exposure_penalty(&primitives,&context),"links":links,"ports":ports}))
+}
+
 struct LongNetFrame {
     baseline: f32,
     open: FxHashMap<Arc<str>, (u32, Point, f32)>,
@@ -1202,7 +1290,7 @@ impl LongNetFrame {
         for p in placed {
             for cp in p.primitive.connection_points.iter() {
                 let Some(net) = &cp.net else { continue };
-                if net.is_empty() || is_ground(net) || context.net_endpoint_counts.get(net) != Some(&2)
+                if net.is_empty() || is_ground(net) || net_has_passive_ic_link(net, context) || context.net_endpoint_counts.get(net) != Some(&2)
                     || context.problem.experiments.ignored_nets.iter().any(|n| n.eq_ignore_ascii_case(net)) { continue; }
                 open.insert(net.clone(), (p.id, Point { x: cp.x, y: cp.y },
                     p.primitive.width.max(p.primitive.height)));
@@ -1217,13 +1305,13 @@ impl LongNetFrame {
         let size = candidate.primitive.width.max(candidate.primitive.height);
         for cp in candidate.primitive.connection_points.iter() {
             let Some(net) = &cp.net else { continue };
-            if net.is_empty() || is_ground(net) || context.net_endpoint_counts.get(net) != Some(&2)
+            if net.is_empty() || is_ground(net) || net_has_passive_ic_link(net, context) || context.net_endpoint_counts.get(net) != Some(&2)
                 || context.problem.experiments.ignored_nets.iter().any(|n| n.eq_ignore_ascii_case(net)) { continue; }
             let Some(&(id, point, old_size)) = self.open.get(net) else { continue };
             if id == candidate.id { continue; }
             let scale = ((old_size + size) * 0.5 + context.problem.clearance).max(1.0);
             let excess = (distance(point, Point { x: cp.x, y: cp.y }) - scale).max(0.0);
-            result += excess * excess / scale * 12.0;
+            result += excess * excess / scale * 12.0 * if is_power(net) { 0.25 } else { 1.0 };
         }
         result
     }
@@ -1237,19 +1325,19 @@ fn long_local_net_penalty(primitives: &[WorkingPrimitive], context: &Context) ->
     for p in primitives {
         for cp in p.primitive.connection_points.iter() {
             let Some(n) = &cp.net else { continue };
-            if n.is_empty() || is_ground(n) || counts.get(n) != Some(&2)
+            if n.is_empty() || is_ground(n) || net_has_passive_ic_link(n, context) || counts.get(n) != Some(&2)
                 || context.problem.experiments.ignored_nets.iter().any(|ignored| ignored.eq_ignore_ascii_case(n)) { continue; }
             nets.entry(n.clone()).or_default().push((p.id, Point { x: cp.x, y: cp.y }));
         }
     }
-    nets.values().filter(|v| v.len() == 2 && v[0].0 != v[1].0)
-        .map(|v| {
+    nets.iter().filter(|(_, v)| v.len() == 2 && v[0].0 != v[1].0)
+        .map(|(net, v)| {
             let a = primitives.iter().find(|p| p.id == v[0].0).unwrap();
             let b = primitives.iter().find(|p| p.id == v[1].0).unwrap();
             let scale = ((a.primitive.width.max(a.primitive.height) + b.primitive.width.max(b.primitive.height)) * 0.5
                 + context.problem.clearance).max(1.0);
             let excess = (distance(v[0].1, v[1].1) - scale).max(0.0);
-            excess * excess / scale * 12.0
+            excess * excess / scale * 12.0 * if is_power(net) { 0.25 } else { 1.0 }
         }).sum()
 }
 
@@ -2080,6 +2168,11 @@ fn score_block_with_overlap_matrix(
 
 fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primitive_overlap_depths: Option<&[f32]>, ceiling: f32,
     cached_roundoff: f32, power_frame: Option<&PowerYieldFrame<'_>>, long_net_frame: Option<&LongNetFrame>) -> Option<f32> {
+    score_block_terms(primitives, context, primitive_overlap_depths, ceiling, cached_roundoff, power_frame, long_net_frame, true)
+}
+
+fn score_block_terms(primitives: &[WorkingPrimitive], context: &Context, primitive_overlap_depths: Option<&[f32]>, ceiling: f32,
+    cached_roundoff: f32, power_frame: Option<&PowerYieldFrame<'_>>, long_net_frame: Option<&LongNetFrame>, include_geometry: bool) -> Option<f32> {
     let _span = context.detail.span("score_block_with_overlap_matrix");
     if primitives.is_empty() {
         return Some(0.0);
@@ -2127,6 +2220,9 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
     }
     score += overlap_penalty(primitives, context, primitive_overlap_depths);
     score += bounds_penalty(primitives, context.problem.bounds.as_ref());
+    // Diagnostic electrical subtotal uses the exact same native terms/weights.
+    // Geometry remains in the authoritative full search score above.
+    if !include_geometry { score = 0.0; }
     // This exact prefix is identical in cached and uncached evaluation. Every
     // subsequent contribution is nonnegative, so monotone F32 additions cannot
     // bring the full score below this prefix. Cached-sum uncertainty does not
@@ -2158,10 +2254,11 @@ fn score_block_bounded(primitives: &[WorkingPrimitive], context: &Context, primi
     );
     score += signal_spread * if small { 18.0 } else { 4.0 } * net_weight;
     score += ground_spread * if small { 2.5 } else { 0.15 } * net_weight;
-    score += target_size_penalty(width, height, context) * target_weight;
+    if include_geometry { score += target_size_penalty(width, height, context) * target_weight; }
     if context.problem.experiments.long_nets {
         score += long_net_frame.map_or_else(|| long_local_net_penalty(primitives, context),
             |frame| frame.with_candidate(primitives.last().expect("appended candidate"), context));
+        score += connected_pin_stretch(primitives, context);
     }
     if score > safe_ceiling { return None; }
     if context.problem.experiments.pad_crossings {
@@ -3005,12 +3102,13 @@ fn same_net_spread_penalties(
             accumulator.max_y = accumulator.max_y.max(point.y);
         }
     }
-    let signal_penalty = spread_penalty(accumulators, signal_order, None, None);
+    let signal_penalty = spread_penalty(accumulators, signal_order, None, None, &context.net_weights);
     let ground_penalty = spread_penalty(
         accumulators,
         ground_order,
         ground_max_points,
         ground_max_spread,
+        &context.net_weights,
     );
     (signal_penalty, ground_penalty)
 }
@@ -3020,6 +3118,7 @@ fn spread_penalty(
     order: &[usize],
     max_points: Option<usize>,
     max_spread: Option<f32>,
+    weights: &[f32],
 ) -> f32 {
     let mut penalty = 0.0;
     for &net_index in order {
@@ -3033,7 +3132,7 @@ fn spread_penalty(
         {
             continue;
         }
-        penalty += spread;
+        penalty += spread * weights[net_index];
     }
     penalty
 }
@@ -3702,7 +3801,7 @@ fn segment_box_distance(a: Point, b: Point, box_: &Box2) -> f32 {
     }
     best
 }
-fn segment_intersects_box(a: Point, b: Point, box_: &Box2) -> bool {
+pub(crate) fn segment_intersects_box(a: Point, b: Point, box_: &Box2) -> bool {
     if point_inside_box(a, box_) || point_inside_box(b, box_) {
         return true;
     }
@@ -3857,7 +3956,7 @@ mod candidate_tests {
             corridor_cache: Default::default(), escape_cache: Default::default(),
             detail: Default::default(), source_pads: vec![], pad_geometry: Default::default(),
             pad_crossings: Default::default(), split_pad_cache_safe: true, net_endpoint_counts: Default::default(),
-            net_signal: vec![], pad_nets: Default::default(), pad_net_indices: vec![], pad_point_metadata: vec![],
+            net_signal: vec![], net_weights: vec![], pad_nets: Default::default(), pad_net_indices: vec![], pad_point_metadata: vec![],
             evaluation_cache: RefCell::new(FxHashMap::default()),
             net_scoring_scratch: RefCell::new(NetScoringScratch {
                 accumulators: vec![], signal_order: vec![], ground_order: vec![] }),

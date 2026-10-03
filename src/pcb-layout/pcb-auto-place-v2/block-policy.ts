@@ -1,8 +1,9 @@
 import type { NativeBlockSolveProblemV4 } from './native/contract.ts';
+import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 
 export type BlockExperiments = NonNullable<NativeBlockSolveProblemV4['experiments']>;
 
-export function placementPadCrossingWeight() { return 180; }
+export function placementPadCrossingWeight() { return loadNativeBoardPacker().placementPadCrossingWeight(); }
 
 /** One production policy on the research branch. Search parameters are explicit
  * in the native input/cache; obsolete A/B environment switches are not read. */

@@ -1,3 +1,4 @@
+import { loadNativeBoardPacker } from './load-native-board-packer.ts';
 import * as fp from '../../f32.ts';
 import type { Box, PcbComponent, Placement, PlacementInput } from '#types/pcb/layout-model.ts';
 import { isConnectedSignalName } from '#utils/signals.ts';
@@ -52,10 +53,11 @@ export function encodeNativePostPlaceScoreProblem(
         }
     }
 
+    const weights = loadNativeBoardPacker().placementNetWeights([...pointsByNet.keys()], false);
     const result: NativePostPlaceScoreProblemV1 = {
         version: NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION,
         padCrossingWeight: placementPadCrossingWeight(), routingObstacles,
-        nets: [...pointsByNet.entries()].map(([name, points]) => ({ name, points, layers: layersByNet.get(name), internalOwners: ownersByNet.get(name), weight: netSignalWeight(name) })),
+        nets: [...pointsByNet.entries()].map(([name, points], index) => ({ name, points, layers: layersByNet.get(name), internalOwners: ownersByNet.get(name), weight: weights[index] })),
         distances: [],
         clearances: [],
         fixedPenalties: [],
@@ -63,6 +65,7 @@ export function encodeNativePostPlaceScoreProblem(
         paths: [],
     };
 
+    const layerTerms: Array<[number, boolean]> = [];
     for (const rule of expandHints(input)) {
         const weight = fp.max(1, rule.weight);
         if (rule.kind === 'distance' && rule.target && rule.target !== 'all') {
@@ -88,11 +91,11 @@ export function encodeNativePostPlaceScoreProblem(
             && rule.source.type === 'component' && rule.target.type === 'component') {
             const source = placementByDesignator.get(rule.source.designator);
             const target = placementByDesignator.get(rule.target.designator);
-            if (source && target && source.layer !== target.layer) result.fixedPenalties.push(fp.mul(weight, 20));
+            if (source && target && source.layer !== target.layer) layerTerms.push([weight, true]);
         }
         if (rule.kind === 'prefer_layer' && rule.source.type === 'component' && rule.layer) {
             const placement = placementByDesignator.get(rule.source.designator);
-            if (placement && placement.layer !== rule.layer) result.fixedPenalties.push(fp.mul(weight, 10));
+            if (placement && placement.layer !== rule.layer) layerTerms.push([weight, false]);
         }
         if (rule.kind === 'edge' && rule.edge) {
             const source = resolveTargetBox(input, rule.source, placementByDesignator, componentByDesignator);
@@ -117,6 +120,7 @@ export function encodeNativePostPlaceScoreProblem(
             preferFacingPads: path.preferFacingPads,
         });
     }
+    result.fixedPenalties = loadNativeBoardPacker().placementLayerPenalties(layerTerms);
     return result;
 }
 
@@ -143,10 +147,6 @@ function pathPort(
         role,
         normal: length > EPSILON ? { x: fp.div(vector.x, length), y: fp.div(vector.y, length) } : { x: 0, y: 0 },
     };
-}
-
-function netSignalWeight(net: string) {
-    return /^(?:VBUS|VCC|VDD|VIN|BAT|AVDD|DVDD|IOVDD|ADC_AVDD|VREG|[+]\w+)/i.test(net) ? 0.25 : 1;
 }
 
 function targetContainsDesignator(target: { type: string; designator?: string }, designator: string) {

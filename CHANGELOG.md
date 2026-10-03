@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Make Rust authoritative for PCB placement scoring: use the block search evaluator for checkpoint selection and the board packer evaluator for board portfolios; reuse native spacing/alignment and MST measurements. Move remaining island/orientation/quality criteria into Rust, obtain net classification and default weights from Rust, and require the native score API contract. Restore the original CPU/GPU compactness costs. Preserve the preceding power-spread and passive-to-IC stretch changes; document retired TypeScript formulas and stage boundaries in docs/experimental/pcb/rust-score-authority/README.md.
+
 - Add the live-exported STM32G0 CAN RS485 Controller 60x40 placement fixture: all 68 components across three schematic pages, functional placement DSL, electrical pin/net validation and assertions for geometry and the hard buck switch-node limit.
 
 - Supplement board local improvement with free/contact positions from separate top/bottom envelopes, preserving narrow off-grid slots and the existing coarse beam portfolio. Add actual same-layer contact repair alongside whole-block escapes. Align final report and post-place edge validation with board packing's body/opposite-face geometry, avoiding false edge errors from decorative footprint bounds.

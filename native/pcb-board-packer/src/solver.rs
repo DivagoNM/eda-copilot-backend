@@ -179,11 +179,9 @@ pub fn solve(problem: BoardPackProblem) -> Result<BoardPackSolution, String> {
 fn solve_with_threads(problem: BoardPackProblem, threads: usize) -> Result<BoardPackSolution, String> {
     solve_inner(problem,threads,#[cfg(feature = "gpu")] None)
 }
-fn solve_inner(problem: BoardPackProblem, threads: usize,
+fn prepare_context(problem: BoardPackProblem,
     #[cfg(feature = "gpu")] gpu: Option<Arc<cubecl::Control>>,
-) -> Result<BoardPackSolution, String> {
-    let profile = std::env::var_os("PCB_BOARD_PACKER_PROFILE").is_some();
-    let started = std::time::Instant::now();
+) -> (Vec<WorkingPrimitive>, Context) {
     let primitive_ids = lexical_ids(
         problem
             .primitives
@@ -221,7 +219,7 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
             .or_default()
             .push((index, component));
     }
-    let mut primitives: Vec<WorkingPrimitive> = context
+    let primitives: Vec<WorkingPrimitive> = context
         .problem
         .primitives
         .iter()
@@ -263,6 +261,28 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
             }
         })
         .collect();
+    (primitives, context)
+}
+
+pub fn quality(problem: BoardPackProblem) -> Result<serde_json::Value, String> {
+    let (primitives, context) = prepare_context(problem, #[cfg(feature = "gpu")] None);
+    let rank = state_rank(&primitives, &context);
+    if !rank.score.is_finite() { return Err("board quality score is not finite".into()); }
+    Ok(serde_json::json!({"rank":rank,"spacing":soft_spacing_penalty(&primitives,&context),
+        "alignment":soft_alignment_score(&primitives,&context)}))
+}
+
+pub fn spacing(problem: BoardPackProblem) -> f32 {
+    let (primitives, context) = prepare_context(problem, #[cfg(feature = "gpu")] None);
+    soft_spacing_penalty(&primitives, &context)
+}
+
+fn solve_inner(problem: BoardPackProblem, threads: usize,
+    #[cfg(feature = "gpu")] gpu: Option<Arc<cubecl::Control>>,
+) -> Result<BoardPackSolution, String> {
+    let profile = std::env::var_os("PCB_BOARD_PACKER_PROFILE").is_some();
+    let started = std::time::Instant::now();
+    let (mut primitives, context) = prepare_context(problem, #[cfg(feature = "gpu")] gpu);
     for primitive in &mut primitives {
         #[cfg(feature = "gpu")]
         if context.gpu.is_some() {primitive.gpu_pose=Some(compact::Pose::from_primitive(primitive));}
@@ -3053,15 +3073,24 @@ fn alignment_center(p: &WorkingPrimitive, anchor: &Option<Arc<str>>) -> Point {
 fn soft_alignment_score(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
     let _profile = context.profile.span(8);
     let Some(s) = &context.problem.soft_alignment else { return 0.0; };
+    alignment_score(primitives.iter().map(|p| &p.primitive), s)
+}
+
+fn primitive_alignment_center(p: &Primitive, anchor: &Option<Arc<str>>) -> Point {
+    anchor.as_ref().and_then(|name| p.placements.iter().find(|q| &q.designator == name))
+        .map_or_else(|| box_center(&p.bbox), |q| Point { x:q.x, y:q.y })
+}
+
+pub fn alignment_score<'a>(primitives: impl Clone + Iterator<Item=&'a Primitive>, s: &crate::model::SoftAlignment) -> f32 {
     let mut score=0.0;
     for pair in &s.pairs {
-        let Some(a)=primitives.iter().find(|p| p.primitive.id==pair.a) else { continue; };
-        let Some(b)=primitives.iter().find(|p| p.primitive.id==pair.b) else { continue; };
-        let ac=alignment_center(a,&pair.anchor_a); let bc=alignment_center(b,&pair.anchor_b);
+        let Some(a)=primitives.clone().find(|p| p.id==pair.a) else { continue; };
+        let Some(b)=primitives.clone().find(|p| p.id==pair.b) else { continue; };
+        let ac=primitive_alignment_center(a,&pair.anchor_a); let bc=primitive_alignment_center(b,&pair.anchor_b);
         let error=((ac.x-bc.x).abs().min((ac.y-bc.y).abs())-s.tolerance).max(0.0);
         score+=s.weight*pair.similarity*if error<=1.0 {error*error/2.0} else {error-0.5};
         if let Some(o) = &pair.orientation {
-            if let (Some(ap),Some(bp))=(a.primitive.placements.iter().find(|p| p.designator==o.a),b.primitive.placements.iter().find(|p| p.designator==o.b)) {
+            if let (Some(ap),Some(bp))=(a.placements.iter().find(|p| p.designator==o.a),b.placements.iter().find(|p| p.designator==o.b)) {
                 let angle=ap.rotate as f32-bp.rotate as f32-o.offset;
                 score+=s.orientation_weight*pair.similarity*(1.0-crate::rotation::cos_degrees(angle))/2.0;
             }

@@ -49,7 +49,9 @@ test('experiments are opt-in: captured USB baseline remains identical', () => {
 
 test('ignored ordinary nets produce no extra candidates (case insensitive)', () => {
     const ignoredNets = usb.problem.primitives.flatMap((p: any) => p.connectionPoints.map((cp: any) => cp.net?.toLowerCase())).filter(Boolean);
-    assert.deepEqual(solve({ netCandidates: true, ignoredNets }), solve());
+    // Hold the scoring context fixed: ignoredNets also affects the native
+    // geometric route correction, independently of candidate generation.
+    assert.deepEqual(solve({ netCandidates: true, ignoredNets }), solve({ ignoredNets }));
 });
 
 test('bounded block neighbourhoods preserve hard legality', () => {

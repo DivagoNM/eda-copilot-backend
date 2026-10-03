@@ -1,6 +1,6 @@
+import { placementNetClass } from './net-class.ts';
 import * as fp from '../../f32.ts';
 import type { PcbComponent, Placement } from '#types/pcb/layout-model.ts';
-import { isGroundSignalName, isPowerSignalName } from '#utils/signals.ts';
 import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { createFixedPlacement } from '../../pcb-auto-place/fixed.ts';
 import { placementsCanConflict } from '../../pcb-auto-place/utils.ts';
@@ -109,7 +109,7 @@ function collectComponents(params: BlockSolveParams): ComponentEntry[] {
     return result;
 }
 
-function encodePrimitive(primitive: PlacementPrimitive): NativePrimitive {
+export function encodePrimitive(primitive: PlacementPrimitive): NativePrimitive {
     return {
         id: primitive.id,
         kind: primitive.kind,
@@ -168,6 +168,6 @@ function encodeRelation(relation: BlockSolveParams['relations'][number]): Native
 function isPowerComponent(component: PcbComponent, params: BlockSolveParams) {
     if (component.pcb.role === 'decoupling_cap') return true;
     if (params.options.blockRoleByName?.get(component.block_name) === 'power') return true;
-    const connected = component.pins.filter((pin) => pin.signal_name && !isGroundSignalName(pin.signal_name));
-    return connected.length > 0 && connected.every((pin) => isPowerSignalName(pin.signal_name));
+    const connected = component.pins.filter((pin) => pin.signal_name && !placementNetClass(pin.signal_name).ground);
+    return connected.length > 0 && connected.every((pin) => placementNetClass(pin.signal_name).power);
 }

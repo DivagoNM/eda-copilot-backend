@@ -1326,10 +1326,10 @@ pub fn cheap(
             }
             area = area.abs() / 2.0;
         }
-        let mut score = w * h * (choose(high, 4.2, 3.2))
-            + (w + h) * (choose(high, 5.4, 2.5))
-            + area * (choose(high, 14.4, 10.0)) * (choose(d.fi[REDUCED] != 0, 0.25, 1.0))
-            + perimeter * (choose(high, 12.0, 1.5));
+        let mut score = w * h * choose(high, 4.2, 3.2)
+            + (w + h) * choose(high, 5.4, 2.5)
+            + area * choose(high, 14.4, 10.0) * choose(d.fi[REDUCED] != 0, 0.25, 1.0)
+            + perimeter * choose(high, 12.0, 1.5);
         let mut excess = 0.0f32;
         if w > 0.0 && h > 0.0 {
             excess = max(max(w / h, h / w) - 5.0, 0.0);
@@ -1505,7 +1505,7 @@ pub fn cheap(
                         ground += spread;
                     }
                 } else {
-                    signal += spread;
+                    signal += spread * choose((d.fi[net+7]&32)!=0, 0.25, 1.0);
                 }
             }
         }
@@ -1526,10 +1526,34 @@ pub fn cheap(
                 let a=ref_cp(d,ri,candidate);let b=ref_cp(d,ri+1,candidate);
                 let scale=max(1.0,(max(pa.bbox.r-pa.bbox.l,pa.bbox.b-pa.bbox.t)+max(pb.bbox.r-pb.bbox.l,pb.bbox.b-pb.bbox.t))*0.5+d.ff[0]);
                 let excess=max(0.0,distance(P{x:a.x,y:a.y},P{x:b.x,y:b.y})-scale);
-                long_penalty+=excess*excess/scale*12.0;
+                long_penalty+=excess*excess/scale*12.0*choose((d.fi[net+7]&32)!=0,0.25,1.0);
             }
         }
         score+=long_penalty;
+        let mut stretch=0.0f32;
+        for ni in 0usize..d.fi[NETS] as usize {
+            let net=d.fi[NET_I] as usize+ni*8;
+            if (d.fi[net+7]&64)!=0 {
+                let start=d.fi[net] as usize;let count=d.fi[net+1] as usize;
+                for i in 0usize..count {
+                    let p=ref_cp(d,start+i,candidate);
+                    if p.owner<0 {
+                        for j in 0usize..count {
+                            let core=ref_cp(d,start+j,candidate);let mut first=core.owner>=0;
+                            for k in 0usize..j {if ref_cp(d,start+k,candidate).owner==core.owner {first=false;}}
+                            if first {
+                                let mut nearest=f32::from_bits(0x7f800000u32);
+                                for k in 0usize..count {let q=ref_cp(d,start+k,candidate);
+                                    if q.owner==core.owner {nearest=min(nearest,distance(P{x:p.x,y:p.y},P{x:q.x,y:q.y}));}}
+                                let excess=max(nearest-3.0,0.0);
+                                stretch+=choose((d.fi[net+7]&32)!=0,0.25,1.0)*(6.0*nearest+32.0*excess*excess);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        score+=stretch;
         scores[candidate] = score;
         tags[candidate * 3] = hard;
         tags[candidate * 3 + 1] = 0;

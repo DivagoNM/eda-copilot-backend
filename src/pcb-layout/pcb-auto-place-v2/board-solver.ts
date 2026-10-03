@@ -1,3 +1,5 @@
+import { placementNetClass } from './native/net-class.ts';
+import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 import * as fp from '../f32.ts';
 import type {
     BlockRole,
@@ -9,11 +11,10 @@ import type {
     PlacementRelation,
     PlacementTreeNode,
 } from '#types/pcb/layout-model.ts';
-import { isGroundSignal } from '#circuit-layout/ground.ts';
-import { isPowerSignal } from '#circuit-layout/power.ts';
 import { componentBox } from '../pcb-auto-place/geometry.ts';
 import { priorityWeight } from '../pcb-auto-place/hints.ts';
 import type { ClearanceResolver } from '../pcb-auto-place/clearance-resolver.ts';
+import type { BoardPackParams } from './board-packer.ts';
 import { solveBoardPackedPrimitives } from './board-packer-engine.ts';
 import type { PlacementPrimitive, PrimitiveSolveDiagnostic } from './primitives.ts';
 import { selectBlockPortfolio } from './block-portfolio.ts';
@@ -44,7 +45,7 @@ export function solveBoardPrimitives(params: BoardSolveParams) {
     validateDissolvedGroupReferences(params.graph.relations, boardPrimitives.dissolvedScopes);
     const primitives = boardPrimitives.primitives.map(boardPackingPrimitive);
     const alignment = boardAlignmentPolicy(params.input, primitives);
-    const packed = solveBoardPackedPrimitives({
+    const packParams: BoardPackParams = {
         node: params.node,
         primitives,
         relations: [
@@ -70,10 +71,11 @@ export function solveBoardPrimitives(params: BoardSolveParams) {
             compactness: params.compactness,
             searchWidth: 32,
         },
-    });
+    };
+    const packed = solveBoardPackedPrimitives(packParams);
     params.diagnostics.push({severity:'warning',nodeId:params.node.id,
         message:`Board search: one complete packing with weak alignment for ${alignment.pairs.length} structural pairs`});
-    return selectBlockPortfolio(params.input,packed,params.grid,params.diagnostics);
+    return selectBlockPortfolio(params.input,packed,params.grid,params.diagnostics,packParams);
 }
 
 /**
@@ -82,14 +84,14 @@ export function solveBoardPrimitives(params: BoardSolveParams) {
  * the normal strong relation scorer cannot resolve their endpoints and therefore
  * never turns ordinary nets into hard/strong placement constraints.
  */
-function ordinaryNetRelations(params: BoardSolveParams, primitives: PlacementPrimitive[]): PlacementRelation[] {
+export function ordinaryNetRelations(params: Pick<BoardSolveParams, 'input' | 'node'>, primitives: PlacementPrimitive[]): PlacementRelation[] {
     const ignored = new Set((params.input.solverOptions.ignoredRatsnestSignals ?? []).map((net) => net.toUpperCase()));
     const primitiveIdsByNet = new Map<string, Set<string>>();
 
     for (const primitive of primitives) {
         for (const point of primitive.connectionPoints) {
             const net = point.net?.trim();
-            if (!net || ignored.has(net.toUpperCase()) || isGroundSignal(net)) continue;
+            if (!net || ignored.has(net.toUpperCase()) || placementNetClass(net).ground) continue;
             const ids = primitiveIdsByNet.get(net) ?? new Set<string>();
             ids.add(primitive.id);
             primitiveIdsByNet.set(net, ids);
@@ -104,7 +106,7 @@ function ordinaryNetRelations(params: BoardSolveParams, primitives: PlacementPri
             kind: 'net',
             from: `${ORDINARY_NET_RELATION_PREFIX}${net}`,
             to: `${ORDINARY_NET_RELATION_PREFIX}${net}`,
-            weight: isPowerSignal(net) ? 0.1 : 1,
+            weight: loadNativeBoardPacker().placementNetWeights([net], true)[0],
             scope: params.node.id,
             effect: 'score_only',
         }));

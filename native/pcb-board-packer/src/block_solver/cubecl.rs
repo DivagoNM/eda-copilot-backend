@@ -512,9 +512,11 @@ fn prepare(
             segment: nsegment,
             unused: (context.problem.external_nets.contains(name) as u32)
                 | ((r.iter().any(|r| r.primitive == moving as u32) as u32) << 1)
-                | (((context.problem.experiments.long_nets && eligible && context.net_endpoint_counts.get(name)==Some(&2)) as u32) << 2)
+                | (((context.problem.experiments.long_nets && eligible && !net_has_passive_ic_link(name, context) && context.net_endpoint_counts.get(name)==Some(&2)) as u32) << 2)
                 | ((!(is_ground(name) || is_power(name) || is_switching_power(name)) as u32) << 3)
-                | (((signal_net_weight(name)>1.0) as u32) << 4),
+                | (((signal_net_weight(name)>1.0) as u32) << 4)
+                | ((is_power(name) as u32) << 5)
+                | (((context.problem.experiments.long_nets && eligible && net_has_passive_ic_link(name, context)) as u32) << 6),
         });
         if units > 0 {
             nsegment += r.len().saturating_sub(1) as u32;

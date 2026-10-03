@@ -1,8 +1,8 @@
-import { sinCosDegrees, cosDegrees } from '../f32.ts';
+import { sinCosDegrees } from '../f32.ts';
 import * as fp from '../f32.ts';
 import type { PcbComponent, Placement, PlacementInput, PlacementReport, Point } from '#types/pcb/layout-model.ts';
 import { boxCenter, boxGap, componentBox, unionBoxes } from '../pcb-auto-place/geometry.ts';
-import { minimumSpanningEdges } from '../pcb-auto-place/ratsnest.ts';
+import { encodePrimitive } from './native/encode-block-problem.ts';
 import { isConnectedSignalName } from '#utils/signals.ts';
 import { createPlacementReport } from '../pcb-auto-place/placement-report.ts';
 import { boardSpacingPenalty, boardSpacingPolicy } from './board-spacing.ts';
@@ -14,27 +14,18 @@ import type { PlacementPrimitive, PrimitiveSolveDiagnostic } from './primitives.
 
 /** Conservative finishing pass, in mm. Similarity never attracts distant blocks. */
 export const BOARD_ALIGNMENT_POLICY = Object.freeze({ similarity: .78, neighbourGap: 8, maxShift: 4, passes: 2 });
-const ALIGNMENT_SCORE = Object.freeze({weight:1,tolerance:.15,orientationWeight:0});
+
 
 function family(c: PcbComponent): string {
     if (c.pcb.role === 'main_ic') return `IC${c.pins.length}`;
     return c.designator.match(/^[A-Za-z]+/)?.[0].toUpperCase() ?? c.pcb.role;
 }
 const area = (c: PcbComponent) => fp.mul(c.footprint.width, c.footprint.height);
-const weight = (key: string) => key.startsWith('IC') ? 4 : key === 'L' ? 3 : 1;
+
 function histogram(keys: string[]) {
     const result = new Map<string, number>();
     for (const key of keys) result.set(key, fp.add((result.get(key) ?? 0), 1));
     return result;
-}
-function dice(a: Map<string, number>, b: Map<string, number>, weighted = false) {
-    let shared = 0, total = 0;
-    for (const key of new Set([...a.keys(), ...b.keys()])) {
-        const w = weighted ? weight(key) : 1;
-        shared = fp.add(shared, fp.mul(w, fp.min(a.get(key) ?? 0, b.get(key) ?? 0)));
-        total = fp.add(total, fp.mul(w, (fp.add((a.get(key) ?? 0), (b.get(key) ?? 0)))));
-    }
-    return total ? fp.div(fp.mul(2, shared), total) : 1;
 }
 function signature(components: PcbComponent[]) {
     const nets = new Map<string, Set<PcbComponent>>();
@@ -67,17 +58,14 @@ export function blockSimilarity(a: PcbComponent[], b: PcbComponent[]): number {
     if (!a.length || !b.length) return 0;
     const aa = alignmentAnchor(a), ba = alignmentAnchor(b);
     if (Boolean(aa) !== Boolean(ba)) return 0;
-    let shape = 1;
+    let dimensions: [number, number, number, number] | undefined;
     if (aa && ba) {
         const x = a.find(c => c.designator === aa)!, y = b.find(c => c.designator === ba)!;
         if (family(x) !== family(y)) return 0;
-        const dims = (c: PcbComponent) => [c.footprint.width, c.footprint.height].sort((a,b) => fp.sub(a, b));
-        const xd = dims(x), yd = dims(y);
-        shape = fp.div(fp.mul(fp.div(fp.min(xd[0], yd[0]), fp.max(xd[0], yd[0], .001)), fp.min(xd[1], yd[1])), fp.max(xd[1], yd[1], .001));
-        if (shape < .5) return 0;
+        dimensions = [x.footprint.width, x.footprint.height, y.footprint.width, y.footprint.height];
     }
     const x = signature(a), y = signature(b);
-    return fp.add(fp.add(fp.mul(.55, dice(x.nodes, y.nodes, true)), fp.mul(.3, dice(x.edges, y.edges))), fp.mul(.15, shape));
+    return loadNativeBoardPacker().placementBlockSimilarity({nodesA:[...x.nodes],nodesB:[...y.nodes],edgesA:[...x.edges],edgesB:[...y.edges],dimensions});
 }
 
 /** Refresh bounds from postrefine poses without changing ownership or using stale
@@ -156,23 +144,14 @@ export interface BoardSoftAlignment { pairs: AlignmentPair[]; weight: number; to
 export function boardAlignmentPolicy(input: PlacementInput, roots: PlacementPrimitive[]): BoardSoftAlignment {
     const pairs = findAlignmentPairs(input,roots,roots.flatMap(p=>p.placements),false);
     // Cosmetic alignment must not grow stronger simply because more pairs exist.
-    return { ...ALIGNMENT_SCORE, pairs, weight: fp.div(ALIGNMENT_SCORE.weight, Math.max(1, pairs.length)) };
+    return { pairs, ...loadNativeBoardPacker().placementAlignmentPolicy(pairs.length, true) };
 }
 /** Zero at alignment, quadratic near the axis and linear beyond 1mm. No distance
  * attenuation: moving a pair apart cannot erase its misalignment penalty. */
 export function boardAlignmentScore(roots: PlacementPrimitive[], policy: BoardSoftAlignment) {
-    let score=0;
-    for(const pair of policy.pairs) {
-        const a=roots.find(p=>p.id===pair.a), b=roots.find(p=>p.id===pair.b);
-        if(!a||!b)continue;
-        const ac=center(a,pair.anchorA), bc=center(b,pair.anchorB);
-        const error=fp.max(0, fp.sub(fp.min(fp.abs(fp.sub(ac.x, bc.x)), fp.abs(fp.sub(ac.y, bc.y))), policy.tolerance));
-        score = fp.add(score, fp.mul(fp.mul(policy.weight, pair.similarity), (error<=1?fp.div(fp.mul(error, error), 2):fp.sub(error, .5))));
-        const angle=orientationError(a,b,pair);
-        if(angle!==undefined)score = fp.add(score, fp.div(fp.mul(fp.mul((policy.orientationWeight??0), pair.similarity), (fp.sub(1, cosDegrees(angle)))), 2));
-    }
-    return score;
+    return loadNativeBoardPacker().scoreBoardAlignment(roots.map(encodePrimitive), policy);
 }
+
 function orientationError(a:PlacementPrimitive,b:PlacementPrimitive,pair:AlignmentPair):number|undefined {
     const o=pair.orientation;if(!o)return undefined;
     const ap=a.placements.find(p=>p.designator===o.a),bp=b.placements.find(p=>p.designator===o.b);
@@ -192,7 +171,7 @@ export function alignmentErrors(roots: PlacementPrimitive[], pairs: AlignmentPai
     });
 }
 function penalty(roots: PlacementPrimitive[], pairs: AlignmentPair[]) {
-    return boardAlignmentScore(roots, {pairs,...ALIGNMENT_SCORE});
+    return boardAlignmentScore(roots, {pairs,...loadNativeBoardPacker().placementAlignmentPolicy(pairs.length, false)});
 }
 
 /** Native relative validation compares violation identities, not their magnitude.
@@ -213,17 +192,11 @@ export function boardElectricalQuality(input: PlacementInput, placements: Placem
     const problem=encodeNativePostPlaceScoreProblem(input,placements);
     return {
         score:loadNativeBoardPacker().scorePostPlace({...problem,distances:[],clearances:[],fixedPenalties:[],edges:[],paths:[]}),
-        lengths:problem.nets.map(net=>minimumSpanningEdges(net.points).reduce((s,[a,b])=>
-            fp.add(s, fp.hypot(fp.sub(net.points[a].x, net.points[b].x), fp.sub(net.points[a].y, net.points[b].y))),0)),
+        lengths:loadNativeBoardPacker().postPlaceNetLengths(problem),
     };
 }
 export function boardElectricalRegression(before: ReturnType<typeof boardElectricalQuality>, after: ReturnType<typeof boardElectricalQuality>) {
-    if(after.score>fp.add(before.score, fp.min(40, fp.mul(.001, fp.abs(before.score)))))return 'wiring score';
-    const beforeLength=before.lengths.reduce((sum,n)=>fp.add(sum, n),0);
-    const afterLength=after.lengths.reduce((sum,n)=>fp.add(sum, n),0);
-    if(afterLength>fp.add(beforeLength, fp.max(.5, fp.mul(.005, beforeLength))))return 'total net length';
-    if(after.lengths.some((n,i)=>n>fp.add(before.lengths[i], fp.max(.5, fp.mul(.25, before.lengths[i])))))return 'individual net length';
-    return undefined;
+    return loadNativeBoardPacker().boardElectricalRegression(before, after) ?? undefined;
 }
 
 export function refineBoardAlignment(input: PlacementInput, roots: PlacementPrimitive[], initial: Placement[]) {
@@ -246,7 +219,7 @@ export function refineBoardAlignment(input: PlacementInput, roots: PlacementPrim
     });
     const electrical = (ps: Placement[]) => boardElectricalQuality(input,ps);
     const baseElectrical = electrical(initial);
-    const objective = (ps: Placement[], rs: PlacementPrimitive[]) => fp.add(fp.add(globalPostPlaceScore(input, ps), boardSpacingPenalty(input, rs, spacing)), penalty(rs, pairs));
+    const objective = (ps: Placement[], rs: PlacementPrimitive[]) => loadNativeBoardPacker().placementScoreSum([globalPostPlaceScore(input, ps), boardSpacingPenalty(input, rs, spacing), penalty(rs, pairs)]);
     let score = objective(placements, current), evaluated = 0;
     for (let pass = 0; pass < BOARD_ALIGNMENT_POLICY.passes; pass++) {
         let accepted = false;

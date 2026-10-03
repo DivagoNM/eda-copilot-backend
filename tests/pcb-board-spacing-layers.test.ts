@@ -5,6 +5,8 @@ import { routeLayoutProblem } from '../src/pcb-layout/pcb-auto-place-v2/post-pla
 import { encodeNativePostPlaceScoreProblem } from '../src/pcb-layout/pcb-auto-place-v2/native/encode-post-place-score.ts';
 import type { PlacementInput, PcbComponent } from '../src/types/pcb/layout-model.ts';
 import type { PlacementPrimitive } from '../src/pcb-layout/pcb-auto-place-v2/primitives.ts';
+import { componentBox } from '../src/pcb-layout/pcb-auto-place/geometry.ts';
+import { defaultSolverOptions } from '../src/pcb-layout/pcb-auto-place/utils.ts';
 
 test('board comfort and final score use each side of a top-mounted display', () => {
     const components = [
@@ -16,12 +18,19 @@ test('board comfort and final score use each side of a top-mounted display', () 
             pads: [{ pin_number: '1', x: 0, y: 0, width: 0.5, height: 0.5 }] },
             pcb: { allowedLayers: ['bottom'], allowedRotations: [0] } },
     ] as PcbComponent[];
-    const input = { board: { coordinateSystem: 'centered', outline: { width: 100, height: 100 },
+    const input = { board: { coordinateSystem: 'centered', outline: { type: 'rect', width: 100, height: 100 },
         defaultLayer: 'bottom', allowedLayers: ['top', 'bottom'], clearances: { component: 0.35, edge: 0.5 } },
-        components, blocks: [], modules: [], hints: [], constraintRegions: [] } as PlacementInput;
-    const roots = components.map((component) => ({ id: component.designator, locked: false,
-        placements: [{ designator: component.designator, x: 0, y: 0, rotate: 0,
-            layer: component.pcb.allowedLayers[0], score: 0 }] })) as PlacementPrimitive[];
+        components, blocks: [], modules: [], hints: [], constraintRegions: [], solverOptions: defaultSolverOptions } as PlacementInput;
+    const roots = components.map((component): PlacementPrimitive => {
+        component.block_name = component.designator;
+        component.pins = [];
+        const placement = {designator: component.designator, x: 0, y: 0, rotate: 0,
+            layer: component.pcb.allowedLayers[0], score: 0};
+        const bbox = componentBox(component, placement);
+        return {id: component.designator, sourceNodeId: component.designator, label: component.designator,
+            kind:'component', locked:false, bbox, collisionBoxes:[bbox], width:bbox.right-bbox.left,
+            height:bbox.bottom-bbox.top, placements:[placement], children:[], connectionPoints:[]};
+    });
     assert.ok(boardSpacingPolicy(input).density < 0.25);
     assert.equal(boardSpacingPenalty(input, roots, 3), 0);
 });

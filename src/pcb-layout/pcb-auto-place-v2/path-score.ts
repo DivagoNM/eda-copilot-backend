@@ -17,7 +17,7 @@ export interface SignalPathTopologyOptions {
 }
 
 export function signalPathTopologyPenalty(primitives: PlacementPrimitive[], relations: PlacementRelation[]) {
-    return evaluateSignalPathTopology(primitives, relations).reduce((sum, path) => fp.add(sum, path.penalty), 0);
+    return loadNativeBoardPacker().placementScoreSum(evaluateSignalPathTopology(primitives, relations).map(path => path.penalty));
 }
 
 /** Uses the same native bridge generator as the board and block solvers. */

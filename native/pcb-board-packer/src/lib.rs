@@ -19,6 +19,7 @@ mod net_class;
 mod ordinary_net;
 mod passive_island_solver;
 mod post_place;
+mod placement_quality;
 mod signal_path;
 mod solver;
 
@@ -38,6 +39,152 @@ const SIGNAL_PATH_CONTRACT_VERSION: u32 = 1;
 
 #[napi]
 pub fn numeric_contract() -> String { "f32-rte-ftz-v1".into() }
+
+#[napi]
+pub fn evaluate_block_quality(mut problem: Value) -> Result<Value> {
+    let _float_env = float_env::Guard::enter();
+    boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
+    let problem: BlockSolveProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
+    problem.validate(BLOCK_CONTRACT_VERSION).map_err(invalid_problem)?;
+    block_solver::quality(problem).map_err(invalid_problem)
+}
+
+#[napi]
+pub fn evaluate_board_quality(mut problem: Value) -> Result<Value> {
+    let _float_env = float_env::Guard::enter();
+    boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
+    let problem: BoardPackProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
+    problem.validate(CONTRACT_VERSION).map_err(invalid_problem)?;
+    solver::quality(problem).map_err(invalid_problem)
+}
+
+#[napi]
+pub fn score_board_spacing(mut problem: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
+    let problem: BoardPackProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
+    problem.validate(CONTRACT_VERSION).map_err(invalid_problem)?;
+    Ok(solver::spacing(problem))
+}
+
+#[napi]
+pub fn score_board_alignment(mut primitives: Value, policy: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    // Reuse the normal coordinate boundary for geometry-only callers.
+    let mut envelope = serde_json::json!({"primitives":primitives});
+    boundary::Frame::localize(&mut envelope).map_err(invalid_problem)?;
+    primitives = envelope["primitives"].take();
+    let primitives: Vec<model::Primitive> = serde_json::from_value(primitives).map_err(invalid_problem)?;
+    let policy: model::SoftAlignment = serde_json::from_value(policy).map_err(invalid_problem)?;
+    Ok(solver::alignment_score(primitives.iter(), &policy))
+}
+
+#[napi]
+pub fn placement_score_sum(scores: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    let scores: Vec<f32> = serde_json::from_value(scores).map_err(invalid_problem)?;
+    let score = scores.iter().copied().sum::<f32>();
+    if !score.is_finite() { return Err(invalid_problem("non-finite placement score")); }
+    Ok(score)
+}
+
+#[napi]
+pub fn placement_net_weights(names: Vec<String>, board: bool) -> Vec<f32> {
+    let _float_env = float_env::Guard::enter();
+    names.iter().map(|name| if net_class::is_power(name) { if board {0.1} else {0.25} } else {1.0}).collect()
+}
+
+#[napi]
+pub fn placement_net_class(name: String) -> Value {
+    serde_json::json!({"ground":net_class::is_ground(&name),"power":net_class::is_power(&name),"switching":net_class::is_switching_power(&name)})
+}
+
+#[napi]
+pub fn placement_orientation_weight(problem: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    let problem=serde_json::from_value(problem).map_err(invalid_problem)?;
+    Ok(placement_quality::orientation_weight(&problem))
+}
+
+#[napi]
+pub fn placement_pad_crossing_weight() -> f32 { 180.0 }
+
+#[napi]
+pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
+    let _float_env = float_env::Guard::enter();
+    let terms: Vec<(f32,bool)> = serde_json::from_value(terms).map_err(invalid_problem)?;
+    Ok(terms.iter().map(|(weight,same)|post_place::layer_penalty(*weight,*same)).collect())
+}
+
+#[napi]
+pub fn placement_score_contract_version() -> u32 { 1 }
+
+#[napi]
+pub fn placement_spacing_policy(measurements: Value) -> Result<Value> {
+    let _float_env = float_env::Guard::enter();
+    let [occupied,usable_area]: [f32;2] = serde_json::from_value(measurements).map_err(invalid_problem)?;
+    let density=occupied/usable_area.max(1.0);
+    let freedom=((0.60-density)/0.35).clamp(0.0,1.0);
+    Ok(serde_json::json!({"gap":3.0*freedom,"compactnessScale":1.0-0.9*freedom,"density":density}))
+}
+
+#[napi]
+pub fn placement_alignment_policy(pair_count: u32, normalize: bool) -> Value {
+    let _float_env = float_env::Guard::enter();
+    serde_json::json!({"weight":if normalize {1.0/pair_count.max(1) as f32}else{1.0},"tolerance":0.15f32,"orientationWeight":0.0})
+}
+
+#[napi]
+pub fn placement_block_similarity(problem: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    let problem=serde_json::from_value(problem).map_err(invalid_problem)?;
+    Ok(placement_quality::similarity(&problem))
+}
+
+#[napi]
+pub fn score_island_quality(mut problem: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
+    let problem: placement_quality::IslandQuality = serde_json::from_value(problem).map_err(invalid_problem)?;
+    let score = placement_quality::island(&problem);
+    if !score.is_finite() { return Err(invalid_problem("non-finite island score")); }
+    Ok(score)
+}
+
+#[napi]
+pub fn score_placement_orientation(problem: Value) -> Result<f32> {
+    let _float_env = float_env::Guard::enter();
+    // All points in this contract are relative vectors, not world coordinates.
+    let problem: placement_quality::OrientationQuality = serde_json::from_value(problem).map_err(invalid_problem)?;
+    let score = placement_quality::orientation_score(&problem);
+    if !score.is_finite() { return Err(invalid_problem("non-finite orientation score")); }
+    Ok(score)
+}
+
+#[napi]
+pub fn compare_block_quality(a: Value, b: Value, kind: String) -> Result<bool> {
+    let _float_env = float_env::Guard::enter();
+    let a = serde_json::from_value(a).map_err(invalid_problem)?;
+    let b = serde_json::from_value(b).map_err(invalid_problem)?;
+    placement_quality::compare_block(&a,&b,&kind).map_err(invalid_problem)
+}
+
+#[napi]
+pub fn board_electrical_regression(before: Value, after: Value) -> Result<Option<String>> {
+    let _float_env = float_env::Guard::enter();
+    let before = serde_json::from_value(before).map_err(invalid_problem)?;
+    let after = serde_json::from_value(after).map_err(invalid_problem)?;
+    Ok(placement_quality::electrical_regression(&before,&after).map(str::to_owned))
+}
+
+#[napi]
+pub fn post_place_net_lengths(mut problem: Value) -> Result<Vec<f32>> {
+    let _float_env = float_env::Guard::enter();
+    boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
+    let problem: PostPlaceScoreProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
+    post_place::score(&problem).map_err(invalid_problem)?;
+    Ok(problem.nets.iter().map(post_place::net_length).collect())
+}
 
 #[cfg(all(test,feature="gpu"))]
 #[test]

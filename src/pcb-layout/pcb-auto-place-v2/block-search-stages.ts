@@ -1,3 +1,4 @@
+import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 import * as fp from '../f32.ts';
 import type { BlockCandidate } from './block-quality.ts';
 import { comparableBlockQuality } from './block-quality.ts';
@@ -13,12 +14,7 @@ function structure(c: BlockCandidate) {
  * in the final pool with their own exact scores and positions. */
 export function nearBlockLayout(a: BlockCandidate, b: BlockCandidate, tolerance = .15): boolean {
     if (structure(a) !== structure(b)) return false;
-    const qa = a.quality, qb = b.quality;
-    // Tight absolute gates prevent large scores from hiding a pad-access change.
-    if (fp.abs(fp.sub(qa.electrical, qb.electrical)) > .5 || fp.abs(fp.sub(qa.score, qb.score)) > 1
-        || fp.abs(fp.sub(qa.wire, qb.wire)) > .1 || fp.abs(fp.sub(qa.maxLocal, qb.maxLocal)) > .1) return false;
-    const links = new Set([...Object.keys(qa.links), ...Object.keys(qb.links)]);
-    if ([...links].some(k => qa.links[k] === undefined || qb.links[k] === undefined || fp.abs(fp.sub(qa.links[k], qb.links[k])) > .1)) return false;
+    if (!loadNativeBoardPacker().compareBlockQuality(a.quality, b.quality, 'near')) return false;
     const poses = (c: BlockCandidate) => c.primitives.flatMap(p => p.placements).sort((x, y) => x.designator.localeCompare(y.designator));
     const pa = poses(a), pb = poses(b);
     if (!pa.length || pa.length !== pb.length) return false;

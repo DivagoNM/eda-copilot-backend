@@ -534,7 +534,7 @@ impl RefineProblem {
                     if self.pose(w, h.source.component.unwrap()).layer
                         != self.pose(w, h.target.component.unwrap()).layer
                     {
-                        p.fixed_penalties.push(h.weight * 20.0);
+                        p.fixed_penalties.push(crate::post_place::layer_penalty(h.weight, true));
                     }
                 }
                 "prefer_layer" if h.source.kind == "component" => {
@@ -542,7 +542,7 @@ impl RefineProblem {
                         .as_ref()
                         .is_some_and(|l| *l != self.pose(w, h.source.component.unwrap()).layer)
                     {
-                        p.fixed_penalties.push(h.weight * 10.0);
+                        p.fixed_penalties.push(crate::post_place::layer_penalty(h.weight, false));
                     }
                 }
                 "edge" => {

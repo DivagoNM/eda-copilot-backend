@@ -4,6 +4,10 @@ use crate::signal_path;
 
 const EPSILON: f32 = 0.001;
 
+pub(crate) fn layer_penalty(weight: f32, same_side: bool) -> f32 {
+    weight * if same_side {20.0} else {10.0}
+}
+
 #[derive(Clone, Copy)]
 struct Segment {
     net: usize,
@@ -91,6 +95,10 @@ mod numeric_result_tests {
         problem.fixed_penalties=vec![f32::MAX,f32::MAX];
         assert!(score(&problem).unwrap_err().contains("overflow"));
     }
+}
+
+pub(crate) fn net_length(net: &PostPlaceNet) -> f32 {
+    minimum_spanning_segments(0, net).iter().map(|s| s.length).sum()
 }
 
 fn minimum_spanning_segments(net_index: usize, net: &PostPlaceNet) -> Vec<Segment> {

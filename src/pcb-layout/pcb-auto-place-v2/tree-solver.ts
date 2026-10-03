@@ -1,3 +1,5 @@
+import { placementNetClass } from './native/net-class.ts';
+import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 import * as fp from '../f32.ts';
 import { sinCosDegrees } from '../f32.ts';
 import type {
@@ -108,7 +110,7 @@ type TreeSolveContext = {
     emittedProgressStages: Set<PcbLayoutProgressStage>;
     primitives: PlacementPrimitive[];
     diagnostics: PrimitiveSolveDiagnostic[];
-    blockAlternatives: Map<string, PlacementPrimitive[][]>;
+    blockAlternatives: Map<string, BlockCandidate[]>;
     blockQualities: Map<string, import('./block-quality.ts').BlockQuality>;
 };
 
@@ -470,7 +472,7 @@ function solveBlockNode(
             return !c.pcb.allowedRotations.includes(p.rotate) || !c.pcb.allowedLayers.includes(p.layer);
         })) return;
         if (!legalBlockCandidate(context.input, primitives, context.clearanceResolver, hasLockedChild)) return;
-        const candidate = { stage, hypothesis, primitives, quality: blockQuality(context.input, primitives) };
+        const candidate = { stage, hypothesis, primitives, quality: blockQuality(context.input, primitives, { ...params, relations: relationsForPrimitives(context.graph.relations, node.id, primitives) }) };
         pool.push(candidate);
         return candidate;
     };
@@ -494,7 +496,7 @@ function solveBlockNode(
                 // Native hard rank covers geometry, whereas final admission also
                 // checks electrical hints. Postrefine can repair those hints.
                 const source = candidate ?? { primitives: checkpoint.primitives, stage: checkpoint.stage,
-                    hypothesis, quality: blockQuality(context.input, checkpoint.primitives) };
+                    hypothesis, quality: blockQuality(context.input, checkpoint.primitives, { ...params, relations: relationsForPrimitives(context.graph.relations, node.id, checkpoint.primitives) }) };
                 pendingRefine.push({ ...source, admitted: Boolean(candidate) });
                 if (checkpoint.stage === 'singles') pairSeeds.push({ ...source, index: i });
             }
@@ -523,7 +525,7 @@ function solveBlockNode(
         for (const checkpoint of solved.checkpoints) {
             const candidate = add(checkpoint.primitives, 'pairs', hypothesis, checkpoint.rank.hardCount);
             if (!checkpoint.rank.hardCount) pairCandidates.push({ ...(candidate ?? { primitives: checkpoint.primitives,
-                stage: 'pairs', hypothesis, quality: blockQuality(context.input, checkpoint.primitives) }), admitted: Boolean(candidate) });
+                stage: 'pairs', hypothesis, quality: blockQuality(context.input, checkpoint.primitives, { ...params, relations: relationsForPrimitives(context.graph.relations, node.id, checkpoint.primitives) }) }), admitted: Boolean(candidate) });
         }
     });
     refineCandidates(pairCandidates);
@@ -547,7 +549,7 @@ function solveBlockNode(
     // board-level dissolution still needs those names to resolve its relations.
     if (!selected.length) return groupedFallback ?? fallback;
     context.blockQualities.set(node.id, selected[0].quality);
-    context.blockAlternatives.set(node.id, selected.slice(1).map(c => c.primitives));
+    context.blockAlternatives.set(node.id, selected.slice(1));
     return selected[0].primitives;
 }
 
@@ -664,7 +666,7 @@ function chooseInitialComponentRotation(
     let bestRotation = rotations[0] ?? 0;
     let bestScore = Infinity;
     for (const rotate of rotations) {
-        let score = 0;
+        const terms: Array<{source:Point;target:Point;weight:number}> = [];
         for (const pin of component.pins) {
             const pad = component.footprint.pads.find((item) => String(item.pin_number) === String(pin.pin_number));
             if (!pad) continue;
@@ -674,7 +676,7 @@ function chooseInitialComponentRotation(
 
             for (const target of sideTargets) {
                 if (String(target.pin) !== String(pin.pin_number)) continue;
-                score = fp.add(score, fp.mul((fp.sub(1, dot(sourceDirection, target.direction))), target.weight));
+                terms.push({source:sourceVector, target:target.direction, weight:target.weight});
             }
 
             if (ignoredNet(context, pin.signal_name)) continue;
@@ -682,10 +684,10 @@ function chooseInitialComponentRotation(
                 if (target.net !== pin.signal_name) continue;
                 const targetDirection = normalizeVector(target.point);
                 if (!targetDirection) continue;
-                const alignment = dot(sourceDirection, targetDirection);
-                score = fp.add(score, fp.mul((fp.sub(1, alignment)), target.weight));
+                terms.push({source:sourceVector, target:target.point, weight:target.weight});
             }
         }
+        const score = loadNativeBoardPacker().scorePlacementOrientation({kind:'initial', terms});
         if (score < fp.sub(bestScore, 0.0001)) {
             bestScore = score;
             bestRotation = rotate;
@@ -701,7 +703,6 @@ function fixedExternalNetTargets(context: TreeSolveContext, source: PcbComponent
         if (component.designator === source.designator) continue;
         const fixed = createFixedPlacement(context.input, component);
         if (!fixed) continue;
-        const roleWeight = component.pcb.role === 'connector' ? 2.5 : component.pcb.role === 'main_ic' ? 1.3 : 1;
         for (const pin of component.pins) {
             if (ignoredNet(context, pin.signal_name)) continue;
             const point = padWorld(component, fixed, pin.pin_number);
@@ -709,7 +710,7 @@ function fixedExternalNetTargets(context: TreeSolveContext, source: PcbComponent
             targets.push({
                 net: pin.signal_name,
                 point,
-                weight: fp.mul(roleWeight, netSignalWeight(pin.signal_name)),
+                weight: loadNativeBoardPacker().placementOrientationWeight({kind:'external',role:component.pcb.role,net:pin.signal_name}),
             });
         }
     }
@@ -735,13 +736,11 @@ function sideAnchorTargetForBlock(component: PcbComponent, node: PlacementTreeNo
     const anchor = pinAnchor(node.data?.anchor);
     if (!side || !anchor || anchor.designator !== component.designator) return null;
 
-    const hardWeight = node.data?.hardAnchor === true ? 2 : 1;
     const gap = numeric(node.data?.maxAnchorGap);
-    const gapWeight = gap !== undefined && gap <= 5 ? 1.4 : 1;
     return {
         pin: anchor.pin,
         direction: sideDirection(side),
-        weight: fp.mul(fp.mul(80, hardWeight), gapWeight),
+        weight: loadNativeBoardPacker().placementOrientationWeight({kind:'side',hard:node.data?.hardAnchor===true,gap}),
     };
 }
 
@@ -947,9 +946,10 @@ function rememberPrimitive(context: TreeSolveContext, primitive: PlacementPrimit
         primitive.anchored = Boolean(primitive.locked);
         const signature = (p: PlacementPrimitive) => JSON.stringify(p.placements.map(q => [q.designator, q.x, q.y, q.rotate, q.layer]).sort());
         const seen = new Set([signature(primitive)]);
-        primitive.layoutAlternatives = alternatives.map(children => {
+        primitive.layoutAlternatives = alternatives.map(candidate => {
+            const children = candidate.primitives;
             const p = unionPrimitive(primitive.id, primitive.kind, primitive.label, primitive.sourceNodeId, children, primitive.deferredRelations);
-            p.blockQuality = blockQuality(context.input, children);
+            p.blockQuality = candidate.quality;
             if (primitive.anchored) return { ...p, anchored: true };
             return translatePrimitive(p, fp.div((fp.sub(fp.sub(fp.add(primitive.bbox.left, primitive.bbox.right), p.bbox.left), p.bbox.right)), 2),
                 fp.div((fp.sub(fp.sub(fp.add(primitive.bbox.top, primitive.bbox.bottom), p.bbox.top), p.bbox.bottom)), 2));
@@ -1035,13 +1035,9 @@ function normalizeRotation(value: number) {
 function ignoredNet(context: TreeSolveContext, net: string) {
     if (!net) return true;
     if ((context.input.solverOptions.ignoredRatsnestSignals ?? []).includes(net)) return true;
-    return /^GND(?:$|[_-])/i.test(net) || /(?:^|[_-])GND$/i.test(net);
+    return placementNetClass(net).ground;
 }
 
-function netSignalWeight(net: string) {
-    if (/^(?:VBUS|VCC|VDD|VIN|BAT|AVDD|DVDD|IOVDD|ADC_AVDD|VREG|[+]\w+)/i.test(net)) return 0.25;
-    return 1;
-}
 
 function normalizeVector(point: Point): Point | null {
     const length = fp.hypot(point.x, point.y);

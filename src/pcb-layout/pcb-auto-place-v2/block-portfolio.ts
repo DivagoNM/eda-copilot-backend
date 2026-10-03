@@ -1,10 +1,10 @@
+import type { BoardPackParams } from './board-packer.ts';
+import { evaluateBoardQuality } from './native/evaluate-board-quality.ts';
 import * as fp from '../f32.ts';
 import type { PlacementInput, PlacementReport } from '#types/pcb/layout-model.ts';
 import { createPlacementReport } from '../pcb-auto-place/placement-report.ts';
-import { blockPortfolioInternalScore } from './block-quality.ts';
-import { globalPostPlaceScore } from './post-place-refiner.ts';
 import { boardAlignmentPolicy, boardAlignmentScore, alignmentHardHintsNoWorse, boardElectricalQuality, boardElectricalRegression } from './board-alignment.ts';
-import { boardSpacingPenalty, boardSpacingPolicy } from './board-spacing.ts';
+import { boardSpacingPolicy } from './board-spacing.ts';
 import { encodeNativePostPlaceRefineProblem } from './native/encode-post-place-refine.ts';
 import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 import { translatePrimitive, unionPrimitive, type PlacementPrimitive, type PrimitiveSolveDiagnostic } from './primitives.ts';
@@ -31,7 +31,7 @@ export function choosePackedPortfolio(input: PlacementInput, candidates: Placeme
     const alignment = boardAlignmentPolicy(input,best);
     const baselineReport = createPlacementReport(input,poses(best));
     const baselineElectrical = boardElectricalQuality(input,poses(best));
-    let score = fp.add(fp.add(fp.add(globalPostPlaceScore(input, poses(best)), blockPortfolioInternalScore(input, best)), boardSpacingPenalty(input,best,gap)), boardAlignmentScore(best,alignment));
+    let score = portfolioScore(input, best, undefined, alignment, gap);
     const constraints = encodeNativePostPlaceRefineProblem(input, poses(best), 1);
     const fixed = new Set(input.components.filter(c => c.pcb.fixedPlacement || c.pcb.edgeMount || c.pcb.edgePlace).map(c => c.designator));
     const baseline = new Map(poses(best).map(p => [p.designator, p]));
@@ -39,7 +39,7 @@ export function choosePackedPortfolio(input: PlacementInput, candidates: Placeme
     for (let index = 1; index < candidates.length; index++) {
         const candidate = poses(candidates[index]);
         if (candidate.some(p => fixed.has(p.designator) && ['x', 'y', 'rotate', 'layer'].some(k => p[k as keyof typeof p] !== baseline.get(p.designator)?.[k as keyof typeof p]))) continue;
-        const next = fp.add(fp.add(fp.add(globalPostPlaceScore(input, candidate), blockPortfolioInternalScore(input, candidates[index])), boardSpacingPenalty(input,candidates[index],gap)), boardAlignmentScore(candidates[index],alignment));
+        const next = portfolioScore(input, candidates[index], undefined, alignment, gap);
         const report = createPlacementReport(input,candidate);
         const electricalRegression = boardElectricalRegression(baselineElectrical,boardElectricalQuality(input,candidate));
         const reason = next >= fp.sub(score, 1e-6) ? 'score' : !report.ok ? 'geometry'
@@ -61,7 +61,7 @@ export function choosePackedPortfolio(input: PlacementInput, candidates: Placeme
  * A candidate retains ownership and may slide by at most two placement steps.
  */
 export function selectBlockPortfolio(input: PlacementInput, roots: PlacementPrimitive[], grid: number,
-    diagnostics: PrimitiveSolveDiagnostic[] = []): PlacementPrimitive[] {
+    diagnostics: PrimitiveSolveDiagnostic[] = [], packParams?: BoardPackParams): PlacementPrimitive[] {
     const ids: string[] = [];
     const visit = (p: PlacementPrimitive) => {
         if ((!p.locked || p.anchored) && p.layoutAlternatives?.length) ids.push(p.id);
@@ -74,7 +74,7 @@ export function selectBlockPortfolio(input: PlacementInput, roots: PlacementPrim
     let current = roots;
     const alignment = boardAlignmentPolicy(input,roots);
     const gap = boardSpacingPolicy(input).gap;
-    let score = fp.add(fp.add(fp.add(globalPostPlaceScore(input, placements(current)), blockPortfolioInternalScore(input, current)), boardSpacingPenalty(input,current,gap)), boardAlignmentScore(current,alignment));
+    let score = portfolioScore(input, current, packParams, alignment, gap);
     let report = createPlacementReport(input, placements(current));
     let evaluated = 0, accepted = 0;
     for (const id of ids) {
@@ -93,7 +93,7 @@ export function selectBlockPortfolio(input: PlacementInput, roots: PlacementPrim
             const replacement = translatePrimitive({ ...variant, layoutAlternatives: undefined }, dx, dy);
             const candidate = replace(current, id, replacement);
             const proposed = placements(candidate);
-            const nextScore = fp.add(fp.add(fp.add(globalPostPlaceScore(input, proposed), blockPortfolioInternalScore(input, candidate)), boardSpacingPenalty(input,candidate,gap)), boardAlignmentScore(candidate,alignment));
+            const nextScore = portfolioScore(input, candidate, packParams, alignment, gap);
             evaluated++;
             if (nextScore >= fp.sub(bestScore, 1e-6)) continue;
             // Check the complete board, including polygon, holes and opposite-side
@@ -142,4 +142,9 @@ function replace(roots: PlacementPrimitive[], id: string, replacement: Placement
         const children = replace(p.children, id, replacement);
         return { ...p, ...unionPrimitive(p.id, p.kind, p.label, p.sourceNodeId, children, p.deferredRelations), layoutAlternatives: undefined };
     });
+}
+
+function portfolioScore(input: PlacementInput, roots: PlacementPrimitive[], params: BoardPackParams | undefined,
+    alignment: ReturnType<typeof boardAlignmentPolicy>, gap: number) {
+    return evaluateBoardQuality(input, roots, params, alignment, gap).rank.score;
 }
