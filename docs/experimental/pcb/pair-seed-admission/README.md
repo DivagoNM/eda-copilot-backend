@@ -2,6 +2,7 @@
 
 Status: implemented, validated locally, and approved for commit on 2026-10-03.
 User reports remaining C2/C3 placement issues; those require a separate investigation.
+Follow-up scope and stage evidence: [placement quality audit](../placement-quality-audit/README.md).
 
 Remove the intermediate `comparableBlockQuality` admission gate from
 `selectPairSeeds`. Rank hypotheses by their best saved native score and keep at

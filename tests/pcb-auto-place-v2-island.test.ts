@@ -71,11 +71,25 @@ test.describe('pcb-auto-place-v2 island solver', () => {
 
         const relations = buildPlacementGraph(input).relations.filter((relation) => relation.data?.inferredLocalGround === true);
         assert.deepEqual(relations.map((relation) => [relation.from, relation.to, relation.relation, relation.priority]), [
-            ['pad:C4.2', 'pad:X1.4', 'near', 'critical'],
-            ['pad:C6.1', 'pad:X1.2', 'near', 'critical'],
+            ['pad:C4.2', 'pad:X1.4', 'near', 'normal'],
+            ['pad:C6.1', 'pad:X1.2', 'near', 'normal'],
         ]);
         assert.ok(relations.every((relation) => relation.scope === 'tree:block:crystal'));
         assert.ok(relations.every((relation) => relation.hard === false && relation.data?.maxDistance === 8));
+        assert.ok(relations.every((relation) => relation.weight === 70));
+    });
+
+    test('bypass binds the matching capacitor pad to the authored target pin', () => {
+        const input = baseInput([controllerWithPinNet('U1', '1', '+3V3'), passive('C1', 'GND', '+3V3')]);
+        input.hints = [{ relation: 'bypass', capacitors: ['C1'], target: { type: 'pin', designator: 'U1', pin_number: '1' }, priority: 'high' }];
+        const relation = buildPlacementGraph(input).relations.find(r => r.relation === 'bypass')!;
+        assert.equal(relation.from, 'pad:C1.2');
+        assert.equal(relation.to, 'pad:U1.1');
+        assert.equal(relation.priority, 'high');
+        input.components[1].pins[1].signal_name = '+5V';
+        const invalid = buildPlacementGraph(input);
+        assert.ok(invalid.report.diagnostics.some(d => d.code === 'bypass_missing_net_pad'));
+        assert.equal(invalid.relations.some(r => r.relation === 'bypass'), false);
     });
 
     test('does not infer local ground hints outside conservative small-block limits', () => {

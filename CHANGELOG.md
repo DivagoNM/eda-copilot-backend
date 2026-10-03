@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Use normal priority for inferred small-block ground links and connect bypass hints from the capacitor pad on the target net to the authored IC pad. Preserve local-ground eligibility, distance limits and PostPlace hint expansion.
+
 - Select the best distinct block hypotheses for pair refinement within the existing two-seed budget without rejecting them by intermediate electrical, wire or link-distance ratios. Preserve native scoring and pair-stage eligibility limits.
 
 - Require more than 100 units of effective improvement in final post-place refinement. Preserve local block thresholds and the existing Micro-A* routing evaluation.

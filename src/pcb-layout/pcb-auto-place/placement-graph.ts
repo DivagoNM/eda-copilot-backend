@@ -216,9 +216,9 @@ function addSmallBlockGroundHints(
             if (hasPlacementHintBetween(state, from, to)) continue;
             addEdge(state, 'hint', from, to, {
                 relation: 'near',
-                priority: 'critical',
+                priority: 'normal',
                 hard: false,
-                weight: priorityWeight('critical'),
+                weight: priorityWeight('normal'),
                 data: {
                     maxDistance: 8,
                     inferredLocalGround: true,
@@ -543,7 +543,7 @@ function addHintEdgesAndIslands(
 
     input.hints.forEach((hint, index) => {
         validateHintTargets(state, hint, componentsByDesignator, input);
-        addHintEdges(state, hint, index);
+        addHintEdges(state, hint, index, componentsByDesignator);
 
         if (hint.relation === 'line') {
             addIsland(state, input, 'line', `line:${index}`, hint.components, hint.priority, false, [index], {
@@ -591,7 +591,7 @@ function addHintEdgesAndIslands(
     }
 }
 
-function addHintEdges(state: GraphBuilderState, hint: PlacementHint, index: number) {
+function addHintEdges(state: GraphBuilderState, hint: PlacementHint, index: number, componentsByDesignator: Map<string, PcbComponent>) {
     const edgeBase = {
         relation: hint.relation,
         priority: hint.priority,
@@ -611,7 +611,19 @@ function addHintEdges(state: GraphBuilderState, hint: PlacementHint, index: numb
         addSequenceHintEdges(state, hint.components, edgeBase);
     }
     if (hint.relation === 'bypass') {
-        for (const capacitor of hint.capacitors) addEdge(state, 'hint', componentNodeId(capacitor), targetNodeId(hint.target), edgeBase);
+        const targetPin = componentsByDesignator.get(hint.target.designator)?.pins
+            .find(pin => String(pin.pin_number) === String(hint.target.pin_number));
+        const net = targetPin && normalizedSignal(targetPin.signal_name);
+        for (const capacitor of hint.capacitors) {
+            const component = componentsByDesignator.get(capacitor);
+            const sourcePin = net && component?.pins.find(pin => normalizedSignal(pin.signal_name) === net
+                && component.footprint.pads.some(pad => String(pad.pin_number) === String(pin.pin_number)));
+            if (!sourcePin) {
+                addDiagnostic(state, 'error', 'bypass_missing_net_pad', `Bypass ${capacitor} has no pad on the net of ${hint.target.designator}.${hint.target.pin_number}`, componentNodeId(capacitor));
+                continue;
+            }
+            addEdge(state, 'hint', padNodeId(capacitor, sourcePin.pin_number), targetNodeId(hint.target), edgeBase);
+        }
     }
     if (hint.relation === 'cap_cluster') {
         for (const capacitor of hint.capacitors) {
