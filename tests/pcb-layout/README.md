@@ -2,6 +2,8 @@
 
 This is the original `copilot-server/tests/pcb-layout` bank: 20 runnable boards, their schematic JSON and placement DSL, assertions and visual previews. `Hanboo/Hamboo.json` is a data-only example, with no DSL or runner in the original repository. Alternate DSL files are preserved too.
 
+Additional real-project fixtures include `PortableScope` and [STM32G0_CAN_RS485](STM32G0_CAN_RS485/README.md), the 68-component STM32G0 CAN/RS485 controller with a 60 x 40 mm board and electrical placement checks.
+
 Run from the EasyEDA Copilot repository root after building the backend and native addon:
 
 ```sh

@@ -139,6 +139,27 @@ test.describe('post-place refinement', () => {
     });
 });
 
+test('native edge validation agrees with body-based report and retains real pad violations', () => {
+    const input = pairInput();
+    input.components = [input.components[0]];
+    input.blocks = [block('pair', ['A'])];
+    input.board.outline = { type: 'rect', width: 10, height: 10 };
+    input.board.clearances.edge = 0.5;
+    const c = input.components[0];
+    c.footprint = { name: 'C77', width: 1.8482, height: 1.048,
+        bodyBox: { left: -0.8738, right: 0.8738, top: -0.4996, bottom: 0.4996 }, pads: [] };
+    c.pins = [];
+    const addon = loadNativeBoardPacker();
+    const baseline = [pose('A', 0, 0)];
+    let problem = encodeNativePostPlaceRefineProblem(input, baseline, 1);
+    assert.equal(addon.validatePlacementChange(problem, [pose('A', 0, -4)]), true);
+    assert.equal(addon.validatePlacementChange(problem, [pose('A', 0, -4.1)]), false);
+    c.footprint.pads = [{ pin_number: '1', x: 0, y: -0.6, width: 0.4, height: 0.4,
+        layer: 'multi', mount: 'through_hole', drillDiameter: 0.2 }];
+    problem = encodeNativePostPlaceRefineProblem(input, baseline, 1);
+    assert.equal(addon.validatePlacementChange(problem, [pose('A', 0, -4)]), false);
+});
+
 function pairInput(options: { fixed?: boolean; refineGroup?: boolean } = {}): PlacementInput {
     const pairFootprint = footprint('pair', 1, 1, -0.35);
     const components = [

@@ -74,6 +74,42 @@ test('board GPU evaluates all candidates and preserves the complete CPU result',
     assert.deepEqual(gpu.solution, cpu.solution);
 });
 
+for (const backend of ['cpu', 'cubecl']) test(`board ${backend} finds a layer-specific corridor narrower than its grid`, { skip: backend === 'cubecl' && !gpuEnabled }, () => {
+    const p = minimalProblem();
+    p.grid = 1;
+    p.clearance = 0.35;
+    p.edgeClearance = 0;
+    p.bounds = p.fullBoardBounds = { left: -12, right: 12, top: -12, bottom: 12 };
+    p.boardOutline = [{ x: -12, y: -12 }, { x: 12, y: -12 }, { x: 12, y: 12 }, { x: -12, y: 12 }];
+    const bodies = [
+        { left: -2.54, right: 2.54, top: -2, bottom: 2 },
+        { left: -11, right: -2.1241, top: -11, bottom: 11 },
+        { left: 2.99, right: 11, top: -11, bottom: 11 },
+    ];
+    const pad = { left: -2.12, right: 2.12, top: -2, bottom: 2 };
+    const template = p.primitives[0];
+    p.primitives = bodies.map((box, i) => ({ ...structuredClone(template),
+        id: `primitive:P${i}`, locked: i > 0, canRotate: false, allowedOrientations: [0],
+        bbox: box, collisionBoxes: i === 0 ? [box, pad] : [box],
+        collisionBoxLayers: i === 0 ? ['bottom', 'top'] : ['top'],
+        width: box.right - box.left, height: box.bottom - box.top,
+        placements: [{ designator: `U${i}`, x: 0, y: 0, rotate: 0, layer: i === 0 ? 'bottom' : 'top', score: 0 }],
+        connectionPoints: [],
+    }));
+    p.components = bodies.map((bodyBox, i) => ({ ...structuredClone(p.components[0]),
+        designator: `U${i}`, primitiveId: p.primitives[i].id, layer: i === 0 ? 'bottom' : 'top',
+        bodyBox, throughHoleBoxes: i === 0 ? [pad] : [], edgeClearance: 0,
+    }));
+    p.componentConflict = Array.from({ length: 9 }, (_, i) => Math.floor(i / 3) === i % 3 ? 0 : 1);
+    p.componentPairClearance = p.componentConflict.map(c => c ? 0.35 : 0);
+    const { solution, log } = run(p, backend, { PCB_BOARD_GPU_VERIFY: '1', PCB_BOARD_GPU_VERIFY_SHORTLIST: '1' });
+    assert.equal(solution.rank.hardCount, 0);
+    const x = solution.states.find((s: { primitiveId: string }) => s.primitiveId === 'primitive:P0').placements[0].x;
+    assert.ok(x >= 0.3458 && x <= 0.5201, `pad centre ${x} misses the legal corridor`);
+    assert.doesNotMatch(log, /board-gpu-fallback|validation failed/);
+    if (backend === 'cubecl') assert.match(log, /"backend":"cubecl"/);
+});
+
 test('GPU handles compound geometry, layer exclusions, obstacles, overflow and regions', { skip: !gpuEnabled }, () => {
     const p = minimalProblem();
     p.primitives = Array.from({ length: 3 }, (_, i) => {

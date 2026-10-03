@@ -1,6 +1,6 @@
 import * as fp from '../f32.ts';
 import type { Box, PcbBlock, PcbComponent, PcbModule, Placement, PlacementGraphDiagnostic, PlacementInput, PlacementReport, Point } from '#types/pcb/layout-model.ts';
-import { boardBox, boardHoleKeepoutRadius, boxClearanceGap, boxGap, boxPointGap, componentPairCollisionBoxPairs, componentCollisionBoxes, dist, distanceToEdge, GEOMETRY_EPSILON, getBox, getPadWorld, PLACEMENT_EPSILON, round } from './geometry.ts';
+import { boardBox, boardHoleKeepoutRadius, boxClearanceGap, boxGap, boxPointGap, componentPairCollisionBoxPairs, componentCollisionBoxes, componentBodyBox, dist, distanceToEdge, GEOMETRY_EPSILON, getBox, getPadWorld, PLACEMENT_EPSILON, round } from './geometry.ts';
 import { componentOutsideBoard } from './fixed.ts';
 import { expandHints } from './hints.ts';
 import {
@@ -57,8 +57,13 @@ export function createPlacementReport(input: PlacementInput, placements: Placeme
         if (!placement) continue;
         if (component.pcb.fixedPlacement !== undefined) continue;
         const box = getBox(component, placement);
-        if (componentOutsideBoard(input, component, box)) {
-            outsideBoard.push({ designator: component.designator, box, board });
+        // Match native board packing/refinement: body plus opposite-face
+        // occupancy, excluding decorative footprint bounds.
+        const edgeBoxes = [componentBodyBox(component, placement),
+            ...componentCollisionBoxes(component, placement, placement.layer === 'top' ? 'bottom' : 'top')];
+        const outsideBox = edgeBoxes.find(edgeBox => componentOutsideBoard(input, component, edgeBox));
+        if (outsideBox) {
+            outsideBoard.push({ designator: component.designator, box: outsideBox, board });
         }
 
         for (const hole of input.boardHoles ?? []) {

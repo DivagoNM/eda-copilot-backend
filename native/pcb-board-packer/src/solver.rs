@@ -585,7 +585,7 @@ fn cheap_candidates(
     parent_route_penalty: f32,
     context: &Context,
 ) -> Vec<RankedCandidate> {
-    finish_cheap_candidates(score_positions(orientation_variants(primitive).iter(), placed, parent_route_penalty, context))
+    finish_cheap_candidates(score_positions(orientation_variants(primitive).iter(), placed, parent_route_penalty, context, false))
 }
 
 // Candidate generation and scoring depend only on the current placement snapshot.
@@ -600,14 +600,14 @@ fn local_candidates(
     // Select after dedupe over every orientation. Per-lane shortlist selection
     // could discard needed candidates when identical poses occur in two lanes.
     #[cfg(feature = "gpu")]
-    if context.gpu.is_some() {return finish_cheap_candidates(score_positions(variants.iter(),placed,0.0,context));}
+    if context.gpu.is_some() {return finish_cheap_candidates(score_positions(variants.iter(),placed,0.0,context,true));}
     if lanes.len() == 1 || variants.len() <= 1 {
-        return cheap_candidates(primitive, placed, 0.0, context);
+        return finish_cheap_candidates(score_positions(variants.iter(), placed, 0.0, context, true));
     }
     let chunk_size = variants.len().div_ceil(lanes.len());
     let candidates = std::thread::scope(|scope| {
         let handles: Vec<_> = variants.chunks(chunk_size).zip(lanes.iter_mut())
-            .map(|(chunk, lane)| scope.spawn(move || { let _float_env = crate::float_env::Guard::enter(); score_positions(chunk.iter(), placed, 0.0, lane) }))
+            .map(|(chunk, lane)| scope.spawn(move || { let _float_env = crate::float_env::Guard::enter(); score_positions(chunk.iter(), placed, 0.0, lane, true) }))
             .collect();
         handles.into_iter().flat_map(|handle| handle.join().expect("Local candidate thread panicked")).collect()
     });
@@ -619,6 +619,7 @@ fn score_positions<'a>(
     placed: &[WorkingPrimitive],
     parent_route_penalty: f32,
     context: &Context,
+    precise_layers: bool,
 ) -> Vec<RankedCandidate> {
     #[cfg(feature = "gpu")]
     if let Some(gpu)=&context.gpu {
@@ -627,7 +628,7 @@ fn score_positions<'a>(
         for variant in variants {
             for alignment in [false,true] {
                 let start=moves.len();
-                moves.extend(position_proposals(variant,placed,context,alignment).into_iter().map(|p|vec![p]));
+                moves.extend(position_proposals(variant,placed,context,alignment,precise_layers).into_iter().map(|p|vec![p]));
                 groups.push((start,moves.len(),alignment));
             }
         }
@@ -663,7 +664,7 @@ fn score_positions<'a>(
     let mut candidates = Vec::new();
     for variant in variants {
         for alignment in [false,true] {
-        for candidate in position_candidates(variant, placed, context, alignment) {
+        for candidate in position_candidates(variant, placed, context, alignment, precise_layers) {
             let mut all = placed.to_vec();
             all.push(candidate.clone());
             candidates.push(RankedCandidate {
@@ -779,8 +780,9 @@ fn position_candidates(
     placed: &[WorkingPrimitive],
     context: &Context,
     alignment_only: bool,
+    precise_layers: bool,
 ) -> Vec<WorkingPrimitive> {
-    let candidates = position_proposals(primitive, placed, context, alignment_only);
+    let candidates = position_proposals(primitive, placed, context, alignment_only, precise_layers);
     let legal: Vec<_> = candidates
         .iter()
         .filter(|candidate| candidate_hard_count(candidate, placed, context) == 0)
@@ -797,6 +799,7 @@ fn position_proposals(
     placed: &[WorkingPrimitive],
     context: &Context,
     alignment_only: bool,
+    precise_layers: bool,
 ) -> Vec<WorkingPrimitive> {
     let _profile = context.profile.span(0);
     let pack_box = packing_box(primitive);
@@ -810,6 +813,9 @@ fn position_proposals(
     centers.extend(board_slot_centers(width, height, &context.problem.bounds));
     centers.extend(free_rect_slot_centers(primitive, width, height, placed, context));
     centers.extend(placed_slot_centers(primitive, width, height, placed, context));
+    if precise_layers && needs_layer_slots(primitive) {
+        centers.extend(layer_slot_centers(primitive, placed, context));
+    }
     centers.extend(relation_slot_centers(primitive, placed, context));
     let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();
     let current_center = box_center(&pack_box);
@@ -1124,29 +1130,40 @@ fn separation_variants(
     if a.primitive.locked && b.primitive.locked {
         return Vec::new();
     }
+    // Contacts must use the shapes that actually meet on a common layer.
+    // The union of both faces can demand a displacement larger than a legal slot.
     let clearance = primitive_clearance(a, b, context);
-    let a_box = packing_box(a);
-    let b_box = packing_box(b);
-    let x_overlap =
-        (a_box.right + clearance - b_box.left).min(b_box.right + clearance - a_box.left);
-    let y_overlap =
-        (a_box.bottom + clearance - b_box.top).min(b_box.bottom + clearance - a_box.top);
-    let axes = if x_overlap <= y_overlap {
-        [('x', x_overlap), ('y', y_overlap)]
-    } else {
-        [('y', y_overlap), ('x', x_overlap)]
-    };
-    let mut variants = Vec::new();
-    for (axis, overlap) in axes {
-        if overlap <= 0.0 {
-            continue;
+    let mut offsets = Vec::new();
+    // Keep conservative whole-block escapes too: for a crowded compound block,
+    // clearing one component contact can merely expose another equal violation.
+    let aa = packing_box(a);
+    let bb = packing_box(b);
+    if overlap_depth(&aa, &bb, clearance) > 0.0 {
+        offsets.extend([
+            ('x', bb.left - clearance - aa.right - 0.001),
+            ('x', bb.right + clearance - aa.left + 0.001),
+            ('y', bb.top - clearance - aa.bottom - 0.001),
+            ('y', bb.bottom + clearance - aa.top + 0.001),
+        ]);
+    }
+    for layer in ["top", "bottom"] {
+        for aa in occupied_boxes_on_layer(a, layer) {
+            for bb in occupied_boxes_on_layer(b, layer) {
+                if overlap_depth(&aa, &bb, clearance) <= 0.0 { continue; }
+                offsets.extend([
+                    ('x', bb.left - clearance - aa.right - 0.001),
+                    ('x', bb.right + clearance - aa.left + 0.001),
+                    ('y', bb.top - clearance - aa.bottom - 0.001),
+                    ('y', bb.bottom + clearance - aa.top + 0.001),
+                ]);
+            }
         }
-        let direction = if axis == 'x' {
-            sign_or_negative((a_box.left + a_box.right) / 2.0 - (b_box.left + b_box.right) / 2.0)
-        } else {
-            sign_or_negative((a_box.top + a_box.bottom) / 2.0 - (b_box.top + b_box.bottom) / 2.0)
-        };
-        let distance = round_placement(overlap + (0.001f32).max(context.problem.grid * 0.1));
+    }
+    let mut seen = FxHashSet::default();
+    offsets.retain(|(axis, distance)| seen.insert((*axis, round_placement(*distance).to_bits())));
+    offsets.sort_by(|a, b| compare_f32(a.1.abs(), b.1.abs()));
+    let mut variants = Vec::new();
+    for (axis, distance) in offsets {
         let a_share = if a.primitive.locked {
             0.0
         } else if b.primitive.locked {
@@ -1163,21 +1180,21 @@ fn separation_variants(
         };
         let mut both = primitives.to_vec();
         if a_share > 0.0 {
-            both[a_index] = translated_for_repair(a, axis, direction * distance * a_share, context);
+            both[a_index] = translated_for_repair(a, axis, distance * a_share, context);
         }
         if b_share > 0.0 {
             both[b_index] =
-                translated_for_repair(b, axis, -direction * distance * b_share, context);
+                translated_for_repair(b, axis, -distance * b_share, context);
         }
         variants.push(both);
         if !a.primitive.locked {
             let mut one = primitives.to_vec();
-            one[a_index] = translated_for_repair(a, axis, direction * distance, context);
+            one[a_index] = translated_for_repair(a, axis, distance, context);
             variants.push(one);
         }
         if !b.primitive.locked {
             let mut one = primitives.to_vec();
-            one[b_index] = translated_for_repair(b, axis, -direction * distance, context);
+            one[b_index] = translated_for_repair(b, axis, -distance, context);
             variants.push(one);
         }
     }
@@ -1198,14 +1215,6 @@ fn translated_for_repair(
     }
     fit_to_bounds(&mut moved, context);
     moved
-}
-
-fn sign_or_negative(value: f32) -> f32 {
-    if value > 0.0 {
-        1.0
-    } else {
-        -1.0
-    }
 }
 
 fn board_score(
@@ -1820,6 +1829,79 @@ fn board_slot_centers(width: f32, height: f32, bounds: &Box2) -> Vec<Point> {
             y: center.y,
         },
     ]
+}
+
+fn needs_layer_slots(moving: &WorkingPrimitive) -> bool {
+    matches!((layer_envelope(moving, "top"), layer_envelope(moving, "bottom")),
+        (Some(top), Some(bottom)) if top != bottom)
+}
+
+// Configuration-space obstacles for the packing centre. Each face uses its
+// own moving envelope, including its offset from that centre. Never project a
+// bottom body into a top-only gap (or assume the two envelopes are concentric).
+fn layer_center_obstacles(
+    moving: &WorkingPrimitive,
+    placed: &[WorkingPrimitive],
+    context: &Context,
+) -> Vec<Box2> {
+    let center = box_center(&packing_box(moving));
+    let mut result = Vec::new();
+    for layer in ["top", "bottom"] {
+        let Some(envelope) = layer_envelope(moving, layer) else { continue; };
+        for other in placed {
+            if !primitive_can_conflict(moving, other, context) { continue; }
+            let clearance = primitive_clearance(moving, other, context) + 0.001;
+            for occupied in occupied_boxes_on_layer(other, layer) {
+                result.push(Box2 {
+                    left: occupied.left - clearance - (envelope.right - center.x),
+                    right: occupied.right + clearance - (envelope.left - center.x),
+                    top: occupied.top - clearance - (envelope.bottom - center.y),
+                    bottom: occupied.bottom + clearance - (envelope.top - center.y),
+                });
+            }
+        }
+    }
+    result
+}
+
+// Fine search supplements the unchanged coarse beam portfolio. Removing or
+// replacing coarse poses can destabilize packing of unrelated compound blocks.
+fn layer_slot_centers(moving: &WorkingPrimitive, placed: &[WorkingPrimitive], context: &Context) -> Vec<Point> {
+    let pack = packing_box(moving);
+    let center = box_center(&pack);
+    let width = pack.right - pack.left;
+    let height = pack.bottom - pack.top;
+    let mut occupied = layer_center_obstacles(moving, placed, context);
+    occupied.extend(context.problem.obstacles.iter().map(|box_| Box2 {
+        left: box_.left - context.problem.clearance - width / 2.0 - 0.001,
+        right: box_.right + context.problem.clearance + width / 2.0 + 0.001,
+        top: box_.top - context.problem.clearance - height / 2.0 - 0.001,
+        bottom: box_.bottom + context.problem.clearance + height / 2.0 + 0.001,
+    }));
+    let bounds = Box2 {
+        left: context.problem.bounds.left + width / 2.0,
+        right: context.problem.bounds.right - width / 2.0,
+        top: context.problem.bounds.top + height / 2.0,
+        bottom: context.problem.bounds.bottom - height / 2.0,
+    };
+    let mut free = vec![bounds];
+    let mut centers = Vec::new();
+    for box_ in occupied {
+        // Exact contacts also survive bounded free-rectangle pruning.
+        centers.extend([
+            Point { x: box_.left, y: center.y }, Point { x: box_.right, y: center.y },
+            Point { x: center.x, y: box_.top }, Point { x: center.x, y: box_.bottom },
+        ]);
+        free = free.into_iter().flat_map(|rect| subtract_rect(&rect, &box_)).collect();
+        if free.len() > 160 { free = prune_free_rects(free, 100); }
+    }
+    for rect in prune_free_rects(free, 80) {
+        if rect.left <= rect.right && rect.top <= rect.bottom {
+            centers.extend(board_slot_centers(0.0, 0.0, &rect));
+        }
+    }
+    // Do not snap to the coarse grid: the J1/J2 corridor is only 0.1741 mm wide.
+    centers
 }
 
 fn free_rect_slot_centers(
@@ -3066,6 +3148,70 @@ mod alignment_search_tests {
         assert!(primitive_hard_overlap(&display, &near_pad, &context) > 0.0);
     }
 
+    // Reduced J1/J2 corridor: only the 4.24 mm top pad envelope has to fit
+    // between top obstacles; the 5.08 mm bottom body can pass underneath.
+    fn layered_corridor() -> (Context, Vec<WorkingPrimitive>) {
+        let (mut context, state) = fixture();
+        let bodies = [
+            Box2 { left: -2.54, right: 2.54, top: -2.0, bottom: 2.0 },
+            Box2 { left: -11.0, right: -2.1241, top: -11.0, bottom: 11.0 },
+            Box2 { left: 2.99, right: 11.0, top: -11.0, bottom: 11.0 },
+        ];
+        let pad = Box2 { left: -2.12, right: 2.12, top: -2.0, bottom: 2.0 };
+        let mut primitives = state.remaining;
+        for (i, p) in primitives.iter_mut().enumerate() {
+            let holes = if i == 0 { vec![pad] } else { vec![] };
+            p.primitive.bbox = bodies[i];
+            p.primitive.collision_boxes = Arc::new(std::iter::once(bodies[i]).chain(holes.iter().copied()).collect());
+            p.primitive.locked = i != 0;
+            p.components = Arc::new(vec![(i, ComponentGeometry {
+                designator: p.primitive.id.clone(), primitive_id: p.primitive.id.clone(), block_name: p.primitive.id.clone(),
+                layer: Arc::from(if i == 0 { "bottom" } else { "top" }), body_box: bodies[i],
+                through_hole_boxes: Arc::new(holes), board_overflow: Default::default(), edge_clearance: 0.0,
+            })]);
+        }
+        let problem = Arc::get_mut(&mut context.problem).unwrap();
+        problem.grid = 1.0;
+        problem.clearance = 0.35;
+        problem.components = primitives.iter().map(|p| p.components[0].1.clone()).collect();
+        problem.component_pair_clearance = vec![0.35; 9];
+        problem.component_conflict = vec![1; 9];
+        (context, primitives)
+    }
+
+    #[test]
+    fn coarse_grid_keeps_layer_specific_narrow_corridor_candidates() {
+        let (context, primitives) = layered_corridor();
+        let centers = layer_slot_centers(&primitives[0], &primitives[1..], &context);
+            assert!(centers.iter().any(|center| {
+                let mut p = primitives[0].clone();
+                move_packing_center(&mut p, *center);
+                !primitive_outside(&p, &context)
+                    && primitives[1..].iter().all(|other| primitive_hard_overlap(&p, other, &context) == 0.0)
+            }), "no legal candidate in 0.1741 mm corridor: {centers:?}");
+    }
+
+    #[test]
+    fn repair_resolves_top_pad_contact_without_pushing_bottom_body_into_display() {
+        let (context, primitives) = layered_corridor();
+        assert!(primitive_hard_overlap(&primitives[0], &primitives[1], &context) > 0.0);
+        let variants = separation_variants(&primitives, 0, 1, &context);
+        assert!(variants.iter().any(|ps| {
+            primitive_hard_overlap(&ps[0], &ps[1], &context) == 0.0
+                && primitive_hard_overlap(&ps[0], &ps[2], &context) == 0.0
+                && !primitive_outside(&ps[0], &context)
+        }));
+        // Moving the body to top makes this corridor physically impossible.
+        let mut top = primitives[0].clone();
+        Arc::make_mut(&mut top.components)[0].1.layer = Arc::from("top");
+        context.hard_overlap_cache.borrow_mut().clear();
+        for x in [0.347, 0.43, 0.519] {
+            let mut p = top.clone();
+            move_packing_center(&mut p, Point { x, y: 0.0 });
+            assert!(primitives[1..].iter().any(|other| primitive_hard_overlap(&p, other, &context) > 0.0));
+        }
+    }
+
     fn fixture() -> (Context,SearchState) {
         let primitives:Vec<_>=(0..3).map(|i| {
             let name=format!("U{}",i+1);
@@ -3118,7 +3264,7 @@ mod alignment_search_tests {
         let next=&state.remaining[0];
         let mut ordinary=Vec::new();
         for variant in orientation_variants(next) {
-            for p in position_candidates(&variant,&state.placed,&context,false) {
+            for p in position_candidates(&variant,&state.placed,&context,false,false) {
                 let mut all=state.placed.clone();all.push(p.clone());
                 ordinary.push(RankedCandidate{primitive:p,rank:state_rank(&all,&context),route_penalty:0.0,ordinal:0,alignment:false});
             }
@@ -3135,6 +3281,6 @@ mod alignment_search_tests {
         let (mut context,state)=fixture();
         Arc::make_mut(&mut context.problem).obstacles=vec![Box2{left:-12.0,right:12.0,top:-12.0,bottom:12.0}];
         assert!(joint_pair_states(&state,0,&context).is_empty());
-        assert!(!position_candidates(&state.remaining[0],&[],&context,false).is_empty());
+        assert!(!position_candidates(&state.remaining[0],&[],&context,false,false).is_empty());
     }
 }

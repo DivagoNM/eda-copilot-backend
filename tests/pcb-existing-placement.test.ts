@@ -188,6 +188,29 @@ test('placement report ignores outside-board errors for fixed components', () =>
     assert.deepEqual(report.outsideBoard, []);
 });
 
+test('edge report uses the physical body and opposite occupancy, not decorative footprint bounds', () => {
+    const input = placementInput(['C77']);
+    input.board.clearances.edge = 0.5;
+    input.board.allowedLayers = ['top', 'bottom'];
+    const c = input.components[0];
+    c.pcb.allowedLayers = ['top', 'bottom'];
+    c.footprint = { name: 'C77', width: 1.8482, height: 1.048,
+        bodyBox: { left: -0.8738, right: 0.8738, top: -0.4996, bottom: 0.4996 }, pads: [] };
+    for (const layer of ['top', 'bottom'] as const) {
+        for (const rotate of [0, 90, 180, 270]) {
+            const halfHeight = rotate % 180 ? 0.8738 : 0.4996;
+            const pose = { designator: 'C77', x: 0, y: -4.5 + halfHeight + 0.001, rotate, layer, score: 0 };
+            assert.deepEqual(createPlacementReport(input, [pose]).outsideBoard, []);
+            assert.equal(createPlacementReport(input, [{ ...pose, y: pose.y - 0.1 }]).outsideBoard.length, 1);
+        }
+        // A real drilled pad outside the body remains subject to edge clearance.
+        c.footprint.pads = [{ pin_number: '1', x: 0, y: -0.6, width: 0.4, height: 0.4,
+            layer: 'multi', mount: 'through_hole', drillDiameter: 0.2 }];
+        assert.equal(createPlacementReport(input, [{ designator: 'C77', x: 0, y: -4, rotate: 0, layer, score: 0 }]).outsideBoard.length, 1);
+        c.footprint.pads = [];
+    }
+});
+
 test('reports large occupied areas inferred from silkscreen', () => {
     const input = placementInput(['U6']);
     input.components[0].footprint = { name: 'DISPLAY', width: 20, height: 20, pads: [],

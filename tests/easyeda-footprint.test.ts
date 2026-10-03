@@ -211,6 +211,49 @@ describe('easyeda footprint parser', () => {
         assert.equal(pad.height, 1.27);
     });
 
+    it('keeps PortableScope C95 and U8 zero-drill pads on their SMD side', () => {
+        const records = [
+            '["PAD","e11",0,"",1,"1",-82.675,0,180,["ROUND",0,0],["RECT",47.244,39.37,0],[],0.012,-0.01,0,1,0,2,2,0,0,0]',
+            '["PAD","e25",0,"",1,"1",-59.059,-57.091,0,["ROUND",0,0],["RECT",9.843,27.559,0],[],-0.001,0.001,90,1,0,2,2,0,0,0]',
+        ];
+        for (const record of records) for (const sourceLayer of [1, 2]) {
+            const raw = JSON.parse(record);
+            raw[4] = sourceLayer;
+            const footprint = parseEasyEdaFootprintDataStr(JSON.stringify(raw));
+            assert.equal(footprint.pads[0].mount, 'smd');
+            assert.equal(footprint.pads[0].layer, sourceLayer === 1 ? 'top' : 'bottom');
+            assert.equal(footprint.pads[0].drillDiameter, 0);
+            const component = { footprint, pcb: {} } as PcbComponent;
+            for (const layer of ['top', 'bottom'] as const) for (const rotate of [0, 90, 180, 270]) {
+                const pose = { x: 0, y: 0, rotate, layer, score: 0 } as Placement;
+                const opposite = layer === 'top' ? 'bottom' : 'top';
+                // Source-bottom pads flip with the mounted component.
+                const padSide = sourceLayer === 1 ? layer : opposite;
+                assert.equal(componentCollisionBoxes(component, pose, padSide).length > 0, true);
+                assert.equal(componentCollisionBoxes(component, pose, sourceLayer === 1 ? opposite : layer).length,
+                    sourceLayer === 1 ? 0 : 1);
+            }
+        }
+    });
+
+    it('retains through-hole pads with a positive drill or explicit multilayer', () => {
+        for (const [layer, drill] of [[1, 47.244], [12, 0]]) {
+            const footprint = parseEasyEdaFootprintDataStr(JSON.stringify([
+                'PAD', 'p', 0, '', layer, '1', 0, 0, 0,
+                ['ROUND', drill, drill], ['RECT', 70.866, 70.866, 0], [],
+                0, 0, 0, 1, 0, null, null, null, null, 0,
+            ]));
+            assert.equal(footprint.pads[0].mount, 'through_hole');
+            assert.equal(footprint.pads[0].layer, 'multi');
+            close(footprint.pads[0].drillDiameter!, drill * 0.0254);
+            const component = { footprint, pcb: {} } as PcbComponent;
+            for (const layer of ['top', 'bottom'] as const) {
+                const pose = { x: 0, y: 0, rotate: 0, layer, score: 0 } as Placement;
+                assert.equal(componentCollisionBoxes(component, pose, layer === 'top' ? 'bottom' : 'top').length, 1);
+            }
+        }
+    });
+
     it('marks EasyEDA layer-12 drilled pads as through-hole', () => {
         const dataStr = [
             '["DOCTYPE","FOOTPRINT"]',

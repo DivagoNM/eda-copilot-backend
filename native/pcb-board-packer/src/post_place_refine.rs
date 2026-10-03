@@ -630,7 +630,8 @@ impl RefineProblem {
             }
             let o = &c.overflow;
             let overflow = o.left > 0.0 || o.right > 0.0 || o.top > 0.0 || o.bottom > 0.0;
-            let outside = if !self.polygon.is_empty() && !overflow {
+            // Use the same edge geometry as the board packer and TS report.
+            let outside = std::iter::once(&w.bodies[i]).chain(w.opposite[i].iter()).any(|b| if !self.polygon.is_empty() && !overflow {
                 !box_inside_polygon_board(
                     &b,
                     &self.board,
@@ -662,7 +663,7 @@ impl RefineProblem {
                         } else {
                             self.board.bottom - self.edge_clearance
                         }) + 0.010001
-            };
+            });
             if outside {
                 keys.insert(format!("{prefix}:outside-board"));
             }

@@ -296,7 +296,7 @@ function parsePad(item: unknown[]): (FootprintPad & { box: Box }) | null {
         height: roundMm(box.bottom - box.top),
     };
     const drillDiameter = drillShapeDiameter(drillShape);
-    const isThroughHole = layer === 12 || drillDiameter !== null;
+    const isThroughHole = layer === 12 || (drillDiameter ?? 0) > 0;
 
     return {
         ...pad,
