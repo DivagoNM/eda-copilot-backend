@@ -27,7 +27,7 @@ test('jitter dedup ignores global translation but protects orientation, groups, 
     assert.equal(nearBlockLayout(a,b),false);
 });
 
-test('pair budget selects competitive distinct states without mutating the original pool', () => {
+test('pair budget selects the best distinct states without mutating the original pool', () => {
     const best=candidate(), duplicate=structuredClone(best), different=structuredClone(best), bad=structuredClone(best);
     duplicate.primitives[1].placements[0].x+=.05;
     different.primitives[1].placements[0].rotate=180;different.quality.score+=2;
@@ -37,6 +37,18 @@ test('pair budget selects competitive distinct states without mutating the origi
     const chosen=selectPairSeeds(pool,[best]);
     assert.equal(chosen.length,2);assert.ok(chosen.includes(different));assert.ok(!chosen.includes(bad));
     assert.deepEqual(pool,original);
+});
+
+test('released seed reaches pairs despite a worse intermediate electrical, wire and link score', () => {
+    const grouped=candidate(), released=structuredClone(grouped), third=structuredClone(grouped);
+    grouped.hypothesis='grouped';
+    released.hypothesis='released';released.quality.score=372178;released.quality.electrical=370190;
+    released.quality.wire=20;released.quality.links['R1.1->U1']=10;
+    third.hypothesis='third';third.quality.score=400000;third.primitives[1].placements[0].rotate=90;
+    grouped.quality.score=275109;grouped.quality.electrical=273110;
+    const seeds=[third,released,grouped];
+    assert.deepEqual(selectPairSeeds(seeds,seeds),[grouped,released]);
+    assert.deepEqual(selectPairSeeds(seeds,seeds,1),[grouped]);
 });
 
 test('successful postrefine does not exclude the same hypothesis from pair refinement', () => {

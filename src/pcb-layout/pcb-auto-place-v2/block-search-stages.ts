@@ -1,7 +1,6 @@
 import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 import * as fp from '../f32.ts';
 import type { BlockCandidate } from './block-quality.ts';
-import { comparableBlockQuality } from './block-quality.ts';
 
 /** Group membership and mobility affect what local refinement is allowed to do. */
 function structure(c: BlockCandidate) {
@@ -24,18 +23,16 @@ export function nearBlockLayout(a: BlockCandidate, b: BlockCandidate, tolerance 
         && fp.hypot(fp.sub(fp.sub(p.x, pb[i].x), dx), fp.sub(fp.sub(p.y, pb[i].y), dy)) <= tolerance);
 }
 
-/** At most two distinct, electrically competitive single-move checkpoints.
+/** At most two distinct single-move checkpoints, ranked by native score.
  * Every hypothesis has already completed beam and singles before this gate. */
 export function selectPairSeeds<T extends BlockCandidate>(seeds: T[], pool: BlockCandidate[], limit = 2): T[] {
-    const best = [...pool].sort((a, b) => fp.sub(a.quality.score, b.quality.score))[0];
-    // Judge the hypothesis by its best saved checkpoint, not just its singles
-    // state. Otherwise its own successful postrefine can exclude its pair stage.
+    // Rank the hypothesis by its best saved checkpoint, including postrefine,
+    // while retaining its singles state as the continuation seed.
     const bestFor = (c: T) => pool.filter(p => p.hypothesis === c.hypothesis)
         .reduce((best, p) => p.quality.score < best.quality.score ? p : best, c);
     const selected: T[] = [];
     for (const candidate of [...seeds].sort((a, b) => fp.sub(bestFor(a).quality.score, bestFor(b).quality.score))) {
         if (candidate.primitives.length > 12 || candidate.primitives.filter(p => !p.locked).length < 2) continue;
-        if (best && !comparableBlockQuality(bestFor(candidate).quality, best.quality)) continue;
         if (selected.some(other => nearBlockLayout(candidate, other))) continue;
         selected.push(candidate);
         if (selected.length >= limit) break;

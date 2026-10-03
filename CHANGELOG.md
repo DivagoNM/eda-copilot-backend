@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Select the best distinct block hypotheses for pair refinement within the existing two-seed budget without rejecting them by intermediate electrical, wire or link-distance ratios. Preserve native scoring and pair-stage eligibility limits.
+
 - Require more than 100 units of effective improvement in final post-place refinement. Preserve local block thresholds and the existing Micro-A* routing evaluation.
 
 - Allow consecutive signalPath segments to share the same intermediate pad as a same-net waypoint. Preserve net/continuity validation and reuse native zero-length-edge handling. Route the STM32 fixture's CAN and RS485 placement paths through D4/D5, retaining the soft 5 mm protection-to-connector limits without duplicate criticalPair rules.
