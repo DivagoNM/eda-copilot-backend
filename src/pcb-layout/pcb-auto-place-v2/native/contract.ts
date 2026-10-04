@@ -115,6 +115,7 @@ export interface NativePrimitive {
 }
 
 export interface NativeRelation {
+    core?: boolean;
     id: string;
     kind: PlacementRelationKind;
     from: string;
@@ -212,11 +213,14 @@ export interface NativeBoardPackerAddon {
     placementNetClass(name: string): {ground: boolean; power: boolean; switching: boolean};
     placementOrientationWeight(problem: {kind: 'external'; role: string; net: string} | {kind: 'side'; hard: boolean; gap?: number}): number;
     placementPadCrossingWeight(): number;
+    placementPriorityWeight(priority: string): number;
+    placementRelationProfile(request: { relation: string; priority: string; weight?: number; minDistance?: number; maxDistance?: number; path?: boolean; core?: boolean; hard?: boolean }): {weight: number; inverseTauSquared: number; topologyWeight: number; min?: number; max?: number};
     placementLayerPenalties(terms: Array<[number, boolean]>): number[];
     placementScoreContractVersion(): number;
     placementSpacingPolicy(measurements: [number, number]): {gap: number; compactnessScale: number; density: number};
     placementAlignmentPolicy(pairCount: number, normalize: boolean): {weight: number; tolerance: number; orientationWeight: number};
     placementBlockSimilarity(problem: {nodesA: Array<[string, number]>; nodesB: Array<[string, number]>; edgesA: Array<[string, number]>; edgesB: Array<[string, number]>; dimensions?: [number, number, number, number]}): number;
+    evaluateIslandQuality(problem: import('./placement-quality.ts').NativeIslandQuality): {hardCount: number; hardSeverity: number; score: number; distanceDrifts: Array<{pair: [string,string]; distance: number; min: number | null; max: number | null}>};
     scoreIslandQuality(problem: import('./placement-quality.ts').NativeIslandQuality): number;
     scorePlacementOrientation(problem: import('./placement-quality.ts').NativeOrientationQuality): number;
     compareBlockQuality(a: import('../block-quality.ts').BlockQuality, b: import('../block-quality.ts').BlockQuality, kind: 'comparable' | 'dominates' | 'near'): boolean;
@@ -367,7 +371,7 @@ export interface NativePostPlaceScoreProblemV1 {
     padCrossingWeight?: number;
     routingObstacles?: NativeRoutingObstacle[];
     nets: Array<{ name: string; points: Point[]; weight: number; layers?: Array<string | null>; internalOwners?: Array<string | null>; localScopes?: Array<string | null> }>;
-    distances: Array<{ source: Point; target: Point; weight: number; min?: number; max?: number }>;
+    distances: Array<{ source: Point; target: Point; weight: number; inverseTauSquared?: number; min?: number; max?: number }>;
     clearances: Array<{ source: Box; target: Box; minimum: number; weight: number }>;
     fixedPenalties: number[];
     edges: Array<{ source: Box; board: Box; edge: BoardEdge; weight: number }>;

@@ -6,7 +6,7 @@ import { samePartUuid } from '#types/lcsc.ts';
 import { isConnectedSignalName } from '#utils/signals.ts';
 import { boardBox, boardAnchorPoint, boardHoleKeepoutRadius, getBox, componentBodyBox, componentCollisionBoxes, getLocalPointWorld, componentPadBox, isThroughHolePad } from '../../pcb-auto-place/geometry.ts';
 import { componentPairClearance, familyBlockDesignators, canonicalModuleDesignators, blockBboxLimit, familyBboxLimit, moduleBboxLimit } from '../../pcb-auto-place/report-helpers.ts';
-import { expandHints } from '../../pcb-auto-place/hints.ts';
+import { expandHints, pathRelationWeight } from '../../pcb-auto-place/hints.ts';
 import { createPostPlaceRouteScoreContext, routeLayoutProblem } from '../post-place-route-score.ts';
 import { postPlaceBudget } from '../post-place-budget.ts';
 import { placementPadCrossingWeight } from '../block-policy.ts';
@@ -97,7 +97,7 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
     }
     const weights = loadNativeBoardPacker().placementNetWeights([...netPoints.keys()], false);
     const nets = [...netPoints].map(([name, points], index) => ({ name, points, weight: weights[index] }));
-    const hints = expandHints(input).map(h => ({ ...h, source: target(h.source), target: target(h.target), all: h.target === 'all', weight: fp.max(1, h.weight) }));
+    const hints = expandHints(input).map(h => ({ ...h, source: target(h.source), target: target(h.target), all: h.target === 'all', weight: h.weight }));
     const hierarchy: Array<{ key: string; source: RefineTarget; maxWidth?: number | null; maxHeight?: number | null; anchor?: RefineTarget; offset?: Point; maxGap?: number }> = [];
     for (const b of input.blocks) {
         const source = target({ type: 'block', block_name: b.name });
@@ -113,7 +113,7 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
         holes: (input.boardHoles ?? []).map(h => ({ x: h.x, y: h.y, radius: fp.add(boardHoleKeepoutRadius(h), input.board.clearances.component) })),
         regions: (input.constraintRegions ?? []).map(r => ({ name: r.name, box: r.box, layers: r.layers, allowed: members(input.components.filter(c => r.allowBlocks.includes(c.block_name)).map(c => c.designator)) })),
         pairClearances: input.components.map(a => input.components.map(b => componentPairClearance(input, a, b))),
-        paths: (input.paths ?? []).map(p => ({ id: p.id, shape: p.shape, priority: p.priority, preferFacingPads: p.preferFacingPads,
+        paths: (input.paths ?? []).map(p => ({ id: p.id, weight: pathRelationWeight(input,p.id), shape: p.shape, priority: p.priority, preferFacingPads: p.preferFacingPads,
             ports: p.segments.flatMap(s => [{ target: target(s.source), order: s.index * 2, ref: `${s.source.designator}.${String(s.source.pin_number)}`, role: s.index === 0 ? 'source' : 'exit' },
                 { target: target(s.target), order: s.index * 2 + 1, ref: `${s.target.designator}.${String(s.target.pin_number)}`, role: s.index === p.segments.length - 1 ? 'target' : 'entry' }]) })),
     };

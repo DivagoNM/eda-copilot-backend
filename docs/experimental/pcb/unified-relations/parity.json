@@ -1,0 +1,39 @@
+{
+  "branch": "feat/experimental-unified-relations",
+  "base": "6a001c5",
+  "addonSha256": "2613909b0486d4835daa53879739098a21592948e56253afdf710ce3a3488fe4",
+  "note": "Synthetic relation/context parity probe, not a full-board benchmark. GPU wall time includes cold CUDA compilation and VERIFY instrumentation.",
+  "block": {
+    "cpu": {
+      "hardCount": 0,
+      "hardSeverity": 0,
+      "score": 513.4400024414062
+    },
+    "gpu": {
+      "hardCount": 0,
+      "hardSeverity": 0,
+      "score": 513.4400024414062
+    },
+    "placementsEqual": true,
+    "cpuMs": 1.8677000000000135,
+    "gpuMs": 9547.2972
+  },
+  "board": {
+    "cpu": {
+      "hardCount": 0,
+      "hardSeverity": 0,
+      "score": 756.8206176757812
+    },
+    "gpu": {
+      "hardCount": 0,
+      "hardSeverity": 0,
+      "score": 756.8206176757812
+    },
+    "placementsEqual": true,
+    "cpuMs": 5.6541,
+    "gpuMs": 3109.833499999999
+  },
+  "fallback": false,
+  "verifiedBlockCandidates": 124,
+  "verifiedBoardCandidates": 598
+}

@@ -1138,3 +1138,15 @@ function normalize(point: { x: number; y: number }) {
 function distance(a: { x: number; y: number }, b: { x: number; y: number }) {
     return Math.hypot(a.x - b.x, a.y - b.y);
 }
+
+test('infeasible hard core-pair island retains the result with an explicit drift warning', () => {
+    const input=baseInput([controller(),inductor()]);
+    input.blocks=[{...block('switch_core',['U1','L1']),role:'power'}];
+    input.components.forEach(c=>c.block_name='switch_core');
+    input.hints=[{relation:'critical_pair',source:{type:'pin',designator:'U1',pin_number:'1'},
+        target:{type:'pin',designator:'L1',pin_number:'1'},priority:'critical',maxDistance:.001,
+        minDistance:null,weightMultiplier:null,hard:true,crossingPenalty:null,preferFacingPads:true,core:true,block:'switch_loop'}];
+    const graph=buildPlacementGraph(input);
+    const [result]=solvePlacementIslands(input,graph,{grid:.5,clearance:.5});
+    assert.ok(result.diagnostics.some(d=>d.severity==='warning' && /Core pair U1.1 -> L1.1: distance .*max=0.001.*x100 excess penalty/.test(d.message)));
+});

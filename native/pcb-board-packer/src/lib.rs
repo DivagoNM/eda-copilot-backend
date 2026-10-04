@@ -20,6 +20,7 @@ mod ordinary_net;
 mod passive_island_solver;
 mod post_place;
 mod local_stretch;
+mod relation_score;
 mod placement_quality;
 mod signal_path;
 mod solver;
@@ -118,7 +119,20 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 2 }
+pub fn placement_score_contract_version() -> u32 { 3 }
+
+#[napi]
+pub fn placement_priority_weight(priority: String) -> f64 {
+    let _env = float_env::Guard::enter();
+    relation_score::priority_scale(&priority).1 as f64
+}
+
+#[napi]
+pub fn placement_relation_profile(request: Value) -> Result<Value> {
+    let _env = float_env::Guard::enter();
+    let r: relation_score::Request = serde_json::from_value(request).map_err(|e| Error::from_reason(e.to_string()))?;
+    serde_json::to_value(relation_score::profile(&r)).map_err(|e| Error::from_reason(e.to_string()))
+}
 
 #[napi]
 pub fn placement_spacing_policy(measurements: Value) -> Result<Value> {
@@ -140,6 +154,16 @@ pub fn placement_block_similarity(problem: Value) -> Result<f32> {
     let _float_env = float_env::Guard::enter();
     let problem=serde_json::from_value(problem).map_err(invalid_problem)?;
     Ok(placement_quality::similarity(&problem))
+}
+
+#[napi]
+pub fn evaluate_island_quality(mut problem: Value) -> Result<Value> {
+    let _float_env = float_env::Guard::enter();
+    boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
+    let problem: placement_quality::IslandQuality = serde_json::from_value(problem).map_err(invalid_problem)?;
+    let rank = placement_quality::island_rank(&problem);
+    if !rank.score.is_finite() || !rank.hard_severity.is_finite() { return Err(invalid_problem("non-finite island rank")); }
+    serde_json::to_value(rank).map_err(invalid_problem)
 }
 
 #[napi]

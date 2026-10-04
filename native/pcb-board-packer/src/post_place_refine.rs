@@ -156,6 +156,8 @@ struct Net {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Hint {
+    #[serde(default = "crate::relation_score::default_inverse_tau_squared")]
+    inverse_tau_squared: f32,
     kind: String,
     source: Target,
     target: Target,
@@ -195,6 +197,8 @@ struct Region {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Path {
+    #[serde(default = "crate::relation_score::default_path_weight")]
+    weight: f32,
     id: Arc<str>,
     shape: Arc<str>,
     priority: Arc<str>,
@@ -513,6 +517,7 @@ impl RefineProblem {
                         self.target_point(&h.target, w),
                     ) {
                         p.distances.push(PostPlaceDistance {
+                            inverse_tau_squared: h.inverse_tau_squared,
                             source,
                             target,
                             weight: h.weight,
@@ -595,7 +600,7 @@ impl RefineProblem {
                 ports,
                 shape: path.shape.clone(),
                 priority: path.priority.clone(),
-                weight: 1.0,
+                weight: path.weight,
                 prefer_facing_pads: path.prefer_facing_pads,
             });
         }

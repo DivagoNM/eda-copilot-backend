@@ -1,0 +1,555 @@
+{
+  "date": "2026-10-04",
+  "change": "core hard distance: x100 cubic excess, soft drift",
+  "addonSha256": "aeb08054423f9530e72671f95620e8cce7927322c77106e282988c0fc4c4644d",
+  "cpu": {
+    "mode": "cpu",
+    "block": {
+      "checkpoints": [
+        {
+          "numericFrame": {
+            "origin": {
+              "x": 5,
+              "y": 0
+            },
+            "outputOrigin": {
+              "x": 5,
+              "y": 0
+            },
+            "precision": "f32-rte-ftz-v1"
+          },
+          "rank": {
+            "hardCount": 0,
+            "hardSeverity": 0,
+            "score": 513.4400024414062
+          },
+          "stage": "beam",
+          "states": [
+            {
+              "placements": [
+                {
+                  "designator": "A",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 0,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "A",
+              "rotation": 0,
+              "translationX": 0,
+              "translationY": 0
+            },
+            {
+              "placements": [
+                {
+                  "designator": "B",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 1.2000000476837158,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "B",
+              "rotation": 0,
+              "translationX": -8.800000190734863,
+              "translationY": 0
+            }
+          ],
+          "version": 4
+        },
+        {
+          "numericFrame": {
+            "origin": {
+              "x": 5,
+              "y": 0
+            },
+            "outputOrigin": {
+              "x": 5,
+              "y": 0
+            },
+            "precision": "f32-rte-ftz-v1"
+          },
+          "rank": {
+            "hardCount": 0,
+            "hardSeverity": 0,
+            "score": 513.4400024414062
+          },
+          "stage": "singles",
+          "states": [
+            {
+              "placements": [
+                {
+                  "designator": "A",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 0,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "A",
+              "rotation": 0,
+              "translationX": 0,
+              "translationY": 0
+            },
+            {
+              "placements": [
+                {
+                  "designator": "B",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 1.2000000476837158,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "B",
+              "rotation": 0,
+              "translationX": -8.800000190734863,
+              "translationY": 0
+            }
+          ],
+          "version": 4
+        },
+        {
+          "numericFrame": {
+            "origin": {
+              "x": 5,
+              "y": 0
+            },
+            "outputOrigin": {
+              "x": 5,
+              "y": 0
+            },
+            "precision": "f32-rte-ftz-v1"
+          },
+          "rank": {
+            "hardCount": 0,
+            "hardSeverity": 0,
+            "score": 513.4400024414062
+          },
+          "stage": "pairs",
+          "states": [
+            {
+              "placements": [
+                {
+                  "designator": "A",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 0,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "A",
+              "rotation": 0,
+              "translationX": 0,
+              "translationY": 0
+            },
+            {
+              "placements": [
+                {
+                  "designator": "B",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 1.2000000476837158,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "B",
+              "rotation": 0,
+              "translationX": -8.800000190734863,
+              "translationY": 0
+            }
+          ],
+          "version": 4
+        }
+      ],
+      "numericFrame": {
+        "origin": {
+          "x": 5,
+          "y": 0
+        },
+        "outputOrigin": {
+          "x": 5,
+          "y": 0
+        },
+        "precision": "f32-rte-ftz-v1"
+      },
+      "rank": {
+        "hardCount": 0,
+        "hardSeverity": 0,
+        "score": 513.4400024414062
+      },
+      "states": [
+        {
+          "placements": [
+            {
+              "designator": "A",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 0,
+              "y": 0
+            }
+          ],
+          "primitiveId": "A",
+          "rotation": 0,
+          "translationX": 0,
+          "translationY": 0
+        },
+        {
+          "placements": [
+            {
+              "designator": "B",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 1.2000000476837158,
+              "y": 0
+            }
+          ],
+          "primitiveId": "B",
+          "rotation": 0,
+          "translationX": -8.800000190734863,
+          "translationY": 0
+        }
+      ],
+      "version": 4
+    },
+    "board": {
+      "numericFrame": {
+        "origin": {
+          "x": 0,
+          "y": 0
+        },
+        "outputOrigin": {
+          "x": 0,
+          "y": 0
+        },
+        "precision": "f32-rte-ftz-v1"
+      },
+      "rank": {
+        "hardCount": 0,
+        "hardSeverity": 0,
+        "score": 4756.82080078125
+      },
+      "states": [
+        {
+          "placements": [
+            {
+              "designator": "A",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 0,
+              "y": 0
+            }
+          ],
+          "primitiveId": "A",
+          "rotation": 0,
+          "translationX": 0,
+          "translationY": 0
+        },
+        {
+          "placements": [
+            {
+              "designator": "B",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 0,
+              "y": 3
+            }
+          ],
+          "primitiveId": "B",
+          "rotation": 90,
+          "translationX": -10,
+          "translationY": 3
+        }
+      ],
+      "version": 7
+    },
+    "blockMs": 1.6978999999999473,
+    "boardMs": 4.953800000000001
+  },
+  "gpu": {
+    "mode": "cubecl",
+    "block": {
+      "checkpoints": [
+        {
+          "numericFrame": {
+            "origin": {
+              "x": 5,
+              "y": 0
+            },
+            "outputOrigin": {
+              "x": 5,
+              "y": 0
+            },
+            "precision": "f32-rte-ftz-v1"
+          },
+          "rank": {
+            "hardCount": 0,
+            "hardSeverity": 0,
+            "score": 513.4400024414062
+          },
+          "stage": "beam",
+          "states": [
+            {
+              "placements": [
+                {
+                  "designator": "A",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 0,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "A",
+              "rotation": 0,
+              "translationX": 0,
+              "translationY": 0
+            },
+            {
+              "placements": [
+                {
+                  "designator": "B",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 1.2000000476837158,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "B",
+              "rotation": 0,
+              "translationX": -8.800000190734863,
+              "translationY": 0
+            }
+          ],
+          "version": 4
+        },
+        {
+          "numericFrame": {
+            "origin": {
+              "x": 5,
+              "y": 0
+            },
+            "outputOrigin": {
+              "x": 5,
+              "y": 0
+            },
+            "precision": "f32-rte-ftz-v1"
+          },
+          "rank": {
+            "hardCount": 0,
+            "hardSeverity": 0,
+            "score": 513.4400024414062
+          },
+          "stage": "singles",
+          "states": [
+            {
+              "placements": [
+                {
+                  "designator": "A",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 0,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "A",
+              "rotation": 0,
+              "translationX": 0,
+              "translationY": 0
+            },
+            {
+              "placements": [
+                {
+                  "designator": "B",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 1.2000000476837158,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "B",
+              "rotation": 0,
+              "translationX": -8.800000190734863,
+              "translationY": 0
+            }
+          ],
+          "version": 4
+        },
+        {
+          "numericFrame": {
+            "origin": {
+              "x": 5,
+              "y": 0
+            },
+            "outputOrigin": {
+              "x": 5,
+              "y": 0
+            },
+            "precision": "f32-rte-ftz-v1"
+          },
+          "rank": {
+            "hardCount": 0,
+            "hardSeverity": 0,
+            "score": 513.4400024414062
+          },
+          "stage": "pairs",
+          "states": [
+            {
+              "placements": [
+                {
+                  "designator": "A",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 0,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "A",
+              "rotation": 0,
+              "translationX": 0,
+              "translationY": 0
+            },
+            {
+              "placements": [
+                {
+                  "designator": "B",
+                  "layer": "top",
+                  "rotate": 0,
+                  "score": 0,
+                  "x": 1.2000000476837158,
+                  "y": 0
+                }
+              ],
+              "primitiveId": "B",
+              "rotation": 0,
+              "translationX": -8.800000190734863,
+              "translationY": 0
+            }
+          ],
+          "version": 4
+        }
+      ],
+      "numericFrame": {
+        "origin": {
+          "x": 5,
+          "y": 0
+        },
+        "outputOrigin": {
+          "x": 5,
+          "y": 0
+        },
+        "precision": "f32-rte-ftz-v1"
+      },
+      "rank": {
+        "hardCount": 0,
+        "hardSeverity": 0,
+        "score": 513.4400024414062
+      },
+      "states": [
+        {
+          "placements": [
+            {
+              "designator": "A",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 0,
+              "y": 0
+            }
+          ],
+          "primitiveId": "A",
+          "rotation": 0,
+          "translationX": 0,
+          "translationY": 0
+        },
+        {
+          "placements": [
+            {
+              "designator": "B",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 1.2000000476837158,
+              "y": 0
+            }
+          ],
+          "primitiveId": "B",
+          "rotation": 0,
+          "translationX": -8.800000190734863,
+          "translationY": 0
+        }
+      ],
+      "version": 4
+    },
+    "board": {
+      "numericFrame": {
+        "origin": {
+          "x": 0,
+          "y": 0
+        },
+        "outputOrigin": {
+          "x": 0,
+          "y": 0
+        },
+        "precision": "f32-rte-ftz-v1"
+      },
+      "rank": {
+        "hardCount": 0,
+        "hardSeverity": 0,
+        "score": 4756.82080078125
+      },
+      "states": [
+        {
+          "placements": [
+            {
+              "designator": "A",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 0,
+              "y": 0
+            }
+          ],
+          "primitiveId": "A",
+          "rotation": 0,
+          "translationX": 0,
+          "translationY": 0
+        },
+        {
+          "placements": [
+            {
+              "designator": "B",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 0,
+              "y": 3
+            }
+          ],
+          "primitiveId": "B",
+          "rotation": 90,
+          "translationX": -10,
+          "translationY": 3
+        }
+      ],
+      "version": 7
+    },
+    "blockMs": 12418.6484,
+    "boardMs": 3181.9543999999987
+  }
+}

@@ -603,6 +603,7 @@ function islandPrimitive(context: TreeSolveContext, node: PlacementTreeNode, cle
         clearance,
     })[0];
     if (!result) return emptyPrimitive(node);
+    context.diagnostics.push(...result.diagnostics.map(diagnostic => ({ ...diagnostic, nodeId: node.id })));
     const components = result.placements
         .map((placement) => context.componentByDesignator.get(placement.designator))
         .filter((component): component is PcbComponent => Boolean(component));

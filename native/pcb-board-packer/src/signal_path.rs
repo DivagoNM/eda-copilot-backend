@@ -1,6 +1,5 @@
 use crate::geometry::{round_placement, Point};
 use crate::model::{PathPort, Primitive, Relation};
-use crate::ordinary_net;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -29,7 +28,7 @@ pub struct TopologyEvaluation {
     pub penalty: f32,
 }
 
-pub fn topology_penalty(primitives: &[&Primitive], relations: &[Relation]) -> f32 {
+pub fn explicit_topology_penalty(primitives: &[&Primitive], relations: &[Relation]) -> f32 {
     let metadata = path_metadata(relations);
     let mut ports_by_path: BTreeMap<&str, Vec<&PathPort>> = BTreeMap::new();
     for primitive in primitives {
@@ -47,7 +46,7 @@ pub fn topology_penalty(primitives: &[&Primitive], relations: &[Relation]) -> f3
         })
         .map(|evaluation| evaluation.penalty)
         .sum();
-    path_penalty + ordinary_net::penalty(primitives, relations)
+    path_penalty
 }
 
 pub fn topology_penalty_for_ports(
@@ -243,18 +242,10 @@ fn evaluate_path_ports(
     } else {
         0.0
     };
-    let priority = match metadata.priority {
-        3 => 1.8,
-        2 => 1.35,
-        0 => 0.65,
-        _ => 1.0,
-    };
     let shape_detour = if metadata.straight { 22.0 } else { 8.0 };
     let shape_turns = if metadata.straight { 18.0 } else { 5.0 };
     let penalty = round_placement(
-        (detour * shape_detour + backtrack * 42.0 + turns * shape_turns + facing * 12.0)
-            * priority
-            * metadata.weight,
+        crate::relation_score::topology_cost(detour,backtrack,turns,facing,shape_detour,shape_turns,metadata.weight),
     );
     Some(TopologyEvaluation {
         path_id: path_id.to_owned(),
@@ -334,11 +325,7 @@ pub(crate) fn path_metadata(relations: &[Relation]) -> BTreeMap<&str, PathMetada
             Some("low") => 0,
             _ => 1,
         };
-        let weight = relation
-            .weight
-            .filter(|value| value.is_finite())
-            .map(|value| (value / 70.0).max(0.25))
-            .unwrap_or(1.0);
+        let weight = crate::relation_score::for_relation(relation).topology_weight;
         result
             .entry(path_id)
             .and_modify(|previous: &mut PathMetadata| {

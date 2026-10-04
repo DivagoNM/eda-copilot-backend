@@ -205,7 +205,7 @@ enum CompiledEndpoint {
     },
     Component {
         primitive_id: u32,
-        point_indices: Arc<Vec<usize>>,
+        placement_index: usize,
     },
     Primitive {
         primitive_id: u32,
@@ -2196,7 +2196,7 @@ fn score_block_terms(primitives: &[WorkingPrimitive], context: &Context, primiti
         net_weight,
         target_weight,
     ) = if high {
-        (4.2, 5.4, 14.4, 12.0, 1.4, 0.45, 0.65, 1.2)
+        (4.2, 5.4, 14.4, 12.0, 1.4, 1.0, 0.65, 1.2)
     } else {
         (3.2, 2.5, 10.0, 1.5, 1.0, 1.0, 1.0, 1.0)
     };
@@ -2265,8 +2265,8 @@ fn score_block_terms(primitives: &[WorkingPrimitive], context: &Context, primiti
         score += direct_pad_crossing_penalty(primitives, context);
     }
     let path_primitives: Vec<_> = primitives.iter().map(|item| &item.primitive).collect();
-    score += { let _span = context.detail.span("signal_path_topology"); signal_path::topology_penalty(&path_primitives, &context.problem.relations) }
-        * if high { 2.5 } else { 4.0 };
+    score += { let _span = context.detail.span("signal_path_topology"); signal_path::explicit_topology_penalty(&path_primitives, &context.problem.relations) }
+        + crate::ordinary_net::penalty(&path_primitives, &context.problem.relations) * if high { 2.5 } else { 4.0 };
     if score > safe_ceiling { return None; }
     Some(score)
 }
@@ -2646,8 +2646,8 @@ fn scoped_relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -
         }
         let weight = relation_weight(relation);
         let value = distance(from.point, to.point);
-        penalty += value * weight
-            + relation_distance_limit_penalty(relation, value, weight)
+        let profile = crate::relation_score::for_relation(relation);
+        penalty += crate::relation_score::distance_cost(value,weight,profile.min.unwrap_or(-1.0),profile.max.unwrap_or(-1.0),profile.inverse_tau_squared)
             + relation_side_penalty(relation, from.point, to.point, weight);
     }
     penalty
@@ -2859,32 +2859,10 @@ fn endpoint_point(
                 primitive_id: Some(*primitive_id),
             })
         }
-        CompiledEndpoint::Component {
-            primitive_id,
-            point_indices,
-        } => {
-            let primitive = primitives
-                .iter()
-                .find(|primitive| primitive.id == *primitive_id)?;
-            let point = if point_indices.is_empty() {
-                box_center(&primitive.primitive.bbox)
-            } else {
-                let mut x = 0.0;
-                let mut y = 0.0;
-                for index in point_indices.iter() {
-                    let point = primitive.primitive.connection_points.get(*index)?;
-                    x += point.x;
-                    y += point.y;
-                }
-                Point {
-                    x: x / point_indices.len() as f32,
-                    y: y / point_indices.len() as f32,
-                }
-            };
-            Some(EndpointPoint {
-                point,
-                primitive_id: Some(*primitive_id),
-            })
+        CompiledEndpoint::Component { primitive_id, placement_index } => {
+            let primitive=primitives.iter().find(|p|p.id==*primitive_id)?;
+            let pose=primitive.primitive.placements.get(*placement_index)?;
+            Some(EndpointPoint { point:Point{x:pose.x,y:pose.y},primitive_id:Some(*primitive_id) })
         }
         CompiledEndpoint::Primitive { primitive_id } => {
             let primitive = primitives
@@ -2922,6 +2900,14 @@ fn compile_endpoint(
     bounds: Option<&Box2>,
     resolve_islands: bool,
 ) -> CompiledEndpoint {
+    if let Some(name) = endpoint.strip_prefix("component:") {
+        for primitive in primitives {
+            if let Some(placement_index) = primitive.primitive.placements.iter().position(|p|p.designator.as_ref()==name) {
+                return CompiledEndpoint::Component {primitive_id:primitive.id,placement_index};
+            }
+        }
+        return CompiledEndpoint::Missing;
+    }
     if let Some(anchor) = endpoint.strip_prefix("anchor:") {
         return CompiledEndpoint::Anchor(anchor_point(anchor, bounds));
     }
@@ -2941,31 +2927,7 @@ fn compile_endpoint(
         }
         return CompiledEndpoint::Missing;
     }
-    if let Some(designator) = endpoint.strip_prefix("component:") {
-        for primitive in primitives {
-            if !primitive
-                .primitive
-                .placements
-                .iter()
-                .any(|placement| placement.designator.as_ref() == designator)
-            {
-                continue;
-            }
-            let prefix = format!("{designator}.");
-            let point_indices = primitive
-                .primitive
-                .connection_points
-                .iter()
-                .enumerate()
-                .filter_map(|(index, point)| point.reference.starts_with(&prefix).then_some(index))
-                .collect();
-            return CompiledEndpoint::Component {
-                primitive_id: primitive.id,
-                point_indices: Arc::new(point_indices),
-            };
-        }
-        return CompiledEndpoint::Missing;
-    }
+
     for (prefix, tree_prefix) in [("block:", "tree:block:"), ("module:", "tree:module:"), ("island:", "tree:island:")] {
         if prefix == "island:" && !resolve_islands { continue; }
         if let Some(name) = endpoint.strip_prefix(prefix) {
@@ -2998,48 +2960,9 @@ fn relation_target_point(mut point: EndpointPoint, relation: &Relation) -> Endpo
 }
 
 fn relation_weight(relation: &Relation) -> f32 {
-    let priority = match relation.priority.as_deref() {
-        Some("critical") => 30.0,
-        Some("high") => 16.0,
-        Some("low") => 3.0,
-        _ => 8.0,
-    };
-    let kind = if relation.kind.as_ref() == "critical_pair" {
-        2.2
-    } else if relation.relation.as_deref() == Some("very_near") {
-        1.7
-    } else if relation.relation.as_deref() == Some("near") {
-        1.1
-    } else {
-        1.0
-    };
-    let effect = if relation.effect.as_ref() == "move_both" {
-        1.2
-    } else if relation.effect.as_ref() == "move_from" {
-        1.0
-    } else {
-        0.4
-    };
-    let configured = relation
-        .weight
-        .map(|weight| (weight / 70.0).max(0.25))
-        .unwrap_or(1.0);
-    priority * kind * effect * configured
+    crate::relation_score::for_relation(relation).weight
 }
 
-fn relation_distance_limit_penalty(relation: &Relation, value: f32, weight: f32) -> f32 {
-    let multiplier = if relation.hard { 5.0 } else { 1.0 };
-    let mut penalty = 0.0;
-    if let Some(maximum) = relation.max_distance {
-        let excess = (value - maximum).max(0.0);
-        penalty += (excess * excess * 1_500.0 + excess * 120.0) * weight * multiplier;
-    }
-    if let Some(minimum) = relation.min_distance {
-        let shortage = (minimum - value).max(0.0);
-        penalty += (shortage * shortage * 800.0 + shortage * 80.0) * weight * multiplier;
-    }
-    penalty.min(250_000.0)
-}
 
 fn relation_side_penalty(relation: &Relation, from: Point, to: Point, weight: f32) -> f32 {
     if !relation.satellite_anchor {

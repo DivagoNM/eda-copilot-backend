@@ -179,7 +179,7 @@ impl Engine {
             let from=endpoint(&mut sf,&mut si,r.from)?;let to=endpoint(&mut sf,&mut si,r.to)?;
             let f=u(sf.len())?;
             sf.extend([r.weight,r.max_distance.unwrap_or(0.0),r.min_distance.unwrap_or(0.0),
-                r.anchor_offset.map_or(0.0,|p|p.x),r.anchor_offset.map_or(0.0,|p|p.y)]);
+                r.anchor_offset.map_or(0.0,|p|p.x),r.anchor_offset.map_or(0.0,|p|p.y),r.inverse_tau_squared]);
             let side=match r.side {Some(Side::Left)=>0,Some(Side::Right)=>1,Some(Side::Top)=>2,Some(Side::Bottom)=>3,None=>4};
             si[relation_start+i*7..relation_start+i*7+7].copy_from_slice(&[from,to,
                 u32::from(r.skip)|u32::from(r.hard)*2|u32::from(r.satellite_anchor)*4|u32::from(r.anchor_offset.is_some())*8,
@@ -217,7 +217,7 @@ impl Engine {
             }
             let meta=metadata.get(path.as_ref()).copied();
             let straight=meta.is_some_and(|m|m.straight);
-            let priority=match meta.map_or(1,|m|m.priority) {3=>1.8,2=>1.35,0=>0.65,_=>1.0};
+            let priority=1.0;
             let f=u(sf.len())?;sf.extend([if straight {22.0}else{8.0},if straight {18.0}else{5.0},priority,meta.map_or(1.0,|m|m.weight)]);
             si[path_start+i*4..path_start+i*4+4].copy_from_slice(&[group_start,u(groups.len())?,f,u32::from(meta.is_some_and(|m|m.prefer_facing_pads))]);
         }
@@ -564,7 +564,7 @@ impl Engine {
                     let primitives=all.iter().map(|p|&p.primitive).collect::<Vec<_>>();
                     let expected=[super::relation_penalty(&all,context),super::envelope_overlap_penalty(&all,context),w*h,w+h,
                         super::soft_spacing_penalty(&all,context),super::soft_alignment_score(&all,context),super::edge_bias_penalty(&all,context),
-                        super::edge_place_penalty(&all,context),crate::signal_path::topology_penalty(&primitives,&context.problem.relations),
+                        super::edge_place_penalty(&all,context),crate::signal_path::explicit_topology_penalty(&primitives,&context.problem.relations),
                         crate::ordinary_net::penalty(&primitives,&context.problem.relations)];
                     let actual=f32::from_bytes(term_values.as_ref().unwrap());
                     for (term,&value) in expected.iter().enumerate() {
@@ -590,11 +590,11 @@ impl Engine {
                     let t=&actual[index*10..index*10+10];
                     let high=context.problem.compactness.as_ref()=="high";
                     let scale=context.problem.soft_spacing.as_ref().map_or(1.0,|s|s.compactness_scale);
-                    let explained_score=t[0]*if high {0.35}else{1.0}
+                    let explained_score=t[0]
                         +row.hard_severity*1_000_000.0
                         +t[1]*if high {1.2}else{1.0}+t[2]*if high {1.2}else{0.8}*scale
                         +t[3]*if high {8.0}else{1.5}*scale+t[4]+t[5]
-                        +t[6]*if high {0.4}else{1.0}+t[7]+t[8]*if high {3.0}else{5.0};
+                        +t[6]*if high {0.4}else{1.0}+t[7]+t[8]+t[9]*if high {3.0}else{5.0};
                     if row.hard_count!=cpu.hard_count || !same(cpu.hard_severity,row.hard_severity) || !same(explained_score,row.score) {
                         eprintln!("[board-gpu-validation] {}",serde_json::json!({"batch":self.batches+1,"candidate":index,"cpu":cpu,"gpu":row}));
                         return Err(Error::new(ErrorKind::InvalidInput,"board GPU candidate validation failed"));

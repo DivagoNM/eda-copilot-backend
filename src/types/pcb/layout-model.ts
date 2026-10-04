@@ -741,6 +741,7 @@ export interface ScoredCandidate extends Placement {
 }
 
 export interface NumericRule {
+    inverseTauSquared?: number;
     kind: 'distance' | 'clearance' | 'same_side' | 'edge' | 'prefer_layer';
     source: TargetRef;
     target?: TargetRef | 'all';

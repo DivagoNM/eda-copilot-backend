@@ -34,6 +34,8 @@ pub struct IslandQuality {
     pub points: Vec<IslandPoint>,
     pub pads: Vec<IslandPad>,
     pub pairs: Vec<[String; 2]>,
+    #[serde(default)]
+    pub pair_relations: Vec<crate::relation_score::Request>,
     pub max_distance: Option<f32>,
     pub power_net: Option<String>,
     pub return_net: Option<String>,
@@ -71,6 +73,40 @@ pub fn pin_one(p:&PinOne)->f32 {
     (x+0.25).max(0.0).powi(2)+(y+0.25).max(0.0).powi(2)+(x-y).max(0.0)*0.15
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IslandEvaluation {
+    pub hard_count: usize,
+    pub hard_severity: f32,
+    pub score: f32,
+    pub distance_drifts: Vec<DistanceDrift>,
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DistanceDrift {
+    pub pair: [String; 2],
+    pub distance: f32,
+    pub min: Option<f32>,
+    pub max: Option<f32>,
+}
+
+/// Only physical overlap is hard; authored core distance allows reported drift.
+pub fn island_rank(p: &IslandQuality) -> IslandEvaluation {
+    let mut distance_drifts = Vec::new();
+    if p.core_pairs {
+        for (index, refs) in p.pairs.iter().enumerate() {
+            let Some(relation)=p.pair_relations.get(index).filter(|r|r.hard) else {continue;};
+            let (Some(a),Some(b))=(p.points.iter().find(|q|q.reference==refs[0]),p.points.iter().find(|q|q.reference==refs[1])) else {continue;};
+            let profile=crate::relation_score::profile(relation);
+            let d=distance(a.point,b.point);
+            let violation=profile.max.map_or(0.0,|m|(d-m).max(0.0))
+                +profile.min.map_or(0.0,|m|(m-d).max(0.0));
+            if violation>0.001 {distance_drifts.push(DistanceDrift{pair:refs.clone(),distance:d,min:profile.min,max:profile.max});}
+        }
+    }
+    IslandEvaluation{hard_count:usize::from(p.overlap),hard_severity:if p.overlap {1.0} else {0.0},score:island(p),distance_drifts}
+}
+
 pub fn island(p:&IslandQuality)->f32 {
     let w=p.bbox.right-p.bbox.left; let h=p.bbox.bottom-p.bbox.top;
     let pairs:Vec<_>=p.pairs.iter().filter_map(|r|Some((
@@ -78,9 +114,14 @@ pub fn island(p:&IslandQuality)->f32 {
     let ds:Vec<_>=pairs.iter().map(|(a,b)|distance(a.point,b.point)).collect();
     let mut score=if p.overlap {1_000_000.0} else {0.0};
     if p.core_pairs {
-        let mut pair_score=0.0;
-        for d in &ds {let excess=p.max_distance.map_or(0.0,|max|(d-max).max(0.0));pair_score+=d+excess*excess*100.0;}
-        score+=pair_score*10_000.0;
+        for (index, refs) in p.pairs.iter().enumerate() {
+            let (Some(a),Some(b))=(p.points.iter().find(|q|q.reference==refs[0]),p.points.iter().find(|q|q.reference==refs[1])) else {continue;};
+            let fallback=crate::relation_score::Request{relation:"critical_pair".into(),priority:"normal".into(),weight:None,
+                min_distance:None,max_distance:p.max_distance,path:false,core:true,hard:false};
+            let profile=crate::relation_score::profile(p.pair_relations.get(index).unwrap_or(&fallback));
+            score+=crate::relation_score::distance_cost(distance(a.point,b.point),profile.weight,
+                profile.min.unwrap_or(-1.0),profile.max.unwrap_or(-1.0),profile.inverse_tau_squared);
+        }
         let mut hits=0;
         for (a,b) in &pairs {
             let mut crossed=std::collections::HashSet::new();
@@ -107,7 +148,7 @@ pub fn island(p:&IslandQuality)->f32 {
         }
         score+=facing*15.0;
         score+=w*h*0.4;
-        score+=ds.iter().sum::<f32>()+ds.iter().copied().fold(0.0,f32::max);
+        // Pair distance is included once, through the canonical relation objective.
         score+=p.pin_one.as_ref().map_or(0.0,pin_one)*5.0;
     } else {
         // Preserve the old island-only objective; it has no native block-search counterpart.

@@ -1,4 +1,5 @@
 import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
+import type { NativeIslandQuality } from './native/placement-quality.ts';
 import * as fp from '../f32.ts';
 import type {
     Box,
@@ -101,7 +102,11 @@ function solveIsland(
             : solveCompactIsland(island, components, grid, clearance, clearanceResolver);
 
     const bbox = placementsBox(components, placements);
-    const score = scorePlacements(island, components, placements, clearanceResolver);
+    const evaluation = loadNativeBoardPacker().evaluateIslandQuality(nativeIslandProblem(island, components, placements, clearanceResolver, kind === 'core_pairs'));
+    const score = evaluation.score;
+    for (const drift of evaluation.distanceDrifts) {
+        diagnostics.push({severity: 'warning', message: `Core pair ${drift.pair.join(' -> ')}: distance ${drift.distance.toFixed(3)} mm outside min=${drift.min ?? 'none'}, max=${drift.max ?? 'none'} mm; hard:true drift accepted with x100 excess penalty`});
+    }
     if (hasOverlap(components, placements, clearanceResolver)) {
         diagnostics.push({ severity: 'error', message: 'Island placements overlap after compact solve' });
     }
@@ -548,12 +553,16 @@ function bestVariant(island: IslandNode, components: PcbComponent[], variants: C
 }
 
 function scorePlacements(island: IslandNode, components: PcbComponent[], placements: CandidatePlacement[], clearanceResolver: ClearanceResolver) {
-    return placements.length ? nativeIslandScore(island, components, placements, clearanceResolver, false) : Infinity;
+    return placements.length ? nativeIslandScore(island, components, placements, clearanceResolver, island.data.kind === 'core_pairs') : Infinity;
 }
 
 function isGroundNet(net: string) { return net.toUpperCase().includes('GND'); }
 
 function nativeIslandScore(island: IslandNode, components: PcbComponent[], placements: CandidatePlacement[], clearanceResolver: ClearanceResolver, corePairs: boolean) {
+    return loadNativeBoardPacker().scoreIslandQuality(nativeIslandProblem(island, components, placements, clearanceResolver, corePairs));
+}
+
+function nativeIslandProblem(island: IslandNode, components: PcbComponent[], placements: CandidatePlacement[], clearanceResolver: ClearanceResolver, corePairs: boolean): NativeIslandQuality {
     const points = components.flatMap(c => {
         const pose = placements.find(p => p.designator === c.designator);
         return pose ? c.pins.flatMap(pin => {
@@ -563,23 +572,25 @@ function nativeIslandScore(island: IslandNode, components: PcbComponent[], place
         }) : [];
     });
     const pads = corePairs ? components.flatMap(c => {
-        const pose = placements.find(p => p.designator === c.designator)!;
+        const pose = placements.find(p => p.designator === c.designator);
+        if (!pose) return [];
         return c.footprint.pads.map(pad => ({ reference: c.designator + '.' + pad.pin_number,
             net: padNet(c, pad.pin_number), box: componentPadBox(pose, pad), layer: pose.layer, throughHole: isThroughHolePad(pad) }));
     }) : [];
     const anchor = corePairs ? selectCoreAnchor(island, components) : undefined;
     const pose = anchor && placements.find(p => p.designator === anchor.designator);
     const offset = anchor && pose && getPadOffset(anchor, '1', pose.rotate, pose.layer);
-    return loadNativeBoardPacker().scoreIslandQuality({
+    return {
         corePairs, origin:{x:0,y:0}, bbox: placementsBox(components, placements), overlap: hasOverlap(components, placements, clearanceResolver),
         points, pads, pairs: parseIslandPairs(island),
+        pairRelations: island.data.pairRelations as NativeIslandQuality['pairRelations'],
         maxDistance: typeof island.data.maxDistance === 'number' ? island.data.maxDistance : undefined,
         powerNet: island.data.kind === 'cap_cluster' && typeof island.data.powerNet === 'string' ? island.data.powerNet : undefined,
         returnNet: island.data.kind === 'cap_cluster' && typeof island.data.returnNet === 'string' ? island.data.returnNet : undefined,
         centerPowerBus: island.data.topology === 'center_power_bus',
         axis: island.data.axis === 'x' || island.data.axis === 'y' ? island.data.axis : undefined,
         pinOne: offset && anchor && pose ? { offset, ...rotatedSize(anchor.footprint, pose.rotate) } : undefined,
-    });
+    };
 }
 
 function rotationsForAxis(rotations: number[], components: PcbComponent[], island: IslandNode, axis: 'x' | 'y') {

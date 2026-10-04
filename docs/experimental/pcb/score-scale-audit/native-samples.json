@@ -1,0 +1,556 @@
+{
+  "note": "Isolated native relation contributions on numerical probe geometry, not legal placement candidates. No solver search. GND Post column hypothetical identical explicit max8; inferred graph hint may not reach expandHints.",
+  "rows": [
+    {
+      "name": "near critical",
+      "d": 0.8,
+      "block": 90.5142867565155,
+      "board": 82.28572082519531,
+      "post": 192
+    },
+    {
+      "name": "near critical",
+      "d": 1,
+      "block": 113.14286041259766,
+      "board": 102.85714721679688,
+      "post": 240
+    },
+    {
+      "name": "near critical",
+      "d": 3,
+      "block": 339.4285888671875,
+      "board": 308.5714416503906,
+      "post": 720
+    },
+    {
+      "name": "near critical",
+      "d": 5,
+      "block": 565.7142944335938,
+      "board": 514.2857666015625,
+      "post": 1200
+    },
+    {
+      "name": "near critical",
+      "d": 7,
+      "block": 792,
+      "board": 720,
+      "post": 1680
+    },
+    {
+      "name": "near critical",
+      "d": 8,
+      "block": 905.1428833007812,
+      "board": 822.857177734375,
+      "post": 1920
+    },
+    {
+      "name": "near critical",
+      "d": 8.999,
+      "block": 1018.1725807189941,
+      "board": 925.6114501953125,
+      "post": 6950.17041015625
+    },
+    {
+      "name": "near critical",
+      "d": 9,
+      "block": 1018.2857666015625,
+      "board": 925.71435546875,
+      "post": 6960
+    },
+    {
+      "name": "near critical",
+      "d": 9.001,
+      "block": 1018.3989524841309,
+      "board": 925.8171997070312,
+      "post": 6969.8388671875
+    },
+    {
+      "name": "near critical",
+      "d": 9.01,
+      "block": 1019.4171524047852,
+      "board": 926.742919921875,
+      "post": 7058.8828125
+    },
+    {
+      "name": "near critical",
+      "d": 9.1,
+      "block": 1029.6001205444336,
+      "board": 936.0000610351562,
+      "post": 7992.00390625
+    },
+    {
+      "name": "near critical",
+      "d": 9.101,
+      "block": 1029.7131881713867,
+      "board": 936.1029052734375,
+      "post": 8002.8037109375
+    },
+    {
+      "name": "near critical",
+      "d": 9.25,
+      "block": 1046.5714111328125,
+      "board": 951.4285888671875,
+      "post": 9720
+    },
+    {
+      "name": "near critical",
+      "d": 9.5,
+      "block": 1074.857177734375,
+      "board": 977.1428833007812,
+      "post": 13080
+    },
+    {
+      "name": "near critical",
+      "d": 9.501,
+      "block": 1074.9703636169434,
+      "board": 977.2457885742188,
+      "post": 13094.63671875
+    },
+    {
+      "name": "near critical",
+      "d": 9.56,
+      "block": 1081.6457405090332,
+      "board": 983.3143920898438,
+      "post": 13975.671875
+    },
+    {
+      "name": "near critical",
+      "d": 9.6,
+      "block": 1086.171531677246,
+      "board": 987.4286499023438,
+      "post": 14592.005859375
+    },
+    {
+      "name": "near critical",
+      "d": 9.601,
+      "block": 1086.2845993041992,
+      "board": 987.5314331054688,
+      "post": 14607.6015625
+    },
+    {
+      "name": "near critical",
+      "d": 10,
+      "block": 1131.4285888671875,
+      "board": 1028.571533203125,
+      "post": 21600
+    },
+    {
+      "name": "near critical",
+      "d": 10.001,
+      "block": 1131.5417747497559,
+      "board": 1028.67431640625,
+      "post": 21619.435546875
+    },
+    {
+      "name": "near critical",
+      "d": 12,
+      "block": 1357.71435546875,
+      "board": 1234.2857666015625,
+      "post": 79680
+    },
+    {
+      "name": "near critical",
+      "d": 20,
+      "block": 2262.857177734375,
+      "board": 2057.14306640625,
+      "post": 696000
+    },
+    {
+      "name": "RF critical max9",
+      "d": 0.8,
+      "block": 325.85145258903503,
+      "board": 370.2857360839844,
+      "post": 345.6000061035156
+    },
+    {
+      "name": "RF critical max9",
+      "d": 1,
+      "block": 407.3143005371094,
+      "board": 462.8571472167969,
+      "post": 432
+    },
+    {
+      "name": "RF critical max9",
+      "d": 3,
+      "block": 1221.94287109375,
+      "board": 1388.5714111328125,
+      "post": 1296
+    },
+    {
+      "name": "RF critical max9",
+      "d": 5,
+      "block": 2036.571533203125,
+      "board": 2314.28564453125,
+      "post": 2160
+    },
+    {
+      "name": "RF critical max9",
+      "d": 7,
+      "block": 2851.2001953125,
+      "board": 3240,
+      "post": 3024
+    },
+    {
+      "name": "RF critical max9",
+      "d": 8,
+      "block": 3258.514404296875,
+      "board": 3702.857177734375,
+      "post": 3456
+    },
+    {
+      "name": "RF critical max9",
+      "d": 8.999,
+      "block": 3665.4212379455566,
+      "board": 4165.25146484375,
+      "post": 3887.568359375
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9,
+      "block": 3665.82861328125,
+      "board": 4165.71435546875,
+      "post": 3888
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.001,
+      "block": 3715.7450218200684,
+      "board": 4222.4375,
+      "post": 3888.440185546875
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.01,
+      "block": 4219.790077209473,
+      "board": 4795.2158203125,
+      "post": 3893.18408203125
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.1,
+      "block": 14704.112693786621,
+      "board": 16709.216796875,
+      "post": 4017.600830078125
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.101,
+      "block": 14876.107719421387,
+      "board": 16904.66796875,
+      "post": 4019.76806640625
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.25,
+      "block": 54172.80078125,
+      "board": 61560,
+      "post": 4536
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.5,
+      "block": 181051.203125,
+      "board": 205740,
+      "post": 6264
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.501,
+      "block": 181712.35537338257,
+      "board": 206491.3125,
+      "post": 6273.07568359375
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.56,
+      "block": 222866.40062332153,
+      "board": 253257.28125,
+      "post": 6839.4189453125
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.6,
+      "block": 253186.88124847412,
+      "board": 254443.421875,
+      "post": 7257.6044921875
+    },
+    {
+      "name": "RF critical max9",
+      "d": 9.601,
+      "block": 253910.6272506714,
+      "board": 254443.890625,
+      "post": 7268.4072265625
+    },
+    {
+      "name": "RF critical max9",
+      "d": 10,
+      "block": 254073.140625,
+      "board": 254628.578125,
+      "post": 12960
+    },
+    {
+      "name": "RF critical max9",
+      "d": 10.001,
+      "block": 254073.54287338257,
+      "board": 254629.03125,
+      "post": 12977.7109375
+    },
+    {
+      "name": "RF critical max9",
+      "d": 12,
+      "block": 254887.765625,
+      "board": 255554.28125,
+      "post": 82944
+    },
+    {
+      "name": "RF critical max9",
+      "d": 20,
+      "block": 258146.28125,
+      "board": 259257.140625,
+      "post": 1054080
+    },
+    {
+      "name": "normal GND max8",
+      "d": 0.8,
+      "block": 7.040000677108765,
+      "board": 6.400000095367432,
+      "post": 56
+    },
+    {
+      "name": "normal GND max8",
+      "d": 1,
+      "block": 8.800000190734863,
+      "board": 8,
+      "post": 70
+    },
+    {
+      "name": "normal GND max8",
+      "d": 3,
+      "block": 26.400001525878906,
+      "board": 24,
+      "post": 210
+    },
+    {
+      "name": "normal GND max8",
+      "d": 5,
+      "block": 44,
+      "board": 40,
+      "post": 350
+    },
+    {
+      "name": "normal GND max8",
+      "d": 7,
+      "block": 61.600006103515625,
+      "board": 56,
+      "post": 490
+    },
+    {
+      "name": "normal GND max8",
+      "d": 8,
+      "block": 70.4000015258789,
+      "board": 64,
+      "post": 560
+    },
+    {
+      "name": "normal GND max8",
+      "d": 8.999,
+      "block": 14307.739353179932,
+      "board": 13007.03515625,
+      "post": 2027.1329345703125
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9,
+      "block": 14335.2001953125,
+      "board": 13032,
+      "post": 2030
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.001,
+      "block": 14362.688381195068,
+      "board": 13056.9892578125,
+      "post": 2032.8697509765625
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.01,
+      "block": 14611.175819396973,
+      "board": 13282.88671875,
+      "post": 2058.8408203125
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.1,
+      "block": 17213.69179534912,
+      "board": 15648.810546875,
+      "post": 2331.001220703125
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.101,
+      "block": 17243.793266296387,
+      "board": 15676.1748046875,
+      "post": 2334.15087890625
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.25,
+      "block": 22026.400390625,
+      "board": 20024,
+      "post": 2835
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.5,
+      "block": 31367.599609375,
+      "board": 28516,
+      "post": 3815
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.501,
+      "block": 31408.29482650757,
+      "board": 28552.994140625,
+      "post": 3819.26904296875
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.56,
+      "block": 33855.02562332153,
+      "board": 30777.296875,
+      "post": 4076.237548828125
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.6,
+      "block": 35566.09609222412,
+      "board": 32332.814453125,
+      "post": 4256.00146484375
+    },
+    {
+      "name": "normal GND max8",
+      "d": 9.601,
+      "block": 35609.38896942139,
+      "board": 32372.173828125,
+      "post": 4260.55029296875
+    },
+    {
+      "name": "normal GND max8",
+      "d": 10,
+      "block": 55000,
+      "board": 50000,
+      "post": 6300
+    },
+    {
+      "name": "normal GND max8",
+      "d": 10.001,
+      "block": 55053.90224838257,
+      "board": 50049,
+      "post": 6305.66796875
+    },
+    {
+      "name": "normal GND max8",
+      "d": 12,
+      "block": 215529.59375,
+      "board": 195936,
+      "post": 23240
+    },
+    {
+      "name": "normal GND max8",
+      "d": 20,
+      "block": 250176,
+      "board": 250160,
+      "post": 203000
+    }
+  ],
+  "hints": [
+    {
+      "kind": "distance",
+      "source": {
+        "type": "pin",
+        "designator": "R21",
+        "pin_number": "1"
+      },
+      "target": {
+        "type": "pin",
+        "designator": "U13",
+        "pin_number": "7"
+      },
+      "max": 5,
+      "weight": 672,
+      "hard": true,
+      "criticalPair": true,
+      "corePair": true,
+      "crossingPenalty": 2,
+      "preferFacingPads": true
+    },
+    {
+      "kind": "distance",
+      "source": {
+        "type": "pin",
+        "designator": "R21",
+        "pin_number": "2"
+      },
+      "target": {
+        "type": "pin",
+        "designator": "U13",
+        "pin_number": "8"
+      },
+      "max": 5,
+      "weight": 672,
+      "hard": true,
+      "criticalPair": true,
+      "corePair": true,
+      "crossingPenalty": 2,
+      "preferFacingPads": true
+    },
+    {
+      "kind": "distance",
+      "source": {
+        "type": "component",
+        "designator": "R21"
+      },
+      "target": {
+        "type": "component",
+        "designator": "U8"
+      },
+      "min": 0.8,
+      "max": 8,
+      "weight": 240,
+      "hard": false
+    },
+    {
+      "kind": "distance",
+      "source": {
+        "type": "pin",
+        "designator": "L1",
+        "pin_number": "2"
+      },
+      "target": {
+        "type": "pin",
+        "designator": "U11",
+        "pin_number": "1"
+      },
+      "max": 9,
+      "weight": 432,
+      "hard": false,
+      "criticalPair": true,
+      "corePair": false,
+      "crossingPenalty": 0,
+      "preferFacingPads": true
+    }
+  ],
+  "netWeights": {
+    "local": [
+      1,
+      0.25,
+      1
+    ],
+    "board": [
+      1,
+      0.10000000149011612,
+      1
+    ]
+  }
+}

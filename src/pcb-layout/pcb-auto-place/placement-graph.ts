@@ -585,6 +585,9 @@ function addHintEdgesAndIslands(
         const components = unique(items.flatMap((item) => [item.hint.source.designator, item.hint.target.designator]));
         addIsland(state, input, 'core_pairs', `core_pairs:${key}`, components, maxPriority(items.map((item) => item.hint.priority)), items.some((item) => item.hint.hard ?? true), items.map((item) => item.index), {
             pairs: items.map((item) => [formatPinRef(item.hint.source), formatPinRef(item.hint.target)]),
+            pairRelations: items.map(({hint}) => ({relation: 'critical_pair', priority: hint.priority,
+                weight: hintRelationWeight(hint), minDistance: hint.minDistance, maxDistance: hint.maxDistance,
+                path: Boolean(hint.path), core: true, hard: hint.hard ?? (hint.path ? false : hint.priority === 'critical')})),
             maxDistance: minNumber(items.map((item) => item.hint.maxDistance)),
             block: key,
         });
@@ -634,7 +637,7 @@ function addHintEdges(state: GraphBuilderState, hint: PlacementHint, index: numb
 
 function hintRelationWeight(hint: PlacementHint) {
     if (hint.relation === 'critical_pair') {
-        return fp.mul(priorityWeight(hint.priority), (hint.weightMultiplier ?? (hint.core ? 2.4 : 1.8)));
+        return fp.mul(priorityWeight(hint.priority), (hint.weightMultiplier ?? 1));
     }
     return priorityWeight(hint.priority);
 }
@@ -642,6 +645,7 @@ function hintRelationWeight(hint: PlacementHint) {
 function hintRelationData(hint: PlacementHint, index: number): Record<string, unknown> {
     const data: Record<string, unknown> = { hintIndex: index };
     if (hint.relation === 'critical_pair') {
+        data.core = hint.core === true;
         data.maxDistance = hint.maxDistance ?? null;
         data.minDistance = hint.minDistance ?? null;
         data.preferFacingPads = hint.preferFacingPads ?? false;

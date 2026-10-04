@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Experimental branch: share Rust/CubeCL distance-relation profiles across block, board, core-pair islands and PostPlace; normalize explicit signal-path topology weights and component endpoints. Remove duplicated distance formulas and hidden priority/stage multipliers. Score contract v3 requires a rebuilt addon. Core hard distance permits drift with x100 excess cost in the shared profile and explicit island warnings; physical overlap remains hard. Integration quality is not accepted: see `docs/experimental/pcb/unified-relations/README.md` for failing checks and remaining semantic gaps.
+
 - Reuse the block passive-pin-to-IC stretch penalty in PostPlace CPU/GPU and native score inspection, scoped to original block/family ownership. Preserve weights, search and the 100-unit threshold; require a rebuilt score-contract v2 addon. Validation deferred to the user.
 
 - Use normal priority for inferred small-block ground links and connect bypass hints from the capacitor pad on the target net to the authored IC pad. Preserve local-ground eligibility, distance limits and PostPlace hint expansion.

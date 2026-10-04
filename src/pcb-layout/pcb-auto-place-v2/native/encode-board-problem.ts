@@ -187,6 +187,7 @@ function encodeRelation(relation: BoardPackParams['relations'][number]): NativeR
         satelliteAnchor: relation.data?.satelliteAnchor === true,
         anchorOffset: pointOptional(relation.data?.anchorOffset),
         sidePreference: boardEdgeOptional(relation.data?.sidePreference),
+        core: relation.data?.core === true,
         pathId: stringOptional(relation.data?.pathId),
         pathShape: relation.data?.pathShape === 'straight' ? 'straight' : relation.data?.pathShape === 'flexible' ? 'flexible' : undefined,
         preferFacingPads: relation.data?.preferFacingPads === true,

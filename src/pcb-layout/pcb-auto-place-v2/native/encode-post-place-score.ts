@@ -4,7 +4,7 @@ import type { Box, PcbComponent, Placement, PlacementInput } from '#types/pcb/la
 import { isConnectedSignalName } from '#utils/signals.ts';
 import { boardBox, getBox, getPadWorld, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { placementPadCrossingWeight } from '../block-policy.ts';
-import { expandHints } from '../../pcb-auto-place/hints.ts';
+import { expandHints, pathRelationWeight } from '../../pcb-auto-place/hints.ts';
 import {
     resolveTargetBox,
     resolveTargetPoint,
@@ -72,11 +72,11 @@ export function encodeNativePostPlaceScoreProblem(
 
     const layerTerms: Array<[number, boolean]> = [];
     for (const rule of expandHints(input)) {
-        const weight = fp.max(1, rule.weight);
+        const weight = rule.weight;
         if (rule.kind === 'distance' && rule.target && rule.target !== 'all') {
             const source = resolveTargetPoint(input, rule.source, placementByDesignator, componentByDesignator);
             const target = resolveTargetPoint(input, rule.target, placementByDesignator, componentByDesignator);
-            if (source && target) result.distances.push({ source, target, weight, min: rule.min, max: rule.max });
+            if (source && target) result.distances.push({ source, target, weight, inverseTauSquared: rule.inverseTauSquared, min: rule.min, max: rule.max });
         }
         if (rule.kind === 'clearance' && rule.target && rule.min !== undefined) {
             const source = resolveTargetBox(input, rule.source, placementByDesignator, componentByDesignator);
@@ -121,7 +121,7 @@ export function encodeNativePostPlaceScoreProblem(
             ports,
             shape: path.shape,
             priority: path.priority,
-            weight: 1,
+            weight: pathRelationWeight(input, path.id),
             preferFacingPads: path.preferFacingPads,
         });
     }

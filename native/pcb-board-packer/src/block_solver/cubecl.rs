@@ -102,6 +102,7 @@ struct Rel {
     oy: f32,
     dx: f32,
     dy: f32,
+    inverse_tau_squared: f32,
     hard: u32,
     offset: u32,
     side: u32,
@@ -183,8 +184,8 @@ fn endpoint(e: &CompiledEndpoint, prims: &[WorkingPrimitive], indices: &mut Vec<
         } => (*primitive_id, vec![*point_index]),
         CompiledEndpoint::Component {
             primitive_id,
-            point_indices,
-        } => (*primitive_id, point_indices.as_ref().clone()),
+            placement_index,
+        } => (*primitive_id, prims.iter().find(|p|p.id==*primitive_id).map(|p|vec![p.primitive.connection_points.len()+placement_index]).unwrap_or_default()),
         CompiledEndpoint::Primitive { primitive_id } => (*primitive_id, vec![]),
         _ => {
             return Endpoint {
@@ -348,6 +349,11 @@ impl Engine {
                                     .any(|n| n.eq_ignore_ascii_case(name))
                         }) as i32,
                     });
+                }
+                // Component origins share point transport, but are outside nc:
+                // they are not pads, net members or candidate-generation inputs.
+                for pose in p.primitive.placements.iter() {
+                    engine.cp.push(Cp{x:pose.x,y:pose.y,net:-1,owner:-1,layer:layer(Some(&pose.layer)),unused:0});
                 }
                 let origin = box_center(&original.primitive.bbox);
                 for v in &context.source_pads[p.source_index] {
@@ -545,8 +551,9 @@ fn prepare(
             from: endpoint(&r.from, &current, &mut eprefs),
             to: endpoint(&r.to, &current, &mut eprefs),
             weight: relation_weight(rel),
-            min: rel.min_distance.unwrap_or(-1.),
-            max: rel.max_distance.unwrap_or(-1.),
+            min: crate::relation_score::for_relation(rel).min.unwrap_or(-1.),
+            max: crate::relation_score::for_relation(rel).max.unwrap_or(-1.),
+            inverse_tau_squared: crate::relation_score::for_relation(rel).inverse_tau_squared,
             ox: o.x,
             oy: o.y,
             dx,
@@ -679,7 +686,7 @@ impl Engine {
         for (i,(name,ports)) in paths.iter().enumerate() {
             let meta=metadata.get(name.as_ref());let f=ff.len() as u32;
             ff.extend([if meta.is_some_and(|m|m.straight){22.0}else{8.0},if meta.is_some_and(|m|m.straight){18.0}else{5.0},
-                match meta.map(|m|m.priority){Some(3)=>1.8,Some(2)=>1.35,Some(0)=>0.65,_=>1.0},meta.map_or(1.0,|m|m.weight),if meta.is_some_and(|m|m.prefer_facing_pads){1.0}else{0.0}]);
+                1.0,meta.map_or(1.0,|m|m.weight),if meta.is_some_and(|m|m.prefer_facing_pads){1.0}else{0.0}]);
             let refs=fi.len() as u32;
             for (&order,(_,p,j)) in ports {fi.extend([*p as u32,*j as u32,order as u32]);}
             fi[start+i*3..start+i*3+3].copy_from_slice(&[refs,ports.len() as u32,f]);
@@ -801,7 +808,7 @@ impl Engine {
         }
         fi[k::REL_I] = fi.len() as u32;
         for r in &relations {
-            ff.extend([r.weight, r.min, r.max, r.ox, r.oy, r.dx, r.dy,r.from.x,r.from.y,r.to.x,r.to.y]);
+            ff.extend([r.weight, r.min, r.max, r.ox, r.oy, r.dx, r.dy,r.from.x,r.from.y,r.to.x,r.to.y,r.inverse_tau_squared]);
             fi.extend([
                 r.from.primitive as u32,
                 r.from.start,

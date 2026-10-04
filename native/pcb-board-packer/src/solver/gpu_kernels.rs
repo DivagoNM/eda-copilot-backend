@@ -227,15 +227,9 @@ fn endpoint(g:&Input,c:usize,e:usize)->Endpoint {
                 let cp=g.si[t+9] as usize+index as usize*2;
                 let f=g.si[cp] as usize;assign_p(&mut xy,P{x:coord(g,p,f,0),y:coord(g,p,f+1,1)});
             }else if kind==2 {
-                let mut x=0.0;let mut y=0.0;let mut count:u32=0;
-                for i in 0..g.si[t+10] as usize {
-                    let cp=g.si[t+9] as usize+i*2;
-                    if g.si[cp+1]==index {
-                        let f=g.si[cp] as usize;x+=coord(g,p,f,0);y+=coord(g,p,f+1,1);count+=1;
-                    }
-                }
-                assign_p(&mut xy,center(box_at(g,p,g.si[t+2] as usize)));
-                if count>0 {assign_p(&mut xy,P{x:rp(x/count as f32),y:rp(y/count as f32)});}
+                let q=placement(g,p,index);
+                if q!=0xffffffffusize {let f=g.si[q] as usize;assign_p(&mut xy,P{x:coord(g,p,f,0),y:coord(g,p,f+1,1)});}
+
             }
             assign_e(&mut result,Endpoint{x:xy.x,y:xy.y,owner:owner,present:true});
         }
@@ -252,11 +246,9 @@ fn relation_term(g:&Input,c:usize,i:usize)->Costs {
                 let f=g.si[r+6] as usize;let weight=g.sf[f];
                 if flags&4!=0 && flags&8!=0 {to.x=rp(to.x+g.sf[f+3]);to.y=rp(to.y+g.sf[f+4]);}
                 let dx=from.x-to.x;let dy=from.y-to.y;let distance=(dx*dx+dy*dy).sqrt();
-                let mut multiplier=1.0;if flags&2!=0 {multiplier=5.0;}
-                let mut limits=0.0;
-                if g.si[r+3]!=0 {let excess=max(distance-g.sf[f+1],0.0);limits+=(excess*excess*1500.0+excess*120.0)*weight*multiplier;}
-                if g.si[r+4]!=0 {let shortage=max(g.sf[f+2]-distance,0.0);limits+=(shortage*shortage*800.0+shortage*80.0)*weight*multiplier;}
-                first=distance*weight+min(limits,250000.0);
+                let mut minimum=g.sf[f+2];if g.si[r+4]==0 {minimum=-1.0;}
+                let mut maximum=g.sf[f+1];if g.si[r+3]==0 {maximum=-1.0;}
+                first=crate::relation_score::distance_cost(distance,weight,minimum,maximum,g.sf[f+5]);
                 if flags&4!=0 && g.si[r+5]<4 {
                     let side=g.si[r+5];let mut ax=0.0;let mut ay=0.0;
                     if distance>0.000001 {ax=dx/distance;ay=dy/distance;}
@@ -402,7 +394,7 @@ fn path_term(g:&Input,c:usize,path:usize)->f32 {
                     }
                 }
                 let f=g.si[info+2] as usize;let detour=max(distance-direct,0.0);
-                total+=rp((detour*g.sf[f]+backtrack*42.0+turns*g.sf[f+1]+facing*12.0)*g.sf[f+2]*g.sf[f+3]);
+                total+=rp(crate::relation_score::topology_cost(detour,backtrack,turns,facing,g.sf[f],g.sf[f+1],g.sf[f+3]));
             }
         }
     }total
@@ -605,21 +597,21 @@ pub fn ranks(g:&Input,scores:&mut Array<f32>,tags:&mut Array<u32>,terms:&mut Arr
             for ob in 0..obstacles {severity+=unary_value(g,slot+2+ob);}
             severity+=unary_value(g,slot+2+obstacles);bias+=unary_value(g,slot+3+obstacles);edge_score+=unary_value(g,slot+4+obstacles);
         }
-        let mut area_weight=0.8;let mut perimeter_weight=1.5;let mut overlap_weight=1.0;let mut edge_weight=1.0;let mut relation_weight=1.0;let mut topology_weight=5.0;
-        if g.si[0]!=0 {area_weight=1.2;perimeter_weight=8.0;overlap_weight=1.2;edge_weight=0.4;relation_weight=0.35;topology_weight=3.0;}
+        let mut area_weight=0.8;let mut perimeter_weight=1.5;let mut overlap_weight=1.0;let mut edge_weight=1.0;let mut topology_weight=5.0;
+        if g.si[0]!=0 {area_weight=1.2;perimeter_weight=8.0;overlap_weight=1.2;edge_weight=0.4;topology_weight=3.0;}
         let mut score=0.0;let mut w=0.0;let mut h=0.0;
 
         if n>0 {
             if extent.l<=extent.r {w=extent.r-extent.l;h=extent.b-extent.t;}
-            score=relations*relation_weight+severity*1000000.0+envelope_score*overlap_weight+w*h*area_weight*g.sf[10]
-                +(w+h)*perimeter_weight*g.sf[10]+spacing+alignment+bias*edge_weight+edge_score+(path+ordinary)*topology_weight;
+            score=relations+severity*1000000.0+envelope_score*overlap_weight+w*h*area_weight*g.sf[10]
+                +(w+h)*perimeter_weight*g.sf[10]+spacing+alignment+bias*edge_weight+edge_score+path+ordinary*topology_weight;
         }
         scores[candidate*2]=severity;scores[candidate*2+1]=score;tags[candidate]=hard;
         if verify {
             let t0=candidate*10;let t1=t0+1;let t2=t0+2;let t3=t0+3;let t4=t0+4;
             let t5=t0+5;let t6=t0+6;let t7=t0+7;let t8=t0+8;let t9=t0+9;
             terms[t0]=relations;terms[t1]=envelope_score;terms[t2]=w*h;terms[t3]=w+h;terms[t4]=spacing;
-            terms[t5]=alignment;terms[t6]=bias;terms[t7]=edge_score;terms[t8]=path+ordinary;terms[t9]=ordinary;
+            terms[t5]=alignment;terms[t6]=bias;terms[t7]=edge_score;terms[t8]=path;terms[t9]=ordinary;
         }
     }
 }

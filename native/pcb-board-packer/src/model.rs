@@ -111,6 +111,8 @@ pub struct EdgePlaceIntent {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Relation {
+    #[serde(default)]
+    pub core: bool,
     pub id: Arc<str>,
     pub kind: Arc<str>,
     pub from: Arc<str>,
@@ -353,6 +355,8 @@ pub struct PostPlaceNet {
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostPlaceDistance {
+    #[serde(default = "crate::relation_score::default_inverse_tau_squared")]
+    pub inverse_tau_squared: f32,
     pub source: Point,
     pub target: Point,
     pub weight: f32,

@@ -39,18 +39,9 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
 
     for term in &problem.distances {
         let value = distance(term.source, term.target);
-        score += value * term.weight;
-        if let Some(max) = term.max {
-            if value > max {
-                score += (value - max).powi(2) * term.weight * 20.0;
-            }
-        }
-        if let Some(min) = term.min {
-            if value < min {
-                score += (min - value).powi(2) * term.weight * 20.0;
-            }
-        }
+        score += crate::relation_score::distance_cost(value,term.weight,term.min.unwrap_or(-1.0),term.max.unwrap_or(-1.0),term.inverse_tau_squared);
     }
+
     for term in &problem.clearances {
         let gap = box_clearance_gap(&term.source, &term.target);
         if gap < term.minimum {
@@ -79,7 +70,7 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
             &path.priority,
             path.weight,
             path.prefer_facing_pads,
-        ) * 20.0;
+        );
     }
     if !score.is_finite() {
         return Err("post-place F32 score overflow or invalid arithmetic".into());

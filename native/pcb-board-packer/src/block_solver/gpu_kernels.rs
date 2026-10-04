@@ -276,7 +276,7 @@ fn topology(d:&Input,candidate:usize)->f32 {
                         }
                     }
                 }
-                if edges>=2 {total+=rp((max(length-direct,0.0)*d.ff[f]+backtrack*42.0+turns*d.ff[f+1]+facing*12.0)*d.ff[f+2]*d.ff[f+3]);}
+                if edges>=2 {total+=rp(crate::relation_score::topology_cost(max(length-direct,0.0),backtrack,turns,facing,d.ff[f],d.ff[f+1],d.ff[f+3]));}
             }
         }
     }
@@ -291,7 +291,7 @@ fn topology(d:&Input,candidate:usize)->f32 {
         }
         if count>0 {ordinary+=min(best,30.0)*d.ff[d.fi[info+2] as usize]*0.5;}
     }
-    total+ordinary
+    total+ordinary*choose(d.fi[HIGH]!=0,2.5,4.0)
 }
 
 #[cube]
@@ -528,7 +528,7 @@ fn ep(d: &Input, ri: usize, side: usize, candidate: usize) -> P {
     let t = d.fi[REL_I] as usize + ri * 10 + side * 3;
     let mut result=P{x:0.0,y:0.0};
     if d.fi[t] as i32 == -2 {
-        let f=3+d.fi[N] as usize*10+ri*11+7+side*2;
+        let f=3+d.fi[N] as usize*10+ri*12+7+side*2;
         result.x=d.ff[f];result.y=d.ff[f+1];
     } else {
     let p = load_prim(d, d.fi[t] as usize, candidate);
@@ -928,7 +928,7 @@ pub fn full(
         }
         if lane == 0 {
             scores[candidate] += partial[0] as f32 * 45.0;
-            scores[candidate] += topology(d,candidate)*choose(d.fi[HIGH]!=0,2.5,4.0);
+            scores[candidate] += topology(d,candidate);
             tags[candidate * 3 + 1] = 1;
         }
     }
@@ -1393,7 +1393,7 @@ pub fn cheap(
         let mut facing = 0.0f32;
         for i in 0usize..d.fi[RELS] as usize {
             let t = d.fi[REL_I] as usize + i * 10;
-            let f = 3 + nprim * 10 + i * 11;
+            let f = 3 + nprim * 10 + i * 12;
             let from = d.fi[t] as i32;
             let to = d.fi[t + 3] as i32;
             let weight = d.ff[f];
@@ -1405,16 +1405,6 @@ pub fn cheap(
                     b.y = rp(b.y + d.ff[f + 4]);
                 }
                 let dist = distance(a, b);
-                let mult = choose(d.fi[t + 6] != 0, 5.0, 1.0);
-                let mut limit = 0.0f32;
-                if d.ff[f + 2] >= 0.0 {
-                    let x = max(dist - d.ff[f + 2], 0.0);
-                    limit += (x * x * 1500.0 + x * 120.0) * weight * mult;
-                }
-                if d.ff[f + 1] >= 0.0 {
-                    let x = max(d.ff[f + 1] - dist, 0.0);
-                    limit += (x * x * 800.0 + x * 80.0) * weight * mult;
-                }
                 let mut side = 0.0f32;
                 if d.fi[t + 8] != 0 {
                     let mut dx = a.x - b.x;
@@ -1428,7 +1418,7 @@ pub fn cheap(
                     }
                     side = max(1.0 - (dx * d.ff[f + 5] + dy * d.ff[f + 6]), 0.0) * weight * 120.0;
                 }
-                relation += dist * weight + min(limit, 250000.0) + side;
+                relation += crate::relation_score::distance_cost(dist,weight,d.ff[f+1],d.ff[f+2],d.ff[f+11]) + side;
                 if (d.fi[t+9]&2)!=0 {
                     let original_to=ep(d,i,1usize,candidate);
                     if from>=0 {facing+=endpoint_facing(a,original_to,load_prim(d,from as usize,candidate).bbox)*weight*2.5;}
@@ -1477,7 +1467,7 @@ pub fn cheap(
                 exposure += blocked * weight * (choose(placed_components < 5, 1.25, 5.0));
             }
         }
-        score += relation * (choose(high, 0.45, 1.0));
+        score += relation;
         score += exposure * (choose(high, 0.35, 1.0));
         score += facing*choose(high,0.55,1.0);
         let small = ((d.fi[FLAGS]&8)!=0 && d.fi[SMALL]!=0) || ((d.fi[FLAGS]&8)==0 && placed_components>0 && placed_components<5);

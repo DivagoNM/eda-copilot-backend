@@ -7,6 +7,7 @@ export interface NativeIslandQuality {
     points: Array<{ reference: string; owner: string; net?: string | null; point: Point; center: Point; layer: string }>;
     pads: Array<{ reference: string; net?: string | null; box: Box; layer: string; throughHole: boolean }>;
     pairs: Array<[string, string]>;
+    pairRelations?: Array<{relation: string; priority: string; weight?: number; minDistance?: number; maxDistance?: number; path?: boolean; core?: boolean; hard?: boolean}>;
     maxDistance?: number;
     powerNet?: string;
     returnNet?: string;

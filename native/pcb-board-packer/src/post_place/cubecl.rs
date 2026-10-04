@@ -61,7 +61,7 @@ impl Engine {
   d.si[14]=d.floats(&[p.board.left,p.board.right,p.board.top,p.board.bottom]);
   let mut buckets:[Vec<u32>;5]=Default::default();
   for h in &p.hints {match h.kind.as_str(){
-   "distance" if !h.all=>{if let(Some(a),Some(b))=(d.target(&h.source),d.target(&h.target)){let f=d.floats(&[h.weight,h.min.unwrap_or(0.0),h.max.unwrap_or(0.0)]);buckets[0].extend([0,a,b,f,u32::from(h.max.is_some())|u32::from(h.min.is_some())*2]);}},
+   "distance" if !h.all=>{if let(Some(a),Some(b))=(d.target(&h.source),d.target(&h.target)){let f=d.floats(&[h.weight,h.min.unwrap_or(0.0),h.max.unwrap_or(0.0),h.inverse_tau_squared]);buckets[0].extend([0,a,b,f,u32::from(h.max.is_some())|u32::from(h.min.is_some())*2]);}},
    "clearance"=>{if let(Some(a),Some(minimum))=(d.target(&h.source),h.min){let f=d.floats(&[h.weight,minimum]);if h.all {
     for i in 0..n {if !(matches!(h.source.kind.as_str(),"component"|"pin")&&h.source.component==Some(i)){let b=d.ints(&[1,i as u32,0]);buckets[1].extend([1,a,b,f,0]);}}
    }else if let Some(b)=d.target(&h.target){buckets[1].extend([1,a,b,f,0]);}}},
@@ -87,7 +87,7 @@ impl Engine {
   let mut paths=Vec::new();for path in &p.paths {
    let mut ports:Vec<_>=path.ports.iter().filter(|port|port.target.component.is_some()).filter_map(|port|d.target(&port.target).map(|t|(port,t))).collect();ports.sort_by(|(a,_),(b,_)|a.order.cmp(&b.order).then_with(||a.reference.cmp(&b.reference)));ports.dedup_by_key(|(q,_)|q.order);
    let mut raw=Vec::new();for (port,t) in ports {raw.extend([t,port.order as u32,port.target.component.unwrap() as u32]);}
-   let priority=match path.priority.as_ref(){"critical"=>1.8,"high"=>1.35,"low"=>0.65,_=>1.0};
+   let priority=path.weight;
    paths.extend([d.ints(&raw),(raw.len()/3) as u32,u32::from(path.shape.as_ref()=="straight"),d.floats(&[priority]),u32::from(path.prefer_facing_pads)]);
   }d.si[9]=p.paths.len() as u32;d.si[10]=d.ints(&paths);
   if d.sf.iter().any(|x|!x.is_finite()||x.abs()>1e7) || !p.pad_crossing_weight.is_finite() || p.pad_crossing_weight<0.0 {return Err(invalid("unsafe post-place GPU number"));}

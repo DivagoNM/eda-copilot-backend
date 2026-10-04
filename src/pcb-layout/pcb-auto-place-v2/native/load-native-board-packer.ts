@@ -20,7 +20,7 @@ export function loadNativeBoardPacker(): NativeBoardPackerAddon {
         if (precision !== PCB_NUMERIC_CONTRACT) {
             throw new Error(`PCB numeric contract mismatch: expected ${PCB_NUMERIC_CONTRACT}, got ${precision ?? 'legacy addon'}; rebuild the native addon`);
         }
-        if (addon.placementScoreContractVersion?.() !== 2) {
+        if (addon.placementScoreContractVersion?.() !== 3) {
             throw new Error('PCB score contract mismatch; run npm run native:build');
         }
         cachedAddon = addon;

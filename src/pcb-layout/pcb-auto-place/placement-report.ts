@@ -2,7 +2,7 @@ import * as fp from '../f32.ts';
 import type { Box, PcbBlock, PcbComponent, PcbModule, Placement, PlacementGraphDiagnostic, PlacementInput, PlacementReport, Point } from '#types/pcb/layout-model.ts';
 import { boardBox, boardHoleKeepoutRadius, boxClearanceGap, boxGap, boxPointGap, componentPairCollisionBoxPairs, componentCollisionBoxes, componentBodyBox, dist, distanceToEdge, GEOMETRY_EPSILON, getBox, getPadWorld, PLACEMENT_EPSILON, round } from './geometry.ts';
 import { componentOutsideBoard } from './fixed.ts';
-import { expandHints } from './hints.ts';
+import { expandHints, pathRelationWeight } from './hints.ts';
 import {
     blockBboxLimit,
     blockBox,
@@ -170,7 +170,7 @@ function createSignalPathReports(input: PlacementInput, placements: Placement[])
         const topology = evaluateSignalPathPorts(path.id, ports, {
             shape: path.shape,
             priority: path.priority,
-            weight: 1,
+            weight: pathRelationWeight(input, path.id),
             preferFacingPads: path.preferFacingPads,
         });
         return {

@@ -117,6 +117,7 @@ struct CompiledRelation {
     skip: bool,
     hard: bool,
     weight: f32,
+    inverse_tau_squared: f32,
     max_distance: Option<f32>,
     min_distance: Option<f32>,
     satellite_anchor: bool,
@@ -1254,7 +1255,6 @@ fn board_score(
     let width = bbox.right - bbox.left;
     let height = bbox.bottom - bbox.top;
     let high = context.problem.compactness.as_ref() == "high";
-    let relation_weight = if high { 0.35 } else { 1.0 };
     let area_weight = if high { 1.2 } else { 0.8 };
     let perimeter_weight = if high { 8.0 } else { 1.5 };
     let overlap_weight = if high { 1.2 } else { 1.0 };
@@ -1262,10 +1262,10 @@ fn board_score(
     let path_primitives: Vec<_> = primitives.iter().map(|item| &item.primitive).collect();
     let topology = {
         let _profile = context.profile.span(11);
-        signal_path::topology_penalty(&path_primitives, &context.problem.relations)
+        signal_path::explicit_topology_penalty(&path_primitives, &context.problem.relations)
     };
     let scale = context.problem.soft_spacing.as_ref().map_or(1.0, |s| s.compactness_scale);
-    relation_penalty(primitives, context) * relation_weight
+    relation_penalty(primitives, context)
         + hard_severity * 1_000_000.0
         // Count is already the first integer rank field. Its constant offset
         // cancels in every same-count comparison, but at F32 scales of 2e8
@@ -1279,7 +1279,7 @@ fn board_score(
         + edge_bias_penalty(primitives, context) * edge_weight
         + edge_place_penalty(primitives, context)
         + topology
-            * if high { 3.0 } else { 5.0 }
+        + crate::ordinary_net::penalty(&path_primitives, &context.problem.relations) * if high { 3.0 } else { 5.0 }
 }
 
 fn hard_count(primitives: &[WorkingPrimitive], context: &Context) -> usize {
@@ -1664,7 +1664,7 @@ fn relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
         }
         let weight = relation.weight;
         let distance = ((from.0.x - to.0.x).powi(2) + (from.0.y - to.0.y).powi(2)).sqrt();
-        penalty += distance * weight + distance_limit_penalty(relation, distance, weight);
+        penalty += crate::relation_score::distance_cost(distance,weight,relation.min_distance.unwrap_or(-1.0),relation.max_distance.unwrap_or(-1.0),relation.inverse_tau_squared);
         if relation.satellite_anchor {
             if let Some(side) = relation.side {
                 penalty += side_penalty(side, from.0, to.0, weight);
@@ -1682,16 +1682,6 @@ fn relation_penalty_enclosure(primitives: &[WorkingPrimitive], context: &Context
     use crate::interval::Interval as I;
     fn endpoint(primitives: &[WorkingPrimitive], e: CompiledEndpoint) -> Option<([I;2],Option<u32>)> {
         let (point,owner)=endpoint_point(primitives,e)?;
-        if let CompiledEndpoint::Component {primitive,designator}=e {
-            let p=primitives.iter().find(|p|p.id==primitive)?;
-            let mut sum=[0.0f32;2];let mut count=0usize;
-            for (index,point) in p.primitive.connection_points.iter().enumerate() {
-                if p.point_component_ids[index]==Some(designator) {sum[0]+=point.x;sum[1]+=point.y;count+=1;}
-            }
-            if count>0 {
-                return Some((sum.map(|v|I::exact(v).div_vulkan(I::exact(count as f32)).placement()),owner));
-            }
-        }
         Some(([I::exact(point.x),I::exact(point.y)],owner))
     }
     let zero=I::exact(0.0);let mut total=zero;
@@ -1709,17 +1699,17 @@ fn relation_penalty_enclosure(primitives: &[WorkingPrimitive], context: &Context
         let dx=from[0].sub(to[0]);let dy=from[1].sub(to[1]);
         let distance=dx.square().add(dy.square()).max(zero).sqrt_vulkan();
         let weight=I::exact(relation.weight);
-        let multiplier=I::exact(if relation.hard {5.0}else{1.0});
+        let scale=I::exact(relation.inverse_tau_squared);
         let mut limits=zero;
         if let Some(max)=relation.max_distance {
             let excess=distance.sub(I::exact(max)).max(zero);
-            limits=limits.add(excess.square().mul(I::exact(1500.0)).add(excess.mul(I::exact(120.0))).mul(weight).mul(multiplier));
+            limits=limits.add(excess.square().mul(excess).mul(scale).mul(weight));
         }
         if let Some(min)=relation.min_distance {
             let shortage=I::exact(min).sub(distance).max(zero);
-            limits=limits.add(shortage.square().mul(I::exact(800.0)).add(shortage.mul(I::exact(80.0))).mul(weight).mul(multiplier));
+            limits=limits.add(shortage.square().mul(shortage).mul(scale).mul(weight));
         }
-        total=total.add(distance.mul(weight).add(limits.min(I::exact(250_000.0))));
+        total=total.add(distance.mul(weight).add(limits));
         if relation.satellite_anchor {
             if let Some(side)=relation.side {
                 let (ax,ay)=if distance.lo>0.000001 {
@@ -2416,31 +2406,11 @@ fn endpoint_point(
                 Some(primitive.id),
             ))
         }
-        CompiledEndpoint::Component {
-            primitive,
-            designator,
-        } => {
-            let primitive = primitives.iter().find(|item| item.id == primitive)?;
-            let mut count = 0usize;
-            let mut x = 0.0;
-            let mut y = 0.0;
-            for (index, point) in primitive.primitive.connection_points.iter().enumerate() {
-                if primitive.point_component_ids[index] != Some(designator) {
-                    continue;
-                }
-                count += 1;
-                x += point.x;
-                y += point.y;
-            }
-            let point = if count == 0 {
-                box_center(&primitive.primitive.bbox)
-            } else {
-                Point {
-                    x: round_placement(x / count as f32),
-                    y: round_placement(y / count as f32),
-                }
-            };
-            Some((point, Some(primitive.id)))
+        CompiledEndpoint::Component { primitive, designator } => {
+            let primitive=primitives.iter().find(|p|p.id==primitive)?;
+            let index=primitive.placement_ids.iter().position(|id|*id==designator)?;
+            let pose=primitive.primitive.placements.get(index)?;
+            Some((Point{x:pose.x,y:pose.y},Some(primitive.id)))
         }
         CompiledEndpoint::Primitive { primitive } => {
             let primitive = primitives.iter().find(|item| item.id == primitive)?;
@@ -2464,8 +2434,9 @@ fn compile_relations(
             skip: relation.effect.as_ref() == "lock" || relation.kind.as_ref() == "net",
             hard: relation.hard,
             weight: relation_weight(relation),
-            max_distance: relation.max_distance,
-            min_distance: relation.min_distance,
+            inverse_tau_squared: crate::relation_score::for_relation(relation).inverse_tau_squared,
+            max_distance: crate::relation_score::for_relation(relation).max,
+            min_distance: crate::relation_score::for_relation(relation).min,
             satellite_anchor: relation.satellite_anchor,
             anchor_offset: relation.anchor_offset,
             side: compile_side(relation.side_preference.as_deref()),
@@ -2479,6 +2450,23 @@ fn compile_endpoint(
     primitive_ids: &FxHashMap<Arc<str>, u32>,
     designator_ids: &FxHashMap<Arc<str>, u32>,
 ) -> CompiledEndpoint {
+    if let Some(designator) = endpoint.strip_prefix("component:") {
+        for primitive in &problem.primitives {
+            if primitive
+                .placements
+                .iter()
+                .any(|placement| placement.designator.as_ref() == designator)
+            {
+                let Some(&designator) = designator_ids.get(designator) else {
+                    break;
+                };
+                return CompiledEndpoint::Component {
+                    primitive: primitive_ids[&primitive.id],
+                    designator,
+                };
+            }
+        }
+    }
     if let Some(anchor) = endpoint.strip_prefix("anchor:") {
         return anchor_point(anchor, &problem.bounds)
             .map(CompiledEndpoint::Anchor)
@@ -2498,23 +2486,7 @@ fn compile_endpoint(
             }
         }
     }
-    if let Some(designator) = endpoint.strip_prefix("component:") {
-        for primitive in &problem.primitives {
-            if primitive
-                .placements
-                .iter()
-                .any(|placement| placement.designator.as_ref() == designator)
-            {
-                let Some(&designator) = designator_ids.get(designator) else {
-                    break;
-                };
-                return CompiledEndpoint::Component {
-                    primitive: primitive_ids[&primitive.id],
-                    designator,
-                };
-            }
-        }
-    }
+
     let source = endpoint
         .strip_prefix("block:")
         .map(|name| format!("tree:block:{name}"))
@@ -2669,46 +2641,9 @@ fn touches(primitive: &WorkingPrimitive, endpoint: CompiledEndpoint) -> bool {
 }
 
 fn relation_weight(relation: &Relation) -> f32 {
-    let priority = match relation.priority.as_deref() {
-        Some("critical") => 30.0,
-        Some("high") => 16.0,
-        Some("low") => 3.0,
-        _ => 8.0,
-    };
-    let kind = match relation.kind.as_ref() {
-        "critical_pair" => 2.5,
-        "anchor" => 1.7,
-        "edge" => 1.4,
-        "island_target" => 1.6,
-        _ => 1.0,
-    };
-    let effect = match relation.effect.as_ref() {
-        "move_both" => 1.2,
-        "move_from" => 1.0,
-        _ => 0.4,
-    };
-    priority
-        * kind
-        * effect
-        * relation
-            .weight
-            .map(|weight| (weight / 70.0).max(0.25))
-            .unwrap_or(1.0)
+    crate::relation_score::for_relation(relation).weight
 }
 
-fn distance_limit_penalty(relation: &CompiledRelation, value: f32, weight: f32) -> f32 {
-    let multiplier = if relation.hard { 5.0 } else { 1.0 };
-    let mut penalty = 0.0;
-    if let Some(max) = relation.max_distance {
-        let excess = (value - max).max(0.0);
-        penalty += (excess.powi(2) * 1500.0 + excess * 120.0) * weight * multiplier;
-    }
-    if let Some(min) = relation.min_distance {
-        let shortage = (min - value).max(0.0);
-        penalty += (shortage.powi(2) * 800.0 + shortage * 80.0) * weight * multiplier;
-    }
-    penalty.min(250_000.0)
-}
 
 fn side_penalty(side: Side, from: Point, to: Point, weight: f32) -> f32 {
     let dx = from.x - to.x;

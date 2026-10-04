@@ -111,7 +111,7 @@ pub fn segment_costs(g:&Input,out:&mut Array<f32>,masks:&mut Array<u32>){
    }
    if edges>=2 {let mut facing=0.0;if g.si[t+4]!=0 {for j in 0..count {let a=off+j*3;let order=g.si[a+1] as i32;if order>=0 && order%2==0 {for k in j+1..count {let b=off+k*3;if g.si[b+1] as i32==order+1 {let ap=port(g,c,a);let bp=port(g,c,b);let link=normalize(P{x:bp.x-ap.x,y:bp.y-ap.y});if length(link.x,link.y)>=0.001 {let an=normal(g,c,a);let bn=normal(g,c,b);if length(an.x,an.y)>0.001 {facing+=max(1.0-dot(normalize(an),link),0.0);}if length(bn.x,bn.y)>0.001 {facing+=max(1.0-dot(normalize(bn),P{x:-link.x,y:-link.y}),0.0);}}}}}}}
     let mut detour_weight=8.0;let mut turn_weight=5.0;if g.si[t+2]!=0 {detour_weight=22.0;turn_weight=18.0;}
-    cost=rp((max(distance_sum-direct,0.0)*detour_weight+back*42.0+turns*turn_weight+facing*12.0)*g.sf[g.si[t+3] as usize])*20.0;
+    cost=rp(crate::relation_score::topology_cost(max(distance_sum-direct,0.0),back,turns,facing,detour_weight,turn_weight,g.sf[g.si[t+3] as usize]));
    }
   }
  }cost
@@ -121,7 +121,7 @@ pub fn terms(g:&Input,out:&mut Array<f32>){
  let job=ABSOLUTE_POS as usize;let nt=g.si[7] as usize;let total=nt+g.si[9] as usize;let c=job/total;let i=job%total;
  if c<g.bi[0] as usize {let mut a=0.0;let mut b=0.0;let mut d=0.0;
   if i<nt {let t=g.si[8] as usize+i*5;let kind=g.si[t];let src=g.si[t+1] as usize;let dst=g.si[t+2] as usize;let f=g.si[t+3] as usize;let flags=g.si[t+4];let w=g.sf[f];
-   if kind==0 {let dist=distance(target_point(g,c,src),target_point(g,c,dst));a=dist*w;if flags&1!=0 && dist>g.sf[f+2] {let x=dist-g.sf[f+2];b=x*x*w*20.0;}if flags&2!=0 && dist<g.sf[f+1] {let x=g.sf[f+1]-dist;d=x*x*w*20.0;}}
+   if kind==0 {let dist=distance(target_point(g,c,src),target_point(g,c,dst));let mut minimum=g.sf[f+1];if flags&2==0 {minimum=-1.0;}let mut maximum=g.sf[f+2];if flags&1==0 {maximum=-1.0;}a=crate::relation_score::distance_cost(dist,w,minimum,maximum,g.sf[f+3]);}
    if kind==1 {let x=target_box(g,c,src);let y=target_box(g,c,dst);let gap=max(max(y.l-x.r,x.l-y.r),max(y.t-x.b,x.t-y.b));if gap<g.sf[f+1] {let z=g.sf[f+1]-gap;a=z*z*w*20.0;}}
    if kind==2 {let x=g.geometry[geometry_offset(g,c,src)+2] as u32;let mut y=flags;if dst!=0xffffffffusize {y=g.geometry[geometry_offset(g,c,dst)+2] as u32;}if x!=y {a=w;}}
    if kind==4 {let source=target_point(g,c,src);let mut nearest=f32::from_bits(0x7f800000u32);

@@ -159,6 +159,7 @@ function encodeRelation(relation: BlockSolveParams['relations'][number]): Native
         satelliteAnchor: relation.data?.satelliteAnchor === true,
         anchorOffset: typeof offset?.x === 'number' && typeof offset.y === 'number' ? { x: offset.x, y: offset.y } : undefined,
         sidePreference: side === 'left' || side === 'right' || side === 'top' || side === 'bottom' ? side : undefined,
+        core: relation.data?.core === true,
         pathId: typeof relation.data?.pathId === 'string' ? relation.data.pathId : undefined,
         pathShape: relation.data?.pathShape === 'straight' ? 'straight' : relation.data?.pathShape === 'flexible' ? 'flexible' : undefined,
         preferFacingPads: relation.data?.preferFacingPads === true,

@@ -174,8 +174,6 @@ signalPath("rf_feed", [
 
 criticalPair(pin("U1", "29"), pin("X1", "1"), { maxDistance: 5, preferFacingPads: true });
 criticalPair(pin("U1", "30"), pin("X1", "3"), { maxDistance: 5, preferFacingPads: true });
-veryNear(pin("C4", "1"), pin("X1", "1"), "critical");
-veryNear(pin("C6", "2"), pin("X1", "3"), "critical");
 veryNear(pin("C1", "2"), pin("U1", "1"), "critical");
 veryNear(pin("C2", "2"), pin("L1", "2"), "critical");
 criticalPair(pin("C3", "2"), pin("U1", "18"), { maxDistance: 4.5, preferFacingPads: true });

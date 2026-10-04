@@ -1,8 +1,21 @@
 import * as fp from '../f32.ts';
+import { loadNativeBoardPacker } from '../pcb-auto-place-v2/native/load-native-board-packer.ts';
 import type { HintPriority, NumericRule, PlacementHint, PlacementInput } from '#types/pcb/layout-model.ts';
 
 export function expandHints(input: PlacementInput): NumericRule[] {
     return input.hints.flatMap((hint): NumericRule[] => {
+        const profile = () => loadNativeBoardPacker().placementRelationProfile({
+            relation: hint.relation,
+            priority: hint.priority,
+            ...(hint.relation === 'critical_pair' ? {
+                weight: fp.mul(priorityWeight(hint.priority), hint.weightMultiplier ?? 1),
+                minDistance: hint.minDistance,
+                maxDistance: hint.maxDistance,
+                path: Boolean(hint.path),
+                core: hint.core,
+                hard: hint.hard ?? (hint.path ? false : hint.priority === 'critical'),
+            } : {}),
+        });
         const weight = priorityWeight(hint.priority);
 
         if (hint.relation === 'line' || hint.relation === 'bypass' || hint.relation === 'cap_cluster') {
@@ -10,15 +23,12 @@ export function expandHints(input: PlacementInput): NumericRule[] {
         }
 
         if (hint.relation === 'critical_pair') {
-            const multiplier = hint.weightMultiplier ?? (hint.core ? 2.4 : 1.8);
             return [{
                 kind: 'distance',
                 source: hint.source,
                 target: hint.target,
-                min: hint.minDistance,
-                max: hint.path ? hint.maxDistance : hint.maxDistance ?? (hint.core ? 3 : semanticDistance('very_near', hint.priority)),
-                weight: fp.mul(weight, multiplier),
-                hard: hint.hard ?? (hint.path ? false : hint.priority === 'critical'),
+                ...profile(),
+                hard: !hint.core && (hint.hard ?? (hint.path ? false : hint.priority === 'critical')),
                 criticalPair: true,
                 corePair: hint.core,
                 crossingPenalty: hint.crossingPenalty ?? (hint.core ? 2 : 0),
@@ -58,25 +68,34 @@ export function expandHints(input: PlacementInput): NumericRule[] {
             kind: 'distance',
             source: hint.source,
             target: hint.target,
-            min: hint.relation === 'very_near' ? 0.4 : 0.8,
-            max: semanticDistance(hint.relation, hint.priority),
-            weight,
+            ...profile(),
             hard: hint.relation === 'very_near' && hint.priority === 'critical',
         }];
     });
 }
 
 export function priorityWeight(priority: HintPriority) {
-    if (priority === 'critical') return 240;
-    if (priority === 'high') return 140;
-    if (priority === 'normal') return 70;
-    return 25;
+    return loadNativeBoardPacker().placementPriorityWeight(priority);
 }
 
 function semanticDistance(relation: PlacementHint['relation'], priority: HintPriority) {
-    if (relation === 'very_near') return priority === 'critical' ? 3 : 4;
-    if (relation === 'near') return priority === 'high' || priority === 'critical' ? 8 : 12;
-    if (relation === 'cluster_with') return 10;
     if (relation === 'away_from') return priority === 'high' || priority === 'critical' ? 12 : 8;
     return 8;
+}
+
+/** Same max-per-segment topology weight as Rust signal_path::path_metadata. */
+export function pathRelationWeight(input: PlacementInput, pathId: string): number {
+    let weight: number | undefined;
+    for (const hint of input.hints) {
+        if (hint.relation !== 'critical_pair' || hint.path?.id !== pathId) continue;
+        const profile = loadNativeBoardPacker().placementRelationProfile({
+            relation: 'critical_pair', priority: hint.priority, path: true,
+            weight: fp.mul(priorityWeight(hint.priority), hint.weightMultiplier ?? 1),
+        });
+        weight = fp.max(weight ?? 0, profile.topologyWeight);
+    }
+    return weight ?? loadNativeBoardPacker().placementRelationProfile({
+        relation: 'critical_pair', path: true,
+        priority: input.paths?.find(p => p.id === pathId)?.priority ?? 'normal',
+    }).topologyWeight;
 }

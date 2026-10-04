@@ -60,7 +60,7 @@ export function evaluateSignalPathPorts(
         ports,
         shape: metadata?.shape ?? 'flexible',
         priority: metadata?.priority ?? 'normal',
-        weight: metadata?.weight ?? 1,
+        weight: metadata?.weight ?? loadNativeBoardPacker().placementRelationProfile({relation:'critical_pair', priority:metadata?.priority ?? 'normal',path:true}).topologyWeight,
         preferFacingPads: metadata?.preferFacingPads === true,
     });
 }
@@ -87,9 +87,7 @@ function pathMetadata(relations: PlacementRelation[]) {
             : null;
         if (!pathId) continue;
         const shape = relation.data?.pathShape === 'straight' ? 'straight' as const : 'flexible' as const;
-        const weight = typeof relation.weight === 'number' && Number.isFinite(relation.weight)
-            ? fp.max(0.25, fp.div(relation.weight, 70))
-            : 1;
+        const weight = loadNativeBoardPacker().placementRelationProfile({relation:'critical_pair',priority:relation.priority ?? 'normal',weight:relation.weight,path:true}).topologyWeight;
         const previous = result.get(pathId);
         result.set(pathId, {
             shape: previous?.shape === 'straight' || shape === 'straight' ? 'straight' : 'flexible',
