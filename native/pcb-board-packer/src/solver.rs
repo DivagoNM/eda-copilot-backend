@@ -919,6 +919,7 @@ fn translate_primitive(primitive: &mut WorkingPrimitive, dx: f32, dy: f32) {
         port.y = round_placement(port.y + dy);
     }
     for (_, component) in Arc::make_mut(&mut primitive.components) {
+        for row in &mut component.access_rows {row.box_=translate_box(&row.box_,dx,dy);}
         component.body_box = translate_box(&component.body_box, dx, dy);
         for box_ in Arc::make_mut(&mut component.through_hole_boxes) {
             *box_ = translate_box(box_, dx, dy);
@@ -985,6 +986,7 @@ fn rotate_primitive(primitive: &mut WorkingPrimitive, angle: i32) {
         port.normal = signal_path::rotate_normal(&port.normal, angle);
     }
     for (_, component) in Arc::make_mut(&mut primitive.components) {
+        for row in &mut component.access_rows {row.box_=rotate_box(&row.box_,&origin,angle);}
         component.body_box = rotate_box(&component.body_box, &origin, angle);
         for box_ in Arc::make_mut(&mut component.through_hole_boxes) {
             *box_ = rotate_box(box_, &origin, angle);
@@ -1283,6 +1285,12 @@ fn board_score(
         + edge_place_penalty(primitives, context)
         + topology
         + crate::ordinary_net::penalty(&path_primitives, &context.problem.relations) * if high { 3.0 } else { 5.0 }
+        + access_penalty(primitives)
+}
+
+fn access_penalty(ps:&[WorkingPrimitive])->f32{
+    let cs:Vec<_>=ps.iter().flat_map(|p|p.components.iter().map(|(_,c)|c)).collect();let mut total=0.0;
+    for a in &cs {for b in &cs {if a.designator!=b.designator && a.layer==b.layer {total+=crate::pad_access::cost(&a.access_rows,b.body_box);}}}total
 }
 
 fn hard_count(primitives: &[WorkingPrimitive], context: &Context) -> usize {
@@ -3080,7 +3088,7 @@ mod alignment_search_tests {
         let mut display = state.remaining[0].clone();
         display.primitive.bbox = display_box;
         display.primitive.collision_boxes = Arc::new(vec![display_box, pad_box]);
-        display.components = Arc::new(vec![(0, ComponentGeometry {
+        display.components = Arc::new(vec![(0, ComponentGeometry {access_rows:vec![],
             designator: Arc::from("U6"), primitive_id: Arc::from("U6"), block_name: Arc::from("display"),
             layer: Arc::from("top"), body_box: display_box, through_hole_boxes: Arc::new(vec![pad_box]),
             board_overflow: Default::default(), edge_clearance: 0.0,
@@ -3088,7 +3096,7 @@ mod alignment_search_tests {
         let mut candidate = state.remaining[1].clone();
         candidate.primitive.bbox = bottom_box;
         candidate.primitive.collision_boxes = Arc::new(vec![bottom_box]);
-        candidate.components = Arc::new(vec![(1, ComponentGeometry {
+        candidate.components = Arc::new(vec![(1, ComponentGeometry {access_rows:vec![],
             designator: Arc::from("R1"), primitive_id: Arc::from("R1"), block_name: Arc::from("bottom"),
             layer: Arc::from("bottom"), body_box: bottom_box, through_hole_boxes: Arc::new(vec![]),
             board_overflow: Default::default(), edge_clearance: 0.0,
@@ -3131,7 +3139,7 @@ mod alignment_search_tests {
             p.primitive.bbox = bodies[i];
             p.primitive.collision_boxes = Arc::new(std::iter::once(bodies[i]).chain(holes.iter().copied()).collect());
             p.primitive.locked = i != 0;
-            p.components = Arc::new(vec![(i, ComponentGeometry {
+            p.components = Arc::new(vec![(i, ComponentGeometry {access_rows:vec![],
                 designator: p.primitive.id.clone(), primitive_id: p.primitive.id.clone(), block_name: p.primitive.id.clone(),
                 layer: Arc::from(if i == 0 { "bottom" } else { "top" }), body_box: bodies[i],
                 through_hole_boxes: Arc::new(holes), board_overflow: Default::default(), edge_clearance: 0.0,

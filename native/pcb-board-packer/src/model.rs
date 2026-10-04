@@ -148,6 +148,8 @@ pub struct ConstraintRegion {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentGeometry {
+    #[serde(default)]
+    pub access_rows: Vec<crate::pad_access::Row>,
     pub designator: Arc<str>,
     pub primitive_id: Arc<str>,
     pub block_name: Arc<str>,
@@ -172,6 +174,8 @@ pub struct BoardOverflow {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockComponentGeometry {
+    #[serde(default)]
+    pub access_rows: Vec<crate::pad_access::Row>,
     pub designator: Arc<str>,
     pub primitive_id: Arc<str>,
     pub block_name: Arc<str>,
@@ -325,6 +329,8 @@ pub struct PassiveIslandPlacement {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostPlaceScoreProblem {
+    #[serde(default)]
+    pub access_components: Vec<crate::pad_access::Component>,
     #[serde(default)]
     pub explicit_connections: Vec<ExplicitConnection>,
     pub version: u32,
@@ -562,7 +568,7 @@ impl BoardPackProblem {
             }
         }
         for component in &self.components {
-            if !is_finite_box(&component.body_box)
+            if !crate::pad_access::valid(&component.access_rows) || !is_finite_box(&component.body_box)
                 || component
                     .through_hole_boxes
                     .iter()
@@ -639,6 +645,7 @@ impl BlockSolveProblem {
                 return Err("block bounds contain non-finite values".into());
             }
         }
+        if self.components.iter().any(|c|!crate::pad_access::valid(&c.access_rows)){return Err("invalid block access rows".into());}
         let count = self.components.len();
         let matrix_size = count * count;
         if self.component_pair_clearance.len() != matrix_size

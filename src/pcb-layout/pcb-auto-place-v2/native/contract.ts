@@ -135,7 +135,10 @@ export interface NativeRelation {
     preferFacingPads: boolean;
 }
 
+export interface NativeAccessRow { box: Box; weight: number }
+
 export interface NativeComponentGeometry {
+    accessRows?: NativeAccessRow[];
     designator: string;
     primitiveId: string;
     blockName: string;
@@ -204,6 +207,7 @@ export interface NativeBlockSolveSolutionV4 extends NativePrimitivePackSolution 
 }
 
 export interface NativeBoardPackerAddon {
+    placementAccessProfile(request: { role: string; body: Box; pads: Array<{box: Box; net?: string; through: boolean}> }): {minimumExtra: number; rows: NativeAccessRow[]};
     evaluateBlockQuality(problem: NativeBlockSolveProblemV4): import('../block-quality.ts').BlockQuality;
     evaluateBoardQuality(problem: NativeBoardPackProblemV7): { rank: NativePrimitivePackSolution['rank']; spacing: number; alignment: number };
     scoreBoardSpacing(problem: NativeBoardPackProblemV7): number;
@@ -368,6 +372,7 @@ export interface NativePassiveIslandSolutionV1 {
 }
 
 export interface NativePostPlaceScoreProblemV1 {
+    accessComponents?: Array<{body: Box; layer: string; rows: NativeAccessRow[]}>;
     explicitConnections?: Array<{source: Point; target: Point; net: string; layer?: string; kind: 'signal_path' | 'critical_pair'}>;
     version: typeof NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION;
     padCrossingWeight?: number;

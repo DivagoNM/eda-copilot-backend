@@ -50,7 +50,8 @@ impl Template {
         let mut key=vec![self.id as u32,p.collision_boxes.len() as u32,self.components.len() as u32];
         let mut box_key=|b:crate::geometry::Box2| {key.extend([b.left.to_bits(),b.right.to_bits(),b.top.to_bits(),b.bottom.to_bits()]);};
         box_key(p.bbox);for b in p.collision_boxes.iter() {box_key(*b);}
-        for (_,c) in self.components.iter() {box_key(c.body_box);for b in c.through_hole_boxes.iter() {box_key(*b);}}
+        for (_,c) in self.components.iter() {box_key(c.body_box);for r in &c.access_rows {box_key(r.box_);}for b in c.through_hole_boxes.iter() {box_key(*b);}}
+        for (_,c) in self.components.iter(){key.push(c.access_rows.len() as u32);key.extend(c.access_rows.iter().map(|r|r.weight.to_bits()));}
         for q in p.connection_points.iter() {key.extend([q.x.to_bits(),q.y.to_bits()]);}
         for q in p.placements.iter() {key.extend([q.x.to_bits(),q.y.to_bits(),q.rotate as u32]);}
         for q in p.path_ports.iter() {key.extend([q.x.to_bits(),q.y.to_bits(),q.normal.x.to_bits(),q.normal.y.to_bits()]);}

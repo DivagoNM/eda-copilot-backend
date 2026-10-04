@@ -1,3 +1,5 @@
+import {componentAccessRows} from './pad-access.ts';
+import {componentBodyBox} from '../../pcb-auto-place/geometry.ts';
 import { loadNativeBoardPacker } from './load-native-board-packer.ts';
 import * as fp from '../../f32.ts';
 import type { Box, PcbComponent, Placement, PlacementInput } from '#types/pcb/layout-model.ts';
@@ -60,6 +62,7 @@ export function encodeNativePostPlaceScoreProblem(
 
     const weights = loadNativeBoardPacker().placementNetWeights([...pointsByNet.keys()], false);
     const result: NativePostPlaceScoreProblemV1 = {
+        accessComponents: input.components.flatMap(c=>{const p=placementByDesignator.get(c.designator);return p?[{body:componentBodyBox(c,p),layer:p.layer,rows:componentAccessRows(c,p)}]:[];}),
         explicitConnections: input.hints.flatMap(h => {
             if (h.relation !== 'critical_pair' || h.source.type !== 'pin' || h.target.type !== 'pin') return [];
             const a=componentByDesignator.get(h.source.designator), b=componentByDesignator.get(h.target.designator);

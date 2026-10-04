@@ -622,3 +622,14 @@ test('native refinement validates constraint regions against opposite-side pads'
     component.footprint.pads[0].layer = 'bottom';
     assert.equal(addon.validatePlacement(encodeNativePostPlaceRefineProblem(input, poses, 1)), false);
 });
+
+test('pad access rows rotate and retain CPU/GPU PostPlace scores', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
+    const problem=encodeNativePostPlaceRefineProblem(pairInput(),pairPlacements(),1);
+    // Deliberately broad test zones ensure a nonzero obstruction for every pose.
+    for(const o of problem.components[0].orientations) o.accessRows=[{box:{left:-10,right:10,top:-10,bottom:10},weight:720}];
+    const cpu=gpuRefine(problem,'cpu');
+    const gpu=gpuRefine(problem,'cubecl',{PCB_POST_PLACE_GPU_VERIFY:'1'});
+    assert.deepEqual(gpu.value,cpu.value);
+    assert.match(gpu.log,/\[post-place-gpu\]/);
+    assert.doesNotMatch(gpu.log,/fallback|validation failed/);
+});

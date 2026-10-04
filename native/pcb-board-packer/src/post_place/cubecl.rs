@@ -33,9 +33,13 @@ impl Engine {
   let mut components=Vec::new();let mut orientations=Vec::new();let mut geometry=0;
   for c in &p.components {
    let pads=d.ints(&c.pads.iter().flat_map(|pad|[0,0,0,if pad.through{1}else if pad.opposite{2}else{0}]).collect::<Vec<_>>());
-   components.extend([geometry as u32,c.pads.len() as u32,pads,u32::from(c.internal_pad_owner)]);geometry+=7+c.pads.len()*7;
+   components.extend([geometry as u32,c.pads.len() as u32,pads,u32::from(c.internal_pad_owner)]);geometry+=7+c.pads.len()*7+24;
    let mut offsets=Vec::new();for o in &c.orientations {layer(&o.layer)?;let mut f=vec![o.box_.left,o.box_.right,o.box_.top,o.box_.bottom];
-    for (point,b) in o.points.iter().zip(&o.pad_boxes){f.extend([point.x,point.y,b.left,b.right,b.top,b.bottom]);}offsets.push(d.floats(&f));
+    for (point,b) in o.points.iter().zip(&o.pad_boxes){f.extend([point.x,point.y,b.left,b.right,b.top,b.bottom]);}
+    f.extend([o.body.left,o.body.right,o.body.top,o.body.bottom]);
+    for i in 0..4 {if let Some(row)=o.access_rows.get(i){let b=row.box_;f.extend([b.left,b.right,b.top,b.bottom,row.weight]);}else{f.extend([0.0;5]);}}
+    if o.access_rows.len()>4{return Err(invalid("access row capacity"));}
+    offsets.push(d.floats(&f));
    }orientations.push(offsets);
   }
   d.si[0]=n as u32;d.si[1]=d.ints(&components);d.si[11]=geometry as u32;
@@ -131,7 +135,7 @@ impl Engine {
    let permit=budget.map(|b|b.acquire());
    if self.handles.is_none(){self.handles=Some((client.create_from_slice(u32::as_bytes(&d.si)),client.create_from_slice(f32::as_bytes(&d.sf))));}
    let (si,sf)=self.handles.as_ref().unwrap();let bih=client.create_from_slice(u32::as_bytes(&bi));let bfh=client.create_from_slice(f32::as_bytes(&bf));
-   let geometry_len=count*d.si[11] as usize;let edge_len=(count*ns*3).max(1);let length_len=(count*ns).max(1);let conn_len=(count*d.si[6] as usize).max(1);let term_len=(count*nt*3).max(1);let seg_len=(count*ns.max(1)*2).max(1);
+   let geometry_len=count*d.si[11] as usize;let edge_len=(count*ns*3).max(1);let length_len=(count*ns).max(1);let conn_len=(count*d.si[6] as usize).max(1);let term_len=(count*nt*3).max(1);let seg_len=(count*3).max(1);
    let geo=session.workspace(ScratchKey::new("post-place-f32",0),geometry_len*4);let edges=session.workspace(ScratchKey::new("post-place-f32",1),edge_len*4);let lengths=session.workspace(ScratchKey::new("post-place-f32",2),length_len*4);let connected=session.workspace(ScratchKey::new("post-place-f32",3),conn_len*4);
    let terms=session.workspace(ScratchKey::new("post-place-f32",4),term_len*4);let segments=session.workspace(ScratchKey::new("post-place-f32",5),seg_len*4);let output=session.workspace(ScratchKey::new("post-place-f32",7),count*4);
    let input=||unsafe{k::InputLaunch::new(ArrayArg::from_raw_parts(si.clone(),d.si.len()),ArrayArg::from_raw_parts(sf.clone(),d.sf.len()),ArrayArg::from_raw_parts(bih.clone(),bi.len()),ArrayArg::from_raw_parts(bfh.clone(),bf.len()),ArrayArg::from_raw_parts(geo.clone(),geometry_len),ArrayArg::from_raw_parts(edges.clone(),edge_len),ArrayArg::from_raw_parts(lengths.clone(),length_len))};

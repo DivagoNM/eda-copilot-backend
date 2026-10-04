@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Replace pin-count Dense IC halos with native pad-row access profiles: 0.127 mm track, 0.254 mm copper clearance and 0.6 mm via land. Count connected row pins, account for central copper/holes and jointly occupied inward via sites; include connectors. Share the row obstruction cost across block, Board Package and PostPlace CPU/CubeCL, without the former 20-component cutoff or compactness scaling. Add a 0.1 mm assembly margin above board component clearance for eligible ICs/connectors. Remove the TS pin-count clearance formula; score contract v5 requires native rebuild.
+
 - Family search now releases only ordinary R/C/L support groups together. Keep crystal/mixed assemblies, bypass/core islands, fixed geometry and authored layouts rigid; retain unconstrained capacitor-cluster relaxation and full Beam/singles/pairs search.
 
 - Family admission: critical distance priority remains a soft native objective instead of becoming an implicit PostPlace/checkpoint veto. Preserve explicitly authored hard non-core distances and penalized core drift. Label an empty-portfolio recovery as unaccepted rather than a legal score winner.

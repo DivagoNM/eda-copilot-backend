@@ -70,7 +70,7 @@ fn packing_overlap(g:&Input,a:usize,b:usize,c:f32)->f32 {
     }result
 }
 #[cube]
-fn component(g:&Input,p:usize,i:usize)->usize { g.si[template(g,p)+5] as usize+i*8 }
+fn component(g:&Input,p:usize,i:usize)->usize { g.si[template(g,p)+5] as usize+i*10 }
 #[cube]
 fn component_clearance(g:&Input,a:usize,b:usize)->f32 {
     g.sf[g.si[3] as usize+g.si[a] as usize*g.si[1] as usize+g.si[b] as usize]
@@ -110,6 +110,18 @@ fn hard_overlap(g:&Input,a:usize,b:usize)->f32 {
     }
     if result<=1e-9 {result=0.0;} result
 }
+#[cube]
+fn access_penalty(g:&Input,c:usize,n:usize)->f32{
+ let mut total=0.0f32;
+ for i in 0..n {let ap=pose(g,c,i);for ai in 0..g.si[template(g,ap)+6] as usize {let a=component(g,ap,ai);
+  for j in 0..n {let bp=pose(g,c,j);for bi in 0..g.si[template(g,bp)+6] as usize {let b=component(g,bp,bi);
+   if g.si[a]!=g.si[b] && g.si[a+1]==g.si[b+1] {let body=box_at(g,bp,g.si[b+2] as usize);let mut pair=0.0f32;
+    for ri in 0..g.si[a+9] as usize {let f=g.si[a+8] as usize+ri*5;let row=box_at(g,ap,f);pair+=crate::pad_access::obstruction(row.l,row.r,row.t,row.b,body.l,body.r,body.t,body.b,g.sf[f+4]);}total+=pair;
+   }
+  }}
+ }}total
+}
+
 #[cube]
 fn outside_bounds(b:B,board:B)->f32 {
     max(board.l-b.l,0.0)+max(b.r-board.r,0.0)+max(board.t-b.t,0.0)+max(b.b-board.b,0.0)
@@ -604,14 +616,14 @@ pub fn ranks(g:&Input,scores:&mut Array<f32>,tags:&mut Array<u32>,terms:&mut Arr
         if n>0 {
             if extent.l<=extent.r {w=extent.r-extent.l;h=extent.b-extent.t;}
             score=relations+severity*1000000.0+envelope_score*overlap_weight+w*h*area_weight*g.sf[10]
-                +(w+h)*perimeter_weight*g.sf[10]+spacing+alignment+bias*edge_weight+edge_score+path+ordinary*topology_weight;
+                +(w+h)*perimeter_weight*g.sf[10]+spacing+alignment+bias*edge_weight+edge_score+path+ordinary*topology_weight+access_penalty(g,candidate,n);
         }
         scores[candidate*2]=severity;scores[candidate*2+1]=score;tags[candidate]=hard;
         if verify {
-            let t0=candidate*10;let t1=t0+1;let t2=t0+2;let t3=t0+3;let t4=t0+4;
+            let t0=candidate*11;let t1=t0+1;let t2=t0+2;let t3=t0+3;let t4=t0+4;
             let t5=t0+5;let t6=t0+6;let t7=t0+7;let t8=t0+8;let t9=t0+9;
             terms[t0]=relations;terms[t1]=envelope_score;terms[t2]=w*h;terms[t3]=w+h;terms[t4]=spacing;
-            terms[t5]=alignment;terms[t6]=bias;terms[t7]=edge_score;terms[t8]=path;terms[t9]=ordinary;
+            terms[t5]=alignment;terms[t6]=bias;terms[t7]=edge_score;terms[t8]=path;terms[t9]=ordinary;terms[t0+10]=access_penalty(g,candidate,n);
         }
     }
 }

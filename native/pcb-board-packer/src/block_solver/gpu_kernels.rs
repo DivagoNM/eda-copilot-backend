@@ -103,7 +103,7 @@ pub struct Cp {
 #[derive(Clone, Copy, CubeType)]
 struct Component {
     id: usize, layer: i32, pins: u32, role: u32, power: u32,
-    body: B, through: usize, through_count: usize,
+    body: B, through: usize, through_count: usize, rows:usize, row_count:usize,
 }
 #[cube]
 fn geometry_box(d: &Input, p: Prim, index: usize) -> B {
@@ -112,10 +112,10 @@ fn geometry_box(d: &Input, p: Prim, index: usize) -> B {
 }
 #[cube]
 fn component(d: &Input, p: Prim, index: usize) -> Component {
-    let t = d.fi[COMPONENT_I] as usize + (p.components+index)*8;
+    let t = d.fi[COMPONENT_I] as usize + (p.components+index)*10;
     Component { id: d.si[t] as usize, layer: d.si[t+1], pins: d.si[t+2] as u32,
         role: d.si[t+3] as u32, power: d.si[t+4] as u32,
-        body: geometry_box(d,p,d.si[t+5] as usize), through: d.si[t+6] as usize, through_count: d.si[t+7] as usize }
+        body: geometry_box(d,p,d.si[t+5] as usize), through: d.si[t+6] as usize, through_count: d.si[t+7] as usize,rows:d.si[t+8] as usize,row_count:d.si[t+9] as usize }
 }
 #[cube]
 fn can_conflict(d: &Input, a: Prim, b: Prim) -> bool {
@@ -1366,27 +1366,10 @@ pub fn cheap(
             }
         }
         score += ov;score+=bound_penalty;
-        let mut dense = 0.0f32;
         let mut placed_components=0usize;
         for i in 0usize..nprim {placed_components+=load_prim(d,i,candidate).component_count;}
-        if d.fi[DENSE]!=0 && placed_components<=20 {
-            for pi in 0usize..nprim {let ap=load_prim(d,pi,candidate);
-            for ai in 0usize..ap.component_count {let a=component(d,ap,ai);
-                if a.role!=4 && a.pins>=8 {
-                    let halo=min(1.5,max(0.25,(a.pins as f32-8.0)*0.025));
-                    let b=B{l:a.body.l-halo,r:a.body.r+halo,t:a.body.t-halo,b:a.body.b+halo};
-                    let sw=choose(a.role==1,1.45,1.0)*choose(a.pins>=64,1.35,choose(a.pins>=32,1.2,1.0));
-                    for pj in 0usize..nprim {let bp=load_prim(d,pj,candidate);
-                    for bi in 0usize..bp.component_count {let p=component(d,bp,bi);
-                        if a.id!=p.id && a.layer==p.layer {
-                            let depth=overlap(b,p.body,0.0);
-                            if depth>0.0 {let nw=choose(p.role==2,0.55,choose(p.power!=0,1.15,choose(p.role==3,0.7,1.0)));dense+=(depth*depth*1500.0+depth*600.0)*sw*nw;}
-                        }
-                    }}
-                }
-            }}
-        }
-        score += dense * (choose(high, 0.45, 1.0));
+        let dense=dense_access(d,candidate);
+        score+=dense;
         score += power_yield(d,candidate)*choose(high,0.3,1.0);
         let mut relation = 0.0f32;
         let mut exposure = 0.0f32;
@@ -1581,7 +1564,7 @@ pub fn inspect_geometry(d: &Input, candidate: u32, out: &mut Array<f32>) {
         out[j + 12] = overlap(p.bbox, m.bbox, d.ff[0]);
         out[j + 13] = p.dx;
         out[j + 14] = p.dy;
-        out[j + 15] = d.ff[0];
+        out[j + 15] = dense_access(d,candidate as usize);
     }
 }
 
@@ -1710,4 +1693,17 @@ pub fn scarcity_counts(
         out[source * 3 + 1] = n;
         out[source * 3 + 2] = l;
     }
+}
+
+#[cube]
+fn dense_access(d:&Input,candidate:usize)->f32 {
+let nprim=d.fi[N] as usize;
+        let mut dense=0.0f32;
+        if d.fi[DENSE]!=0 {for pi in 0usize..nprim {let ap=load_prim(d,pi,candidate);for ai in 0usize..ap.component_count {let a=component(d,ap,ai);
+            for pj in 0usize..nprim {let bp=load_prim(d,pj,candidate);for bi in 0usize..bp.component_count {let p=component(d,bp,bi);
+                if a.id!=p.id && a.layer==p.layer {let mut pair=0.0f32;for ri in 0usize..a.row_count {let index=a.rows+ri*2;let b=geometry_box(d,ap,index);let weight=d.sf[d.fi[GEOMETRY_F] as usize+(index+1)*4];pair+=crate::pad_access::obstruction(b.l,b.r,b.t,b.b,p.body.l,p.body.r,p.body.t,p.body.b,weight);}dense+=pair;}
+            }}
+        }}}
+
+dense
 }

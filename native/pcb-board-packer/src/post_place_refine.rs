@@ -117,6 +117,8 @@ struct Pin {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Orientation {
+    #[serde(default)]
+    access_rows: Vec<crate::pad_access::Row>,
     rotate: i32,
     layer: Arc<str>,
     #[serde(rename = "box")]
@@ -261,6 +263,7 @@ fn rounded(x: f32) -> f32 {
 
 impl RefineProblem {
     fn validate(&self) -> Result<(), String> {
+        if self.components.iter().any(|c|c.orientations.iter().any(|o|!crate::pad_access::valid(&o.access_rows))){return Err("invalid refine access rows".into());}
         if !matches!(self.version, 2 | 3)
             || self.timeout_ms > 30_000
             || !self.min_delta.is_finite()
@@ -478,9 +481,15 @@ impl RefineProblem {
             _ => None,
         }
     }
+    fn access_components(&self,w:&World)->Vec<crate::pad_access::Component>{
+        self.components.iter().enumerate().map(|(i,c)|{let p=self.pose(w,i);let o=c.orientations.iter().find(|o|o.rotate==p.rotate && o.layer==p.layer).unwrap();
+            crate::pad_access::Component{body:w.bodies[i],layer:p.layer.to_string(),rows:crate::pad_access::translate(&o.access_rows,p.x,p.y)}
+        }).collect()
+    }
     fn score(&self, w: &World) -> Result<f32, String> { post_place::score(&self.score_problem(w)) }
     fn score_problem(&self, w: &World) -> PostPlaceScoreProblem {
         let mut p = PostPlaceScoreProblem {
+            access_components: self.access_components(w),
             explicit_connections: crate::fast_route::explicit_connections(&w.route.primitives.iter().collect::<Vec<_>>(), &w.route.relations, &w.obstacles),
             version: 1,
             pad_crossing_weight: self.pad_crossing_weight,

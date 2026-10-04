@@ -1,3 +1,4 @@
+import {componentAccessRows} from './pad-access.ts';
 import * as fp from '../../f32.ts';
 import type { BoardEdge, Box, Layer, PcbComponent, Placement } from '#types/pcb/layout-model.ts';
 import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
@@ -68,6 +69,7 @@ export function encodeNativeBoardPackProblem(params: BoardPackParams): NativeBoa
             blockName: component.block_name,
             layer: placement.layer,
             bodyBox: componentBodyBox(component, placement),
+            accessRows: componentAccessRows(component, placement),
             throughHoleBoxes: componentCollisionBoxes(
                 component,
                 placement,

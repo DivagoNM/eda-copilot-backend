@@ -28,7 +28,7 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
         .enumerate()
         .flat_map(|(index, net)| minimum_spanning_segments(index, net))
         .collect();
-    let mut score = 0.0;
+    let mut score = crate::pad_access::score(&problem.access_components);
     for segment in &segments {
         score += segment.length * 10.0 * segment.weight;
         score += segment.length * segment.length * 0.35 * segment.weight;
@@ -331,6 +331,7 @@ fn box_clearance_gap(a: &crate::geometry::Box2, b: &crate::geometry::Box2) -> f3
 }
 
 fn validate(problem: &PostPlaceScoreProblem) -> Result<(), String> {
+    if problem.access_components.iter().any(|c|!crate::geometry::is_finite_box(&c.body)||!crate::pad_access::valid(&c.rows)){return Err("invalid access rows".into());}
     if problem.version != 1 {
         return Err(format!(
             "unsupported post-place score contract {}; expected 1",
@@ -370,7 +371,7 @@ pub(crate) fn graph_reference(problem:&PostPlaceScoreProblem)->Vec<(usize,usize,
 /// than maintaining a second host implementation of its formulas.
 #[cfg(feature="gpu")]
 pub(crate) fn term_reference(p:&PostPlaceScoreProblem)->Result<Vec<f32>,String>{
- let mut empty=PostPlaceScoreProblem{explicit_connections:vec![],version:1,pad_crossing_weight:0.0,routing_obstacles:vec![],nets:vec![],distances:vec![],clearances:vec![],fixed_penalties:vec![],edges:vec![],paths:vec![]};let mut result=Vec::new();
+ let mut empty=PostPlaceScoreProblem{access_components:vec![],explicit_connections:vec![],version:1,pad_crossing_weight:0.0,routing_obstacles:vec![],nets:vec![],distances:vec![],clearances:vec![],fixed_penalties:vec![],edges:vec![],paths:vec![]};let mut result=Vec::new();
  for t in &p.distances {empty.distances=vec![*t];result.push(score(&empty)?);}empty.distances.clear();
  for t in &p.clearances {empty.clearances=vec![*t];result.push(score(&empty)?);}empty.clearances.clear();
  empty.fixed_penalties=p.fixed_penalties.clone();result.push(score(&empty)?);empty.fixed_penalties.clear();

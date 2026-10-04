@@ -1,3 +1,4 @@
+import {componentAccessRows} from './pad-access.ts';
 import { loadNativeBoardPacker } from './load-native-board-packer.ts';
 import * as fp from '../../f32.ts';
 import type { PlacementInput, Placement, TargetRef, Point } from '#types/pcb/layout-model.ts';
@@ -86,7 +87,7 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
         pins: c.pins.flatMap(pin => { const pad = c.footprint.pads.findIndex(p => String(p.pin_number) === String(pin.pin_number)); return pad >= 0 && isConnectedSignalName(pin.signal_name) ? [{ pad, net: pin.signal_name, ref: `${c.designator}.${String(pin.pin_number)}` }] : []; }),
         orientations: angles.flatMap(rotate => (['top', 'bottom'] as const).map(layer => {
             const pose: Placement = { designator: c.designator, x: 0, y: 0, rotate, layer, score: 0 };
-            return { rotate, layer, box: getBox(c, pose), body: componentBodyBox(c, pose), opposite: componentCollisionBoxes(c, pose, layer === 'top' ? 'bottom' : 'top'),
+            return { accessRows: componentAccessRows(c,pose), rotate, layer, box: getBox(c, pose), body: componentBodyBox(c, pose), opposite: componentCollisionBoxes(c, pose, layer === 'top' ? 'bottom' : 'top'),
                 points: c.footprint.pads.map(p => getLocalPointWorld(pose, p)), padBoxes: c.footprint.pads.map(p => componentPadBox(pose, p)) };
         })),
     }));

@@ -1663,6 +1663,7 @@ fn rebuild_component_geometry(primitive: &mut WorkingPrimitive) {
                     // Body bounds can be offset from the footprint origin. Transform
                     // the original bounds just like the other component geometry;
                     // rebuilding a centered rectangle loses that authored offset.
+                    for row in &mut component.access_rows { row.box_ = translate_box(&rotate_box(&row.box_, &source_origin, delta_rotation), dx, dy); }
                     component.body_box = translate_box(
                         &rotate_box(&component.body_box, &source_origin, delta_rotation),
                         dx,
@@ -2229,7 +2230,7 @@ fn score_block_terms(primitives: &[WorkingPrimitive], context: &Context, primiti
     // apply yet, even when its later bound is infinite.
     if score > ceiling { return None; }
     let safe_ceiling = ceiling + cached_roundoff;
-    score += dense_ic_access_penalty(primitives, context) * if high { 0.45 } else { 1.0 };
+    score += dense_ic_access_penalty(primitives, context);
     score += power_frame.map_or_else(|| power_yield_penalty(primitives, context), |frame| {
         frame.with_candidate(primitives.last().expect("appended candidate"), context)
     }) * if high { 0.3 } else { 1.0 };
@@ -3065,63 +3066,11 @@ fn dense_ic_access_penalty(primitives: &[WorkingPrimitive], context: &Context) -
     if context.problem.search_width > 1 && !context.problem.experiments.keep_dense_access {
         return 0.0;
     }
-    let placement_count: usize = primitives
-        .iter()
-        .map(|primitive| primitive.primitive.placements.len())
-        .sum();
-    if placement_count > 20 {
-        return 0.0;
-    }
-    let components: Vec<_> = primitives
-        .iter()
-        .flat_map(|primitive| primitive.components.iter().map(|(_, component)| component))
-        .collect();
-    if components.len() < 2 {
-        return 0.0;
-    }
-    let mut penalty = 0.0;
-    for source in &components {
-        if source.role.as_deref() == Some("connector") || source.pin_count < 8 {
-            continue;
-        }
-        let halo = 1.5f32.min(0.25f32.max((source.pin_count as f32 - 8.0) * 0.025));
-        let halo_box = Box2 {
-            left: source.body_box.left - halo,
-            right: source.body_box.right + halo,
-            top: source.body_box.top - halo,
-            bottom: source.body_box.bottom + halo,
-        };
-        let source_weight = (if source.role.as_deref() == Some("main_ic") {
-            1.45
-        } else {
-            1.0
-        }) * if source.pin_count >= 64 {
-            1.35
-        } else if source.pin_count >= 32 {
-            1.2
-        } else {
-            1.0
-        };
-        for neighbor in &components {
-            if source.designator == neighbor.designator || source.layer != neighbor.layer {
-                continue;
-            }
-            let depth = overlap_depth(&halo_box, &neighbor.body_box, 0.0);
-            if depth <= 0.0 {
-                continue;
-            }
-            let neighbor_weight = if neighbor.role.as_deref() == Some("decoupling_cap") {
-                0.55
-            } else if neighbor.power_component {
-                1.15
-            } else if neighbor.role.as_deref() == Some("passive") {
-                0.7
-            } else {
-                1.0
-            };
-            penalty += (depth * depth * 1_500.0 + depth * 600.0) * source_weight * neighbor_weight;
-        }
-    }
+    let components:Vec<_>=primitives.iter().flat_map(|p|p.components.iter().map(|(_,c)|c)).collect();
+    let mut penalty=0.0;
+    for a in &components {for b in &components {if a.designator!=b.designator && a.layer==b.layer {
+        penalty+=crate::pad_access::cost(&a.access_rows,b.body_box);
+    }}}
     penalty
 }
 

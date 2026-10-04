@@ -1,6 +1,6 @@
+import {componentAccessProfile} from '../pcb-auto-place-v2/native/pad-access.ts';
 import * as fp from '../f32.ts';
 import type { Box, PcbBlock, PcbComponent, PcbModule, Placement, PlacementInput, Point, TargetRef } from '#types/pcb/layout-model.ts';
-import { isGroundSignalName, isPowerSignalName } from '#utils/signals.ts';
 import { boardAnchorPoint, getBox, getPadWorld, round } from './geometry.ts';
 export { placementsCanConflict } from './utils.ts';
 
@@ -30,85 +30,16 @@ export function componentPairClearance(input: PlacementInput, a: PcbComponent, b
         clearance = fp.min(input.board.clearances.component, ...pairPlacementClearanceValues(cache, blockA, blockB));
     }
 
-    if (!isTightCriticalPowerPair(input, cache, a, b, blockA, blockB)) {
-        clearance = fp.max(clearance, denseIcPairClearance(input.board.clearances.component, a, b));
-    }
+    // Physical assembly floor is independent of electrical priority and density.
+    const extra=fp.max(componentAccessProfile(a).minimumExtra,componentAccessProfile(b).minimumExtra);
+    if (extra>0) clearance=fp.max(clearance,fp.add(input.board.clearances.component,extra));
 
     cache.componentPair.set(key, clearance);
     return clearance;
 }
 
-function isTightCriticalPowerPair(
-    input: PlacementInput,
-    cache: ClearanceCache,
-    a: PcbComponent,
-    b: PcbComponent,
-    blockA: PcbBlock | null,
-    blockB: PcbBlock | null,
-) {
-    if (!blockA || !blockB) return false;
-    if (!blocksAreRelated(cache, blockA, blockB)) return false;
-    if (!isPowerFamilyPair(cache, blockA, blockB)) return false;
-    return input.hints.some((hint) => {
-        if (hint.relation !== 'critical_pair') return false;
-        if (hint.source.type !== 'pin' || hint.target.type !== 'pin') return false;
-        if (!sameDesignatorPair(hint.source.designator, hint.target.designator, a.designator, b.designator)) return false;
-        return hint.hard === true || hint.core === true || hint.priority === 'critical';
-    });
-}
-
-function isPowerFamilyPair(cache: ClearanceCache, a: PcbBlock, b: PcbBlock) {
-    return blockFamilyHasRole(cache, a, 'power') || blockFamilyHasRole(cache, b, 'power');
-}
-
-function blockFamilyHasRole(cache: ClearanceCache, block: PcbBlock, role: PcbBlock['role']) {
-    return (cache.family.get(block.name) ?? [block]).some((item) => item.role === role);
-}
-
-function sameDesignatorPair(a1: string, b1: string, a2: string, b2: string) {
-    return (a1 === a2 && b1 === b2) || (a1 === b2 && b1 === a2);
-}
-
-function denseIcPairClearance(baseClearance: number, a: PcbComponent, b: PcbComponent) {
-    const aExtra = denseIcClearanceExtra(a, b);
-    const bExtra = denseIcClearanceExtra(b, a);
-    const extra = fp.max(aExtra, bExtra);
-    return extra > 0 ? fp.add(baseClearance, extra) : 0;
-}
-
-function denseIcClearanceExtra(source: PcbComponent, neighbor: PcbComponent) {
-    const pinCount = source.pins.length;
-    if (source.pcb.role === 'connector') return 0;
-    if (pinCount < 12 && source.pcb.role !== 'main_ic') return 0;
-    if (pinCount < 16 && !isSignalDenseMainIc(source)) return 0;
-
-    const baseExtra = fp.min(1.5, fp.max(0.35, fp.mul((pinCount - 8), 0.035)));
-    if (neighbor.pcb.role === 'decoupling_cap') return fp.min(0.55, fp.mul(baseExtra, 0.45));
-    if (neighbor.pcb.role === 'passive' && isMostlyPowerSupport(neighbor)) return fp.min(0.8, fp.mul(baseExtra, 0.6));
-    if (neighbor.pcb.role === 'passive') return fp.min(1.0, fp.mul(baseExtra, 0.75));
-    return baseExtra;
-}
-
-function isSignalDenseMainIc(component: PcbComponent) {
-    if (component.pcb.role !== 'main_ic') return false;
-    const signalPins = component.pins.filter((pin) => {
-        const net = pin.signal_name;
-        return net && !isGroundSignalName(net) && !isPowerSignalName(net);
-    });
-    return signalPins.length >= 6;
-}
-
-function isMostlyPowerSupport(component: PcbComponent) {
-    const connected = component.pins.filter((pin) => pin.signal_name && !isGroundSignalName(pin.signal_name));
-    return connected.length > 0 && connected.every((pin) => isPowerSignalName(pin.signal_name));
-}
-
 function denseIcPackingPadding(component: PcbComponent) {
-    const pinCount = component.pins.length;
-    if (component.pcb.role === 'connector') return 0;
-    if (pinCount < 12 && component.pcb.role !== 'main_ic') return 0;
-    if (pinCount < 16 && !isSignalDenseMainIc(component)) return 0;
-    return fp.min(1.5, fp.max(0.35, fp.mul((pinCount - 8), 0.035)));
+    return componentAccessProfile(component).minimumExtra;
 }
 
 export function blockInternalPlacementClearance(input: PlacementInput, block: PcbBlock) {

@@ -253,3 +253,8 @@ solverOptions, на полноценные объекты контракта; и
 Общая формула расстояния теперь находится в `relation_score.rs`; не возвращать
 её копии в TS или отдельные CPU/GPU формулы. Остальные stage objectives пока
 сохраняются; полное согласование всех relations ещё не завершено.
+
+
+### 2026-10-04: Dense IC replacement
+
+The user-authorized pad-access experiment replaces TS `denseIcClearanceExtra` / `denseIcPackingPadding` pin-count arithmetic and Rust's separate halo. Native `pad_access.rs` now owns row density, via-space proxy, minimum assembly margin and shared CPU/CubeCL obstruction cost. This is an explicit metric change, not a claim that the old formulas were equivalent. See [family/access experiment](../family-access/README.md) for exact dimensions, retired terms, limits and validation.

@@ -1,3 +1,4 @@
+import {componentAccessRows} from './pad-access.ts';
 import { placementNetClass } from './net-class.ts';
 import * as fp from '../../f32.ts';
 import type { PcbComponent, Placement } from '#types/pcb/layout-model.ts';
@@ -63,6 +64,7 @@ export function encodeNativeBlockSolveProblem(params: BlockSolveParams): NativeB
             blockName: component.block_name,
             layer: placement.layer,
             bodyBox: componentBodyBox(component, placement),
+            accessRows: componentAccessRows(component, placement),
             throughHoleBoxes: componentCollisionBoxes(component, placement, placement.layer === 'top' ? 'bottom' : 'top'),
             pinCount: component.pins.length,
             role: component.pcb.role,

@@ -44,7 +44,7 @@ pub(super) fn parts(ps: &[WorkingPrimitive], c: &Context) -> Value {
         "longNets":if c.problem.experiments.long_nets {long_local_net_penalty(ps,c)} else {0.0},
         "exposure":external_port_exposure_penalty(ps,c) * if high {0.35} else {1.0},
         "powerYield":power_yield_penalty(ps,c) * if high {0.3} else {1.0},
-        "denseAccess":dense_ic_access_penalty(ps,c) * if high {0.45} else {1.0},
+        "denseAccess":dense_ic_access_penalty(ps,c),
         "facing":port_facing_penalty(ps,c) * if high {0.55} else {1.0}})
 }
 

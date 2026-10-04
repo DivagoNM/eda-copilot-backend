@@ -137,3 +137,18 @@ test('critical priority is a distance objective; only authored non-core hard lim
     assert.equal(rules[4].max,3);
     assert.equal(rules[3].inverseTauSquared,100);
 });
+
+test('row obstruction uses the same native cost in block, board and PostPlace',()=>{
+    const {board,block}=fixture(3);
+    const beforeBlock=addon.evaluateBlockQuality(block).score;
+    const beforeBoard=addon.evaluateBoardQuality(board).rank.score;
+    const rows=[{box:{left:1,right:4,top:-1,bottom:1},weight:360}];
+    board.components[0].accessRows=rows;
+    block.components[0].accessRows=rows;
+    const post=emptyPost();post.accessComponents=board.components.map(c=>({body:c.bodyBox,layer:c.layer,rows:c.accessRows??[]}));
+    const expected=addon.scorePostPlace(post);
+    assert.ok(expected>0);
+    close(addon.evaluateBlockQuality(block).score-beforeBlock,expected);
+    close(addon.evaluateBoardQuality(board).rank.score-beforeBoard,expected);
+    post.accessComponents[1].layer='bottom';assert.equal(addon.scorePostPlace(post),0);
+});

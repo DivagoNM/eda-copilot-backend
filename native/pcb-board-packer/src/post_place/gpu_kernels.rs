@@ -46,6 +46,10 @@ pub fn materialize(g:&Input,out:&mut Array<f32>){
    out[a]=g.sf[src]+dx;out[a+1]=g.sf[src+1]+dy;out[a+2]=g.sf[src+2]+dx;out[a+3]=g.sf[src+3]+dx;out[a+4]=g.sf[src+4]+dy;out[a+5]=g.sf[src+5]+dy;
    let flags=g.si[g.si[desc+2] as usize+pad*4+3];let mut side=layer;if flags==1 {side=0;}if flags==2 {side=3-layer;}out[a+6]=side as f32;
   }
+  let src=o+4+g.si[desc+1] as usize*6;let dest=dst+7+g.si[desc+1] as usize*7;
+  out[dest]=g.sf[src]+dx;out[dest+1]=g.sf[src+1]+dx;out[dest+2]=g.sf[src+2]+dy;out[dest+3]=g.sf[src+3]+dy;
+  for ri in 0usize..4 {let a=dest+4+ri*5;let b=src+4+ri*5;out[a]=g.sf[b]+dx;out[a+1]=g.sf[b+1]+dx;out[a+2]=g.sf[b+2]+dy;out[a+3]=g.sf[b+3]+dy;out[a+4]=g.sf[b+4];}
+
  }
 }
 #[cube(launch_unchecked)]
@@ -111,9 +115,9 @@ pub fn terms(g:&Input,out:&mut Array<f32>){
 }
 #[cube(launch_unchecked)]
 pub fn reduce(g:&Input,segments:&Array<f32>,terms:&Array<f32>,out:&mut Array<f32>){
- let c=ABSOLUTE_POS as usize;if c<g.bi[0] as usize {let ns=g.si[5] as usize;let nt=g.si[7] as usize;let total=nt+g.si[9] as usize;let mut score=0.0;
+ let c=ABSOLUTE_POS as usize;if c<g.bi[0] as usize {let ns=g.si[5] as usize;let nt=g.si[7] as usize;let total=nt+g.si[9] as usize;let mut score=segments[c*3+2];
   for j in 0..ns {let e=c*ns+j;let n=g.edges[e*3+2] as usize;let w=g.sf[g.si[g.si[3] as usize+n*4+3] as usize];let l=g.lengths[e];score+=l*10.0*w;score+=l*l*0.35*w;}
-  score+=segments[c*2]*180.0;if g.sf[g.si[12] as usize]>0.0 {score+=segments[c*2+1]*g.sf[g.si[12] as usize];}
+  score+=segments[c*3]*180.0;if g.sf[g.si[12] as usize]>0.0 {score+=segments[c*3+1]*g.sf[g.si[12] as usize];}
   let mut fixed=0.0;let mut added=false;
   for j in 0..total {let mut kind=4u32;if j<nt {kind=g.si[g.si[8] as usize+j*5];}let t=(c*total+j)*3;
    if kind==2 {fixed+=terms[t];}else{if kind>=3 && !added {score+=fixed;added=true;}score+=terms[t];if kind==0 {score+=terms[t+1];score+=terms[t+2];}}
@@ -152,6 +156,13 @@ pub fn geometry_score(g:&Input,out:&mut Array<f32>) {
      if a.owner!=comp as u32&&net!=a.net&&(a.layer==0||side==0||a.layer==side)&&hits(a.a,a.b,box_at(g,q+2)){hit=true;}
     }if hit{pads+=crate::relation_score::crossing_weight(a.weight,class)*crate::relation_score::pad_factor(class);}
    }}
-  }}out[c*2]=crossings;out[c*2+1]=pads;
+  }}
+  let mut access=0.0f32;
+  for i in 0..g.si[0] as usize {let a=geometry_offset(g,c,i);let ar=a+7+g.si[g.si[1] as usize+i*4+1] as usize*7+4;
+   for j in 0..g.si[0] as usize {let b=geometry_offset(g,c,j);if i!=j && g.geometry[a+2]==g.geometry[b+2] {let body=box_at(g,b+7+g.si[g.si[1] as usize+j*4+1] as usize*7);let mut pair=0.0f32;
+    for ri in 0usize..4 {let off=ar+ri*5;let row=box_at(g,off);pair+=crate::pad_access::obstruction(row.l,row.r,row.t,row.b,body.l,body.r,body.t,body.b,g.geometry[off+4]);}access+=pair;
+   }}
+  }
+  out[c*3]=crossings;out[c*3+1]=pads;out[c*3+2]=access;
  }
 }

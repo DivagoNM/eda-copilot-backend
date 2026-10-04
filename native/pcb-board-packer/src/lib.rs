@@ -21,6 +21,7 @@ mod passive_island_solver;
 mod post_place;
 mod local_stretch;
 mod relation_score;
+mod pad_access;
 mod placement_quality;
 mod signal_path;
 mod solver;
@@ -119,7 +120,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 4 }
+pub fn placement_score_contract_version() -> u32 { 5 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {
@@ -578,4 +579,11 @@ pub fn refine_post_placement(mut problem: Value) -> Result<Value> {
     frame.restore(&mut output).map_err(invalid_problem)?;
     output["numericFrame"] = frame.metadata();
     Ok(output)
+}
+
+#[napi]
+pub fn placement_access_profile(request: Value) -> Result<Value> {
+    let _guard = float_env::Guard::enter();
+    let request = serde_json::from_value(request).map_err(invalid_problem)?;
+    serde_json::to_value(pad_access::profile(&request).map_err(invalid_problem)?).map_err(invalid_problem)
 }

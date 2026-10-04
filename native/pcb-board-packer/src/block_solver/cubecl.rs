@@ -378,14 +378,16 @@ impl Engine {
                         unused: 0,
                     });
                 }
-                let components = (engine.component_data.len() / 8) as u32;
+                let components = (engine.component_data.len() / 10) as u32;
                 for (index, component) in p.components.iter() {
                     let body = (engine.geometry.len() / 4) as i32;
                     engine.geometry.extend([component.body_box.left, component.body_box.right, component.body_box.top, component.body_box.bottom]);
                     let through = (engine.geometry.len() / 4) as i32;
                     for b in component.through_hole_boxes.iter() { engine.geometry.extend([b.left,b.right,b.top,b.bottom]); }
                     let role = match component.role.as_deref() {Some("main_ic")=>1,Some("decoupling_cap")=>2,Some("passive")=>3,Some("connector")=>4,_=>0};
-                    engine.component_data.extend([*index as i32,layer(Some(&component.layer)),component.pin_count as i32,role,component.power_component as i32,body,through,component.through_hole_boxes.len() as i32]);
+                    let rows=(engine.geometry.len()/4) as i32;
+                    for row in &component.access_rows {let b=row.box_;engine.geometry.extend([b.left,b.right,b.top,b.bottom,row.weight,0.0,0.0,0.0]);}
+                    engine.component_data.extend([*index as i32,layer(Some(&component.layer)),component.pin_count as i32,role,component.power_component as i32,body,through,component.through_hole_boxes.len() as i32,rows,component.access_rows.len() as i32]);
                 }
                 let boxes = (engine.geometry.len() / 4) as u32;
                 let collision = primitive_collision_boxes(&p, context);
@@ -1184,7 +1186,7 @@ impl Engine {
                         .unwrap();
                         let dump = serde_json::json!({"gpuGeometry":geometry,"candidate":i,"cpu":cpu.score,"gpu":scores[i],"phase":*context.trace_phase.borrow(),
                             "sf":self.sf,"si":self.si,"ff":ff,"fi":fi,"poses":pf,"ids":pi,
-                            "cpuBoxes":variant.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()});
+                            "cpuParts":super::trace::parts(&variant,context),"cpuDense":dense_ic_access_penalty(&variant,context),"cpuComponents":variant.iter().flat_map(|p|p.components.iter().map(|(_,c)|c)).collect::<Vec<_>>(),"cpuBoxes":variant.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()});
                         std::fs::write(path, serde_json::to_vec(&dump).unwrap())
                             .expect("write numerical failure capture");
                     }

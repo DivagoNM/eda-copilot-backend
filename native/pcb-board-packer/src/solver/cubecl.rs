@@ -253,7 +253,7 @@ impl Engine {
         let bbox=put_box(&mut self.sf,v.bbox);mark_box(&mut coordinates,bbox);let boxes=u(self.sf.len())?;
         for b in v.collision_boxes.iter() {let f=put_box(&mut self.sf,*b);mark_box(&mut coordinates,f);}
         let component_start=u(self.si.len())?;
-        self.si.resize(self.si.len()+t.components.len()*8,0);
+        self.si.resize(self.si.len()+t.components.len()*10,0);
         for (j,(index,c)) in t.components.iter().enumerate() {
             let body=put_box(&mut self.sf,c.body_box);mark_box(&mut coordinates,body);let holes=u(self.sf.len())?;
             for b in c.through_hole_boxes.iter() {let f=put_box(&mut self.sf,*b);mark_box(&mut coordinates,f);}
@@ -265,7 +265,9 @@ impl Engine {
                 bottom:if o.bottom>0.0 {full.bottom+o.bottom}else{full.bottom-edge},
             });
             let ef=u(self.sf.len())?;self.sf.push(c.edge_clearance);
-            let entry=component_start as usize+j*8;
+            let entry=component_start as usize+j*10;
+            let rows=u(self.sf.len())?;for r in &c.access_rows{let f=put_box(&mut self.sf,r.box_);mark_box(&mut coordinates,f);self.sf.push(r.weight);}
+            self.si[entry+8]=rows;self.si[entry+9]=u(c.access_rows.len())?;
             self.si[entry..entry+8].copy_from_slice(&[u(*index)?,layer(&c.layer),body,holes,u(c.through_hole_boxes.len())?,bounds,ef,
                 u32::from(o.left>0.0 || o.right>0.0 || o.top>0.0 || o.bottom>0.0)]);
         }
@@ -313,7 +315,8 @@ impl Engine {
         set(self.si[t+18] as usize,&box_values(super::packing_box(item)));
         for (i,b) in item.primitive.collision_boxes.iter().enumerate() {set(self.si[t+3] as usize+i*4,&box_values(*b));}
         for (i,(_,c)) in item.components.iter().enumerate() {
-            let entry=self.si[t+5] as usize+i*8;set(self.si[entry+2] as usize,&box_values(c.body_box));
+            let entry=self.si[t+5] as usize+i*10;set(self.si[entry+2] as usize,&box_values(c.body_box));
+            for (j,r) in c.access_rows.iter().enumerate(){set(self.si[entry+8] as usize+j*5,&box_values(r.box_));}
             for (j,b) in c.through_hole_boxes.iter().enumerate() {set(self.si[entry+3] as usize+j*4,&box_values(*b));}
         }
         for (i,q) in item.primitive.connection_points.iter().enumerate() {set(self.si[self.si[t+9] as usize+i*2] as usize,&[q.x,q.y]);}
@@ -439,7 +442,7 @@ impl Engine {
                 let output=session.workspace(ScratchKey::new("board-ranks-f32",0),count*2*4);
                 let parent=session.workspace(ScratchKey::new("board-ranks-f32",9),4);
                 let diagnostic_tags=session.workspace(ScratchKey::new("board-ranks-f32",10),if verify {count*4}else{4});
-                let term_output=session.workspace(ScratchKey::new("board-ranks-f32",8),if verify {count*10*4}else{8});
+                let term_output=session.workspace(ScratchKey::new("board-ranks-f32",8),if verify {count*11*4}else{8});
                 let tags=session.workspace(ScratchKey::new("board-ranks-f32",1),count*4);
                 let geometry=session.workspace(ScratchKey::new("board-ranks-f32",2),geometry_floats*4);
                 let pair_count=fixed_pairs+count*cross_pairs;
@@ -492,7 +495,7 @@ impl Engine {
                     if full_ranks {
                         k::ranks::launch_unchecked::<WgpuRuntime>(&client,CubeCount::Static(count as u32,1,1),CubeDim::new_1d(128),
                             input(),ArrayArg::from_raw_parts(output.clone(),count*2),ArrayArg::from_raw_parts(tags.clone(),count),
-                            ArrayArg::from_raw_parts(term_output.clone(),if verify {count*10}else{1}),verify);
+                            ArrayArg::from_raw_parts(term_output.clone(),if verify {count*11}else{1}),verify);
                     }
                     if let Some((ordinary,aligned))=limits {
                         k::clear_selection::launch_unchecked::<WgpuRuntime>(&client,CubeCount::Static((limit*2).div_ceil(128) as u32,1,1),CubeDim::new_1d(128),ArrayArg::from_raw_parts(winner_ids.clone(),limit*2));
@@ -565,20 +568,20 @@ impl Engine {
                     let expected=[super::relation_penalty(&all,context),super::envelope_overlap_penalty(&all,context),w*h,w+h,
                         super::soft_spacing_penalty(&all,context),super::soft_alignment_score(&all,context),super::edge_bias_penalty(&all,context),
                         super::edge_place_penalty(&all,context),crate::signal_path::explicit_topology_penalty(&primitives,&context.problem.relations),
-                        crate::ordinary_net::penalty(&primitives,&context.problem.relations)];
+                        crate::ordinary_net::penalty(&primitives,&context.problem.relations),super::access_penalty(&all)];
                     let actual=f32::from_bytes(term_values.as_ref().unwrap());
                     for (term,&value) in expected.iter().enumerate() {
-                        if !same(value,actual[index*10+term]) {
-                            if term==8 && crate::f32_policy::quantized_score_close(value,actual[index*10+term]) {continue;}
+                        if !same(value,actual[index*11+term]) {
+                            if term==8 && crate::f32_policy::quantized_score_close(value,actual[index*11+term]) {continue;}
                             if term==0 {
                                 let enclosure=super::relation_penalty_enclosure(&all,context);
                                 if enclosure.lo.is_finite() && enclosure.hi.is_finite()
-                                    && enclosure.contains(value) && enclosure.contains(actual[index*10]) {
-                                    eprintln!("[board-gpu-validation] bounded relation {}",serde_json::json!({"candidate":index,"cpu":value,"gpu":actual[index*10],"lower":enclosure.lo,"upper":enclosure.hi,"reason":"propagated Vulkan division/sqrt precision; diagnostic only"}));
+                                    && enclosure.contains(value) && enclosure.contains(actual[index*11]) {
+                                    eprintln!("[board-gpu-validation] bounded relation {}",serde_json::json!({"candidate":index,"cpu":value,"gpu":actual[index*11],"lower":enclosure.lo,"upper":enclosure.hi,"reason":"propagated Vulkan division/sqrt precision; diagnostic only"}));
                                     continue;
                                 }
                             }
-                            eprintln!("[board-gpu-validation] term {}",serde_json::json!({"candidate":index,"term":term,"cpu":value,"gpu":actual[index*10+term]}));
+                            eprintln!("[board-gpu-validation] term {}",serde_json::json!({"candidate":index,"term":term,"cpu":value,"gpu":actual[index*11+term]}));
                             return Err(Error::new(ErrorKind::InvalidInput,"board GPU term validation failed"));
                         }
                     }
@@ -587,14 +590,14 @@ impl Engine {
                     // weights; a sqrt difference can be amplified downstream.
                     // This verifies contributions/signs/units without applying
                     // a global tolerance to geometry or search decisions.
-                    let t=&actual[index*10..index*10+10];
+                    let t=&actual[index*11..index*11+11];
                     let high=context.problem.compactness.as_ref()=="high";
                     let scale=context.problem.soft_spacing.as_ref().map_or(1.0,|s|s.compactness_scale);
                     let explained_score=t[0]
                         +row.hard_severity*1_000_000.0
                         +t[1]*if high {1.2}else{1.0}+t[2]*if high {1.2}else{0.8}*scale
                         +t[3]*if high {8.0}else{1.5}*scale+t[4]+t[5]
-                        +t[6]*if high {0.4}else{1.0}+t[7]+t[8]+t[9]*if high {3.0}else{5.0};
+                        +t[6]*if high {0.4}else{1.0}+t[7]+t[8]+t[9]*if high {3.0}else{5.0}+t[10];
                     if row.hard_count!=cpu.hard_count || !same(cpu.hard_severity,row.hard_severity) || !same(explained_score,row.score) {
                         eprintln!("[board-gpu-validation] {}",serde_json::json!({"batch":self.batches+1,"candidate":index,"cpu":cpu,"gpu":row}));
                         return Err(Error::new(ErrorKind::InvalidInput,"board GPU candidate validation failed"));
