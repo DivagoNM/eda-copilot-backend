@@ -1,6 +1,6 @@
 import * as fp from '../../f32.ts';
 import type { BoardEdge, Box, Layer, PcbComponent, Placement } from '#types/pcb/layout-model.ts';
-import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes } from '../../pcb-auto-place/geometry.ts';
+import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { placementsCanConflict } from '../../pcb-auto-place/utils.ts';
 import type { BoardPackParams } from '../board-packer.ts';
 import type { PlacementPrimitive } from '../primitives.ts';
@@ -37,6 +37,11 @@ export function encodeNativeBoardPackProblem(params: BoardPackParams): NativeBoa
         : cloneBox(params.options.bounds);
 
     return assertFiniteProblem({
+        routingObstacles: components.flatMap(({component, placement, primitiveId}) => component.footprint.pads.map(pad => ({
+            box: componentPadBox(placement, pad), primitiveId, ref: `${component.designator}.${pad.pin_number}`,
+            net: component.pins.find(p => String(p.pin_number) === String(pad.pin_number))?.signal_name || undefined,
+            layer: padPlacementLayer(pad, placement),
+        }))),
         softAlignment: params.options.softAlignment,
         softSpacing: params.options.softSpacing,
         version: NATIVE_BOARD_PACK_CONTRACT_VERSION,

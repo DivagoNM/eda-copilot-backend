@@ -107,7 +107,7 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
     }
     for (const m of input.modules) if (m.hardBbox) hierarchy.push({ key: `module:${m.name}:bbox`, source: { kind: 'group', members: members(canonicalModuleDesignators(input, m)) }, ...moduleBboxLimit(input, m, componentMap) });
     const route = routeLayoutProblem(input, placements, createPostPlaceRouteScoreContext(input));
-    return { version: 3, routingMetric: 'micro' as 'micro' | 'geometric', threads, padCrossingWeight: placementPadCrossingWeight(), ...postPlaceBudget(input), minDelta: fp.max(0, input.solverOptions.localImproveMinDelta),
+    return { version: 3, routingMetric: 'geometric' as 'micro' | 'geometric', threads, padCrossingWeight: placementPadCrossingWeight(), ...postPlaceBudget(input), minDelta: fp.max(0, input.solverOptions.localImproveMinDelta),
         placements, components, groups, compatibility, nets, hints, hierarchy, routeProblem: route.problem,
         board: boardBox(input.board), polygon: input.board.outline.type === 'polygon' ? input.board.outline.points : [], edgeClearance: input.board.clearances.edge,
         holes: (input.boardHoles ?? []).map(h => ({ x: h.x, y: h.y, radius: fp.add(boardHoleKeepoutRadius(h), input.board.clearances.component) })),

@@ -1053,8 +1053,8 @@ fn evaluate(
         if Instant::now() >= deadline {
             return Ok(None);
         }
-        // Local block refinement uses the same geometric objective as its
-        // candidate pool. Only the final board stage requests Micro-A*.
+        // Geometric refinement accepts against the existing native score only.
+        // Both local blocks and the board can explicitly select this mode.
         if p.routing_metric == RefineRoutingMetric::Geometric {
             let improvement = current_score - score;
             if improvement <= p.min_delta {

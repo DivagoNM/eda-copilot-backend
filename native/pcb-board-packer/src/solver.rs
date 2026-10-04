@@ -11,7 +11,6 @@ use crate::geometry::{
     point_to_polygon_distance, rotate_box, rotate_point, round_placement, translate_box,
     union_boxes, Box2, Point,
 };
-use crate::micro_router::{self, MicroRouteConfig};
 use crate::model::{
     BoardPackProblem, BoardPackSolution, ComponentGeometry, Primitive, PrimitiveState, Rank,
     Relation,
@@ -128,7 +127,6 @@ struct CompiledRelation {
 struct Context {
     problem: Arc<BoardPackProblem>,
     relations: Arc<Vec<CompiledRelation>>,
-    route_cache: micro_router::BoardRouteCache,
     hard_overlap_cache: RefCell<FxHashMap<PosePairKey, f32>>,
     outside_cache: RefCell<FxHashMap<PoseKey, bool>>,
     outside_severity_cache: RefCell<FxHashMap<PoseKey, f32>>,
@@ -196,14 +194,9 @@ fn prepare_context(problem: BoardPackProblem,
             .map(|placement| placement.designator.clone())
     }));
     let relations = compile_relations(&problem, &primitive_ids, &designator_ids);
-    // One immutable outline and one bounded cache for the entire board solve.
-    let route_cache =
-        micro_router::BoardRouteCache::new(
-            &problem.board_outline, problem.bounds, &MicroRouteConfig::board(), GEOMETRY_CACHE_LIMIT);
     let context = Context {
         problem: Arc::new(problem),
         relations: Arc::new(relations),
-        route_cache,
         hard_overlap_cache: RefCell::new(FxHashMap::default()),
         outside_cache: RefCell::new(FxHashMap::default()),
         outside_severity_cache: RefCell::new(FxHashMap::default()),
@@ -325,9 +318,6 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
         .map(|_| Context {
             problem: context.problem.clone(),
             relations: context.relations.clone(),
-            route_cache: micro_router::BoardRouteCache::new(
-                &context.problem.board_outline, context.problem.bounds,
-                &MicroRouteConfig::board(), GEOMETRY_CACHE_LIMIT),
             hard_overlap_cache: RefCell::new(FxHashMap::default()),
             outside_cache: RefCell::new(FxHashMap::default()),
             outside_severity_cache: RefCell::new(FxHashMap::default()),
@@ -591,8 +581,8 @@ fn joint_pair_states(state: &SearchState, next_index: usize, context: &Context) 
     result.truncate(16);
     for s in &mut result {
         let n=s.placed.len();
-        s.route_penalty+=board_micro_route_penalty(&s.placed[n-2],&s.placed[..n-2],context)
-            +board_micro_route_penalty(&s.placed[n-1],&s.placed[..n-1],context);
+        s.route_penalty+=board_geometric_route_penalty(&s.placed[n-2],&s.placed[..n-2],context)
+            +board_geometric_route_penalty(&s.placed[n-1],&s.placed[..n-1],context);
         s.rank.score+=s.route_penalty;
     }
     result.sort_by(compare_states); result.truncate(4);
@@ -735,7 +725,7 @@ fn rerank_candidates(
             .then_with(|| a.ordinal.cmp(&b.ordinal))
     }, |candidate| {
         if candidate.rank.hard_count == baseline_hard {
-            let correction = board_micro_route_penalty(&candidate.primitive, placed, context);
+            let correction = board_geometric_route_penalty(&candidate.primitive, placed, context);
             candidate.route_penalty = parent_route_penalty + correction;
             candidate.rank.score += candidate.route_penalty;
         }
@@ -777,22 +767,35 @@ fn rerank_candidates(
     candidates
 }
 
-fn board_micro_route_penalty(
+fn board_geometric_route_penalty(
     candidate: &WorkingPrimitive,
     placed: &[WorkingPrimitive],
     context: &Context,
 ) -> f32 {
     let _profile = context.profile.span(12);
-    let config = MicroRouteConfig::board();
+    let mut obstacles = Vec::new();
+    let mut candidate_pads = Vec::new();
+    for item in placed.iter().chain(std::iter::once(candidate)) {
+        let source = &context.problem.primitives[item.source_index];
+        let origin = box_center(&source.bbox);
+        let center = box_center(&item.primitive.bbox);
+        for pad in context.problem.routing_obstacles.iter().filter(|pad| pad.primitive_id.as_ref() == Some(&source.id)) {
+            let mut pad = pad.clone();
+            pad.box_ = translate_box(&rotate_box(&pad.box_, &origin, item.rotation), center.x-origin.x, center.y-origin.y);
+            if item.id == candidate.id { candidate_pads.push(pad.clone()); }
+            obstacles.push(pad);
+        }
+    }
+    obstacles.extend(context.problem.routing_obstacles.iter().filter(|p| p.primitive_id.is_none()).cloned());
+    obstacles.extend(context.problem.obstacles.iter().map(|b| crate::model::RouteObstacle {
+        box_: *b, layer: None, reference: None, net: None, primitive_id: None,
+    }));
     let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();
-    micro_router::candidate_penalty_cached(
-        &candidate.primitive,
-        &placed_primitives,
-        &context.problem.relations,
-        context.problem.bounds,
-        &context.route_cache,
-        &context.problem.obstacles,
-        &config,
+    crate::fast_route::board_candidate_penalty(
+        &candidate.primitive, &placed_primitives, &obstacles,
+        context.problem.clearance, context.problem.bounds,
+    ) + crate::fast_route::added_obstacle_penalty(
+        &placed_primitives, &obstacles, &candidate_pads, context.problem.clearance,
     )
 }
 
@@ -1023,7 +1026,7 @@ fn local_improve(mut current: Vec<WorkingPrimitive>, context: &Context, lanes: &
                 hard_count: current_rank.hard_count,
                 hard_severity: current_rank.hard_severity,
                 score: current_rank.score
-                    + board_micro_route_penalty(&current[index], &fixed, context),
+                    + board_geometric_route_penalty(&current[index], &fixed, context),
             };
             let baseline_hard = hard_count(&fixed, context);
             if let Some(candidate) = crate::lazy_rank::improve(
@@ -1031,7 +1034,7 @@ fn local_improve(mut current: Vec<WorkingPrimitive>, context: &Context, lanes: &
                 compare_candidates, |candidate, best_rank| rank_improves(&candidate.rank, best_rank),
                 |candidate| candidate.rank.clone(), |candidate| {
                     if candidate.rank.hard_count == baseline_hard {
-                        candidate.route_penalty = board_micro_route_penalty(&candidate.primitive, &fixed, context);
+                        candidate.route_penalty = board_geometric_route_penalty(&candidate.primitive, &fixed, context);
                         candidate.rank.score += candidate.route_penalty;
                     }
                 },
@@ -3192,7 +3195,9 @@ mod alignment_search_tests {
             "edgeClearance":0.2,"primitives":[],"relations":[],"obstacles":[],"constraintRegions":[],"components":[],
             "componentPairClearance":[],"componentConflict":[],"softAlignment":{"weight":8,"tolerance":0.15,"orientationWeight":24,
             "pairs":[{"a":"U1","b":"U2","anchorA":"U1","anchorB":"U2","similarity":1,"orientation":{"a":"U1","b":"U2","offset":0}}]}})).unwrap();
-        let context=Context{route_cache:micro_router::BoardRouteCache::new(&problem.board_outline,problem.bounds,&MicroRouteConfig::board(),1000),
+        let mut problem=problem;
+        problem.primitives=primitives.clone();
+        let context=Context{
             problem:Arc::new(problem),relations:Arc::new(vec![]),hard_overlap_cache:RefCell::new(FxHashMap::default()),
             outside_cache:RefCell::new(FxHashMap::default()),outside_severity_cache:RefCell::new(FxHashMap::default()),
             joint_candidates:Arc::new(AtomicUsize::new(0)),profile:profile::Profile::new(),

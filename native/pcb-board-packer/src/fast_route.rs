@@ -17,6 +17,14 @@ pub fn candidate_penalty(
     clearance: f32,
     bounds: Box2,
 ) -> f32 {
+    candidate_penalty_inner(candidate, placed, obstacles, external, ignored, clearance, bounds, false)
+}
+
+pub fn board_candidate_penalty(candidate: &Primitive, placed: &[&Primitive], obstacles: &[RouteObstacle], clearance: f32, bounds: Box2) -> f32 {
+    candidate_penalty_inner(candidate, placed, obstacles, &[], &[], clearance, bounds, true)
+}
+
+fn candidate_penalty_inner(candidate: &Primitive, placed: &[&Primitive], obstacles: &[RouteObstacle], external: &[Arc<str>], ignored: &[Arc<str>], clearance: f32, bounds: Box2, board: bool) -> f32 {
     let eligible = |n: &str| {
         !n.is_empty() && !is_ground(n) && !ignored.iter().any(|s| s.eq_ignore_ascii_case(n))
     };
@@ -30,7 +38,7 @@ pub fn candidate_penalty(
     nets.dedup();
     // Existing connection skeleton is only a crossing hint. Never charge all-pairs
     // bus length; grow a deterministic nearest-edge spanning tree per net.
-    let skeleton = skeleton(placed, &eligible);
+    let skeleton = skeleton(placed, &eligible, if board {usize::MAX} else {32});
     let mut total = 0.0;
     for net in nets {
         let sources: Vec<_> = candidate
@@ -68,12 +76,13 @@ pub fn candidate_penalty(
             .iter()
             .take(4)
             .map(|(_, a, b, layer)| {
+                let compatible = if board { compatible_links(&skeleton, placed, obstacles, layer.as_deref()) } else { skeleton.clone() };
                 path_cost(
                     *a,
                     *b,
                     &net,
                     obstacles,
-                    &skeleton,
+                    &compatible,
                     clearance,
                     layer.as_deref(),
                 )
@@ -127,9 +136,43 @@ pub fn candidate_penalty(
     total
 }
 
+/// A new block can obstruct existing links even when it shares none of their nets.
+/// Reuse path_cost and charge only the additional obstruction, keeping the lazy
+/// board shortlist's non-negative correction bound valid.
+pub fn added_obstacle_penalty(
+    placed: &[&Primitive], all: &[RouteObstacle], added: &[RouteObstacle], clearance: f32,
+) -> f32 {
+    if added.is_empty() { return 0.0; }
+    let before: Vec<_> = all.iter().filter(|p| !added.iter().any(|q|
+        p.primitive_id == q.primitive_id && p.reference == q.reference)).cloned().collect();
+    let links = skeleton(placed, &|n| !n.is_empty() && !is_ground(n), usize::MAX);
+    links.iter().map(|(net, (a,b))| {
+        let layer = link_layer(net, *a, *b, placed, all);
+        let compatible = compatible_links(&links, placed, all, layer.as_deref());
+        (path_cost(*a,*b,net,all,&compatible,clearance,layer.as_deref())
+            -path_cost(*a,*b,net,&before,&compatible,clearance,layer.as_deref())).max(0.0)
+    }).sum()
+}
+
+fn link_layer(net: &str, a: Point, b: Point, primitives: &[&Primitive], obstacles: &[RouteObstacle]) -> Option<Arc<str>> {
+    let reference = |point: Point| primitives.iter().flat_map(|p| p.connection_points.iter())
+        .find(|cp| cp.net.as_deref() == Some(net) && cp.x == point.x && cp.y == point.y)
+        .map(|cp| cp.reference.as_ref());
+    match (reference(a),reference(b)) {
+        (Some(a),Some(b)) => common_layer(a,b,obstacles), _ => None,
+    }
+}
+fn compatible_links(links: &[(Arc<str>,Segment)], primitives: &[&Primitive], obstacles: &[RouteObstacle], layer: Option<&str>) -> Vec<(Arc<str>,Segment)> {
+    links.iter().filter(|(net,(a,b))| {
+        let other=link_layer(net,*a,*b,primitives,obstacles);
+        layer.is_none() || other.is_none() || layer == other.as_deref()
+    }).cloned().collect()
+}
+
 fn skeleton(
     primitives: &[&Primitive],
     eligible: &impl Fn(&str) -> bool,
+    max_points: usize,
 ) -> Vec<(Arc<str>, Segment)> {
     let mut nets = std::collections::BTreeMap::<Arc<str>, Vec<Point>>::new();
     for p in primitives {
@@ -147,7 +190,7 @@ fn skeleton(
     for (n, mut pts) in nets {
         pts.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
         pts.dedup_by(|a, b| distance(*a, *b) < 1e-6);
-        if pts.len() < 2 || pts.len() > 32 {
+        if pts.len() < 2 || pts.len() > max_points {
             continue;
         }
         let mut used = vec![false; pts.len()];
@@ -353,4 +396,26 @@ mod tests {
             0.0
         );
     }
+    #[test]
+    fn crossing_foreign_ratline_costs_more_than_parallel() {
+        let a=Point{x:0.,y:0.}; let b=Point{x:10.,y:0.};
+        let crossing=vec![(Arc::from("OTHER"),(Point{x:5.,y:-5.},Point{x:5.,y:5.}))];
+        let parallel=vec![(Arc::from("OTHER"),(Point{x:0.,y:5.},Point{x:10.,y:5.}))];
+        assert!(path_cost(a,b,"SIG",&[],&crossing,0.25,None)>path_cost(a,b,"SIG",&[],&parallel,0.25,None));
+    }
+    #[test]
+    fn unrelated_new_pad_can_obstruct_an_existing_link() {
+        let p: Primitive=serde_json::from_value(serde_json::json!({
+            "id":"P","kind":"block","label":"P","sourceNodeId":"P","sourceNodeIds":[],
+            "locked":false,"canRotate":false,"allowedOrientations":[0],
+            "bbox":{"left":0,"right":10,"top":0,"bottom":1},"collisionBoxes":[],"width":10,"height":1,
+            "placements":[],"connectionPoints":[{"ref":"A.1","net":"SIG","x":0,"y":0},{"ref":"B.1","net":"SIG","x":10,"y":0}]
+        })).unwrap();
+        let pad=RouteObstacle{box_:Box2{left:4.,right:6.,top:-2.,bottom:2.},layer:None,
+            reference:Some(Arc::from("C.1")),net:Some(Arc::from("OTHER")),primitive_id:Some(Arc::from("C"))};
+        assert!(added_obstacle_penalty(&[&p],&[pad.clone()],&[pad.clone()],0.25)>0.);
+        let same=RouteObstacle{net:Some(Arc::from("SIG")),..pad};
+        assert_eq!(added_obstacle_penalty(&[&p],&[same.clone()],&[same],0.25),0.);
+    }
+
 }

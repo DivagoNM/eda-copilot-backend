@@ -16,7 +16,7 @@ function run(input: PlacementInput, placements: Placement[], threads: number): P
     if (addon.postPlaceRefineContractVersion() !== 3) throw new Error('Rust post-place refine contract does not match TypeScript contract 3; rebuild the native addon');
     const started = performance.now();
     const problem = encodeNativePostPlaceRefineProblem(input, placements, threads);
-    problem.minDelta = 100;
+    problem.minDelta = 10;
     const encodingMs = performance.now() - started;
     const capture = beginNativeSolveCapture('refine', problem, { stage: 'final', batchSize: 1, encodeMs: encodingMs, index: 0 });
     const nativeStarted = performance.now();

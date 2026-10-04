@@ -6,6 +6,8 @@ use std::sync::Arc;
 #[serde(rename_all = "camelCase")]
 pub struct BoardPackProblem {
     #[serde(default)]
+    pub routing_obstacles: Vec<RouteObstacle>,
+    #[serde(default)]
     pub soft_alignment: Option<SoftAlignment>,
     #[serde(default)]
     pub soft_spacing: Option<SoftSpacing>,
@@ -474,6 +476,14 @@ impl BoardPackProblem {
         finite(self.grid, "grid")?;
         finite(self.clearance, "clearance")?;
         finite(self.edge_clearance, "edgeClearance")?;
+        for pad in &self.routing_obstacles {
+            if !is_finite_box(&pad.box_) || pad.box_.left > pad.box_.right || pad.box_.top > pad.box_.bottom {
+                return Err("invalid board routing obstacle".into());
+            }
+            if let Some(id) = &pad.primitive_id {
+                if !self.primitives.iter().any(|p| &p.id == id) { return Err("unknown board routing obstacle primitive".into()); }
+            }
+        }
         if let Some(s) = &self.soft_alignment {
             if !s.orientation_weight.is_finite() || s.orientation_weight < 0.0 { return Err("invalid softAlignment orientation weight".into()); }
             if !s.weight.is_finite() || s.weight < 0.0 || !s.tolerance.is_finite() || s.tolerance < 0.0 {

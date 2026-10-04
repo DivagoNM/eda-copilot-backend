@@ -157,6 +157,7 @@ export interface NativeConstraintRegion {
 }
 
 export interface NativeBoardPackProblemV7 {
+    routingObstacles?: NativeRoutingObstacle[];
     softAlignment?: import('../board-alignment.ts').BoardSoftAlignment;
     softSpacing?: {gap: number; compactnessScale: number; exemptPairs?: Array<[string,string]>};
     version: typeof NATIVE_BOARD_PACK_CONTRACT_VERSION;
