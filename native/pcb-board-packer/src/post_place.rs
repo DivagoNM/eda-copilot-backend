@@ -17,6 +17,7 @@ struct Segment {
     b: Point,
     length: f32,
     weight: f32,
+    class: u32,
 }
 
 pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
@@ -32,9 +33,11 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
         score += segment.length * 10.0 * segment.weight;
         score += segment.length * segment.length * 0.35 * segment.weight;
     }
-    score += crossing_penalty(&segments) * 180.0;
+    let mut geometry_nets = problem.nets.clone();
+    let geometry = explicit_segments(&segments, &mut geometry_nets, &problem.explicit_connections);
+    score += crossing_penalty(&geometry, &geometry_nets) * 180.0;
     if problem.pad_crossing_weight > 0.0 {
-        score += pad_hits(&segments, &problem.nets, &problem.routing_obstacles) * problem.pad_crossing_weight;
+        score += pad_hits(&geometry, &geometry_nets, &problem.routing_obstacles) * problem.pad_crossing_weight;
     }
 
     for term in &problem.distances {
@@ -138,6 +141,7 @@ fn minimum_spanning_segments(net_index: usize, net: &PostPlaceNet) -> Vec<Segmen
             b: net.points[to],
             length,
             weight: net.weight,
+            class: 0,
         });
     }
     result
@@ -167,7 +171,7 @@ fn pad_hits(segments: &[Segment], nets: &[PostPlaceNet], obstacles: &[RouteObsta
             if crate::fast_route::hits(s.a, s.b, pad.box_) {
                 // Named pads can occur more than once in imported obstacle lists.
                 let key = pad.reference.as_deref().map(|r| (r, 0)).unwrap_or(("", i + 1));
-                if seen.insert(key) { penalty += s.weight; }
+                if seen.insert(key) { penalty += s.weight * crate::relation_score::pad_factor(s.class); }
             }
         }
     }
@@ -255,17 +259,40 @@ mod incremental_pad_tests {
     }
 }
 
-fn crossing_penalty(segments: &[Segment]) -> f32 {
+fn segment_layer(s: Segment, nets: &[PostPlaceNet]) -> Option<&str> {
+    let n=&nets[s.net];let a=n.layers.get(s.from).and_then(|x|x.as_deref());let b=n.layers.get(s.to).and_then(|x|x.as_deref());
+    match (a,b) { (Some(a),Some(b)) if a==b=>Some(a), (Some(a),None)|(None,Some(a))=>Some(a), _=>None }
+}
+fn compatible_segment_layers(a: Segment,b: Segment,nets:&[PostPlaceNet])->bool {
+    let (a,b)=(segment_layer(a,nets),segment_layer(b,nets));a.is_none()||b.is_none()||a==b
+}
+fn explicit_segments(base:&[Segment],nets:&mut Vec<PostPlaceNet>,explicit:&[crate::model::ExplicitConnection])->Vec<Segment> {
+    let mut result=base.to_vec();
+    for e in explicit {
+        let class=crate::relation_score::connection_class(&e.kind);
+        if class==0 || distance(e.source,e.target)<EPSILON {continue;}
+        let same=|s:&Segment| nets[s.net].name==e.net &&
+            ((distance(s.a,e.source)<EPSILON && distance(s.b,e.target)<EPSILON)||(distance(s.b,e.source)<EPSILON && distance(s.a,e.target)<EPSILON));
+        if let Some(s)=result.iter_mut().find(|s|same(s)) {s.class=s.class.max(class);s.weight=crate::relation_score::crossing_weight(s.weight,s.class);continue;}
+        let index=nets.len();
+        let weight=1.0;
+        nets.push(PostPlaceNet{name:e.net.clone(),points:vec![e.source,e.target],layers:vec![e.layer.clone();2],weight,internal_owners:vec![],local_scopes:vec![]});
+        result.push(Segment{net:index,from:0,to:1,a:e.source,b:e.target,length:distance(e.source,e.target),weight,class});
+    }
+    result
+}
+
+fn crossing_penalty(segments: &[Segment], nets: &[PostPlaceNet]) -> f32 {
     let mut penalty = 0.0;
     for a_index in 0..segments.len() {
         for b_index in (a_index + 1)..segments.len() {
             let a = segments[a_index];
             let b = segments[b_index];
-            if a.net == b.net || share_endpoint(a, b) {
+            if nets[a.net].name == nets[b.net].name || share_endpoint(a, b) || !compatible_segment_layers(a,b,nets) {
                 continue;
             }
             if properly_intersect(a.a, a.b, b.a, b.b) {
-                penalty += (a.weight * b.weight).sqrt();
+                penalty += (a.weight * b.weight).sqrt() * crate::relation_score::crossing_factor(a.class,b.class);
             }
         }
     }
@@ -310,6 +337,9 @@ fn validate(problem: &PostPlaceScoreProblem) -> Result<(), String> {
             problem.version
         ));
     }
+    if problem.explicit_connections.iter().any(|e| !e.source.x.is_finite() || !e.source.y.is_finite() || !e.target.x.is_finite() || !e.target.y.is_finite() || e.net.is_empty() || crate::relation_score::connection_class(&e.kind)==0) {
+        return Err("invalid explicit geometric connection".into());
+    }
     let all_finite = problem.pad_crossing_weight.is_finite() && problem.pad_crossing_weight >= 0.0 && problem.nets.iter().all(|net| {
         (net.layers.is_empty() || net.layers.len() == net.points.len()) &&
         (net.internal_owners.is_empty() || net.internal_owners.len() == net.points.len()) &&
@@ -340,7 +370,7 @@ pub(crate) fn graph_reference(problem:&PostPlaceScoreProblem)->Vec<(usize,usize,
 /// than maintaining a second host implementation of its formulas.
 #[cfg(feature="gpu")]
 pub(crate) fn term_reference(p:&PostPlaceScoreProblem)->Result<Vec<f32>,String>{
- let mut empty=PostPlaceScoreProblem{version:1,pad_crossing_weight:0.0,routing_obstacles:vec![],nets:vec![],distances:vec![],clearances:vec![],fixed_penalties:vec![],edges:vec![],paths:vec![]};let mut result=Vec::new();
+ let mut empty=PostPlaceScoreProblem{explicit_connections:vec![],version:1,pad_crossing_weight:0.0,routing_obstacles:vec![],nets:vec![],distances:vec![],clearances:vec![],fixed_penalties:vec![],edges:vec![],paths:vec![]};let mut result=Vec::new();
  for t in &p.distances {empty.distances=vec![*t];result.push(score(&empty)?);}empty.distances.clear();
  for t in &p.clearances {empty.clearances=vec![*t];result.push(score(&empty)?);}empty.clearances.clear();
  empty.fixed_penalties=p.fixed_penalties.clone();result.push(score(&empty)?);empty.fixed_penalties.clear();
@@ -405,4 +435,35 @@ mod local_stretch_tests {
         net.local_scopes.clear();
         assert!(local_stretch_targets(&net).is_empty());
     }
+}
+
+#[cfg(test)]
+mod explicit_crossing_tests {
+ use super::*;
+ fn problem()->PostPlaceScoreProblem {
+  serde_json::from_value(serde_json::json!({"version":1,"nets":[
+   {"name":"A","weight":1,"points":[{"x":0,"y":0},{"x":2,"y":0},{"x":1,"y":0.8}],"layers":["top","top","top"]},
+   {"name":"B","weight":1,"points":[{"x":1,"y":-0.1},{"x":1,"y":0.1}],"layers":["top","top"]}],
+   "distances":[],"clearances":[],"fixedPenalties":[],"edges":[],"paths":[]})).unwrap()
+ }
+ fn explicit(net:&str,a:Point,b:Point,kind:&str)->crate::model::ExplicitConnection {
+  crate::model::ExplicitConnection{source:a,target:b,net:net.into(),kind:kind.into(),layer:Some("top".into())}
+ }
+ #[test] fn mandatory_non_mst_segment_and_duplicate_priority() {
+  let mut p=problem();let base=score(&p).unwrap();
+  let a=explicit("A",Point{x:0.,y:0.},Point{x:2.,y:0.},"critical_pair");
+  p.explicit_connections=vec![a.clone()];assert!((score(&p).unwrap()-base-360.).abs()<0.001);
+  let path=crate::model::ExplicitConnection{kind:"signal_path".into(),..a.clone()};
+  p.explicit_connections.push(path.clone());assert!((score(&p).unwrap()-base-540.).abs()<0.001);
+  p.explicit_connections.push(path);assert!((score(&p).unwrap()-base-540.).abs()<0.001);
+  p.explicit_connections.push(explicit("B",Point{x:1.,y:-0.1},Point{x:1.,y:0.1},"signal_path"));
+  assert!((score(&p).unwrap()-base-900.).abs()<0.001);
+ }
+ #[test] fn opposite_layers_and_explicit_pad_cost() {
+  let mut p=problem();p.nets[1].layers=vec![Some("bottom".into());2];let base=score(&p).unwrap();
+  p.explicit_connections.push(explicit("A",Point{x:0.,y:0.},Point{x:2.,y:0.},"signal_path"));
+  assert_eq!(score(&p).unwrap(),base);
+  p.pad_crossing_weight=180.;p.routing_obstacles=vec![RouteObstacle{box_:crate::geometry::Box2{left:0.95,right:1.05,top:-0.05,bottom:0.05},layer:Some("top".into()),reference:Some("X.1".into()),net:Some("X".into()),primitive_id:None}];
+  assert!((score(&p).unwrap()-base-540.).abs()<0.001);
+ }
 }

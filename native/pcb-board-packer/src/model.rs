@@ -325,6 +325,8 @@ pub struct PassiveIslandPlacement {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PostPlaceScoreProblem {
+    #[serde(default)]
+    pub explicit_connections: Vec<ExplicitConnection>,
     pub version: u32,
     #[serde(default)]
     pub pad_crossing_weight: f32,
@@ -336,6 +338,15 @@ pub struct PostPlaceScoreProblem {
     pub fixed_penalties: Vec<f32>,
     pub edges: Vec<PostPlaceEdge>,
     pub paths: Vec<PostPlacePath>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ExplicitConnection {
+    pub source: Point,
+    pub target: Point,
+    pub net: Arc<str>,
+    pub layer: Option<Arc<str>>,
+    pub kind: Arc<str>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

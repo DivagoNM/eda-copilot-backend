@@ -793,9 +793,9 @@ fn board_geometric_route_penalty(
     let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();
     crate::fast_route::board_candidate_penalty(
         &candidate.primitive, &placed_primitives, &obstacles,
-        context.problem.clearance, context.problem.bounds,
+        context.problem.clearance, context.problem.bounds, &context.problem.relations,
     ) + crate::fast_route::added_obstacle_penalty(
-        &placed_primitives, &obstacles, &candidate_pads, context.problem.clearance,
+        &placed_primitives, &obstacles, &candidate_pads, context.problem.clearance, &context.problem.relations,
     )
 }
 

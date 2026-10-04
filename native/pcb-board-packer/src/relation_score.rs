@@ -204,3 +204,18 @@ mod tests {
         assert_eq!(p.weight, 80.0);
     }
 }
+
+/// 0 ordinary, 1 authored critical pair, 2 authored signal path.
+#[cfg_attr(feature = "gpu", cube)]
+pub fn crossing_factor(a: u32, b: u32) -> f32 {
+    let sum = a + b;
+    let mut value=1.0; if sum == 1 {value=2.0;} if sum == 2 {value=3.0;} if sum == 3 {value=4.0;} if sum >= 4 {value=5.0;} value
+}
+#[cfg_attr(feature = "gpu", cube)]
+pub fn pad_factor(class: u32) -> f32 { let mut value=1.0; if class == 1 {value=2.0;} if class >= 2 {value=3.0;} value }
+pub fn connection_class(kind: &str) -> u32 { match kind { "signal_path" => 2, "critical_pair" => 1, _ => 0 } }
+
+#[cfg_attr(feature = "gpu", cube)]
+pub fn crossing_weight(weight: f32, class: u32) -> f32 {
+    let mut result=weight;if class>0 {result=1.0;} result
+}

@@ -817,7 +817,7 @@ fn block_micro_route_penalty(
         return crate::fast_route::candidate_penalty(&candidate.primitive,
             &placed.iter().map(|p|&p.primitive).collect::<Vec<_>>(), &obstacles,
             &context.problem.external_nets,&context.problem.experiments.ignored_nets,context.problem.clearance,
-            union_boxes(&all.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()));
+            union_boxes(&all.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()), &context.problem.relations);
     }
     let bounds = micro_route_bounds(candidate, placed, context, &config);
     let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();

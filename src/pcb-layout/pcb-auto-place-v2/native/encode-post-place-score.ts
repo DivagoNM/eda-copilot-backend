@@ -60,6 +60,20 @@ export function encodeNativePostPlaceScoreProblem(
 
     const weights = loadNativeBoardPacker().placementNetWeights([...pointsByNet.keys()], false);
     const result: NativePostPlaceScoreProblemV1 = {
+        explicitConnections: input.hints.flatMap(h => {
+            if (h.relation !== 'critical_pair' || h.source.type !== 'pin' || h.target.type !== 'pin') return [];
+            const a=componentByDesignator.get(h.source.designator), b=componentByDesignator.get(h.target.designator);
+            const ap=placementByDesignator.get(h.source.designator), bp=placementByDesignator.get(h.target.designator);
+            if (!a || !b || !ap || !bp) return [];
+            const source=getPadWorld(a,ap,h.source.pin_number), target=getPadWorld(b,bp,h.target.pin_number);
+            const net=a.pins.find(p=>String(p.pin_number)===String(h.source.type==='pin' ? h.source.pin_number : ''))?.signal_name;
+            const other=b.pins.find(p=>String(p.pin_number)===String(h.target.type==='pin' ? h.target.pin_number : ''))?.signal_name;
+            if (!source || !target || !net || net!==other) return [];
+            const padA=a.footprint.pads.find(p=>String(p.pin_number)===String(h.source.type==='pin' ? h.source.pin_number : ''))!;
+            const padB=b.footprint.pads.find(p=>String(p.pin_number)===String(h.target.type==='pin' ? h.target.pin_number : ''))!;
+            const la=padPlacementLayer(padA,ap), lb=padPlacementLayer(padB,bp);
+            return [{source,target,net,layer:la===lb?la:!la?lb:!lb?la:undefined,kind:h.path?'signal_path' as const:'critical_pair' as const}];
+        }),
         version: NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION,
         padCrossingWeight: placementPadCrossingWeight(), routingObstacles,
         nets: [...pointsByNet.entries()].map(([name, points], index) => ({ name, points, layers: layersByNet.get(name), internalOwners: ownersByNet.get(name), localScopes: scopesByNet.get(name), weight: weights[index] })),

@@ -72,30 +72,6 @@ pub fn mst(g:&Input,connected:&mut Array<u32>,edges:&mut Array<u32>,lengths:&mut
   else{let t1=(low-start)/delta;let t2=(high-start)/delta;lo=max(lo,min(t1,t2));hi=min(hi,max(t1,t2));if lo>hi {valid=false;}}
  }valid
 }
-#[cube(launch_unchecked)]
-pub fn segment_costs(g:&Input,out:&mut Array<f32>,masks:&mut Array<u32>){
- let job=ABSOLUTE_POS as usize;let ns=g.si[5] as usize;let c=job/ns;let i=job%ns;
- if c<g.bi[0] as usize {let e=job*3;let net=g.edges[e+2] as usize;let a=point(g,c,g.edges[e] as usize);let b=point(g,c,g.edges[e+1] as usize);let w=g.sf[g.si[g.si[3] as usize+net*4+3] as usize];let words=(ns+31)/32;for word in 0..words {masks[job*words+word]=0;}
-  for j in i+1..ns {let f=(c*ns+j)*3;let other=g.edges[f+2] as usize;if other!=net {let x=point(g,c,g.edges[f] as usize);let y=point(g,c,g.edges[f+1] as usize);
-   if distance(a,x)>=0.001 && distance(a,y)>=0.001 && distance(b,x)>=0.001 && distance(b,y)>=0.001 && intersects(a,b,x,y) {let off=job*words+j/32;masks[off]=masks[off]|(1u32<<(j%32) as u32);}
-  }}out[job*2]=0.0;
-  let mut pads=0.0;
-  if g.sf[g.si[12] as usize]>0.0 {
-   let ai=g.edges[e] as usize;let bi=g.edges[e+1] as usize;
-   let ac=g.si[g.si[4] as usize+ai*2] as usize;let bc=g.si[g.si[4] as usize+bi*2] as usize;
-   let al=g.geometry[pad_offset(g,c,ai)+6] as u32;let bl=g.geometry[pad_offset(g,c,bi)+6] as u32;let mut layer=0u32;
-   if al==bl {layer=al;}else if al==0 {layer=bl;}else if bl==0 {layer=al;}
-   let mut owner=0xffffffffu32;if ac==bc && g.si[g.si[1] as usize+ac*4+3]!=0 {owner=ac as u32;}
-   // Obstacles are grouped into physical-pad identities; test all duplicate
-   // records in the group before adding exactly one charge.
-   for group in 0..g.si[15] as usize {let h=g.si[16] as usize+group*2;let mut hit=false;
-    for k in 0..g.si[h+1] as usize {let o=g.si[h] as usize+k*3;let comp=g.si[o] as usize;let pad=g.si[o+1] as usize;let padnet=g.si[o+2];let q=geometry_offset(g,c,comp)+7+pad*7;let side=g.geometry[q+6] as u32;
-     if owner!=comp as u32 && padnet!=net as u32 && (layer==0 || side==0 || layer==side) && hits(a,b,box_at(g,q+2)) {hit=true;}
-    }if hit {pads+=1.0;}
-   }
-  }out[job*2+1]=pads;
- }
-}
 #[cube] fn dot(a:P,b:P)->f32 {a.x*b.x+a.y*b.y}
 #[cube] fn normalize(p:P)->P {let l=length(p.x,p.y);let mut r=P{x:0.0,y:0.0};if l>0.000001 {r.x=p.x/l;r.y=p.y/l;}r}
 #[cube] fn port(g:&Input,c:usize,index:usize)->P {target_point(g,c,g.si[index] as usize)}
@@ -134,13 +110,48 @@ pub fn terms(g:&Input,out:&mut Array<f32>){
  }
 }
 #[cube(launch_unchecked)]
-pub fn reduce(g:&Input,segments:&Array<f32>,masks:&Array<u32>,terms:&Array<f32>,out:&mut Array<f32>){
- let c=ABSOLUTE_POS as usize;if c<g.bi[0] as usize {let ns=g.si[5] as usize;let nt=g.si[7] as usize;let total=nt+g.si[9] as usize;let mut score=0.0;let mut crossing=0.0;let mut pads=0.0;
-  for j in 0..ns {let e=c*ns+j;let n=g.edges[e*3+2] as usize;let w=g.sf[g.si[g.si[3] as usize+n*4+3] as usize];let l=g.lengths[e];score+=l*10.0*w;score+=l*l*0.35*w;for k in j+1..ns {if masks[e*((ns+31)/32)+k/32]&(1u32<<(k%32) as u32)!=0 {let other=g.edges[(c*ns+k)*3+2] as usize;crossing+=(w*g.sf[g.si[g.si[3] as usize+other*4+3] as usize]).sqrt();}}for hit in 0..segments[e*2+1] as usize {let _hit=hit;pads+=w;}}
-  score+=crossing*180.0;if g.sf[g.si[12] as usize]>0.0 {score+=pads*g.sf[g.si[12] as usize];}
+pub fn reduce(g:&Input,segments:&Array<f32>,terms:&Array<f32>,out:&mut Array<f32>){
+ let c=ABSOLUTE_POS as usize;if c<g.bi[0] as usize {let ns=g.si[5] as usize;let nt=g.si[7] as usize;let total=nt+g.si[9] as usize;let mut score=0.0;
+  for j in 0..ns {let e=c*ns+j;let n=g.edges[e*3+2] as usize;let w=g.sf[g.si[g.si[3] as usize+n*4+3] as usize];let l=g.lengths[e];score+=l*10.0*w;score+=l*l*0.35*w;}
+  score+=segments[c*2]*180.0;if g.sf[g.si[12] as usize]>0.0 {score+=segments[c*2+1]*g.sf[g.si[12] as usize];}
   let mut fixed=0.0;let mut added=false;
   for j in 0..total {let mut kind=4u32;if j<nt {kind=g.si[g.si[8] as usize+j*5];}let t=(c*total+j)*3;
    if kind==2 {fixed+=terms[t];}else{if kind>=3 && !added {score+=fixed;added=true;}score+=terms[t];if kind==0 {score+=terms[t+1];score+=terms[t+2];}}
   }if !added {score+=fixed;}out[c]=score;
+ }
+}
+
+#[derive(Clone,Copy,CubeType)]
+struct Link {a:P,b:P,net:u32,class:u32,layer:u32,owner:u32,weight:f32}
+#[cube] fn connection(g:&Input,c:usize,i:usize)->Link {
+ let ns=g.si[5] as usize;let mut ac=0usize;let mut ap=0usize;let mut bc=0usize;let mut bp=0usize;let mut net=0u32;let mut class=0u32;
+ if i<ns {let e=(c*ns+i)*3;let ai=g.edges[e] as usize;let bi=g.edges[e+1] as usize;net=g.edges[e+2];let po=g.si[4] as usize;ac=g.si[po+ai*2] as usize;ap=g.si[po+ai*2+1] as usize;bc=g.si[po+bi*2] as usize;bp=g.si[po+bi*2+1] as usize;}
+ else {let e=g.si[19] as usize+(i-ns)*4;let at=g.si[e] as usize;let bt=g.si[e+1] as usize;ac=g.si[at+1] as usize;ap=g.si[at+2] as usize;bc=g.si[bt+1] as usize;bp=g.si[bt+2] as usize;net=g.si[e+2];class=g.si[e+3];}
+ let ao=geometry_offset(g,c,ac)+7+ap*7;let bo=geometry_offset(g,c,bc)+7+bp*7;
+ let al=g.geometry[ao+6] as u32;let bl=g.geometry[bo+6] as u32;let mut layer=0u32;if al==bl {layer=al;}else if al==0 {layer=bl;}else if bl==0 {layer=al;}
+ let mut owner=0xffffffffu32;if i<ns && ac==bc && g.si[g.si[1] as usize+ac*4+3]!=0 {owner=ac as u32;}
+ let mut weight=1.0;if net<g.si[2] {weight=g.sf[g.si[g.si[3] as usize+net as usize*4+3] as usize];}
+ Link{a:P{x:g.geometry[ao],y:g.geometry[ao+1]},b:P{x:g.geometry[bo],y:g.geometry[bo+1]},net,class,layer,owner,weight}
+}
+#[cube] fn same_connection(a:Link,b:Link)->bool {a.net==b.net && ((distance(a.a,b.a)<0.001 && distance(a.b,b.b)<0.001)||(distance(a.a,b.b)<0.001 && distance(a.b,b.a)<0.001))}
+#[cube] fn connection_active(g:&Input,c:usize,i:usize,a:Link)->bool {
+ let ns=g.si[5] as usize;let mut active=true;if i>=ns {if distance(a.a,a.b)<0.001 {active=false;}for j in 0..i {if same_connection(a,connection(g,c,j)){active=false;}}}active
+}
+#[cube] fn connection_class(g:&Input,c:usize,a:Link)->u32 {
+ let mut class=a.class;let ns=g.si[5] as usize;for j in 0..g.si[18] as usize {let other=connection(g,c,ns+j);if distance(other.a,other.b)>=0.001&&same_connection(a,other)&&other.class>class {class=other.class;}}class
+}
+#[cube(launch_unchecked)]
+pub fn geometry_score(g:&Input,out:&mut Array<f32>) {
+ let c=ABSOLUTE_POS as usize;if c<g.bi[0] as usize {let count=g.si[5] as usize+g.si[18] as usize;let mut crossings=0.0;let mut pads=0.0;
+  for i in 0..count {let a=connection(g,c,i);if connection_active(g,c,i,a) {let class=connection_class(g,c,a);
+   for j in i+1..count {let b=connection(g,c,j);if connection_active(g,c,j,b)&&a.net!=b.net&&(a.layer==0||b.layer==0||a.layer==b.layer) {
+    if distance(a.a,b.a)>=0.001&&distance(a.a,b.b)>=0.001&&distance(a.b,b.a)>=0.001&&distance(a.b,b.b)>=0.001&&intersects(a.a,a.b,b.a,b.b){crossings+=(crate::relation_score::crossing_weight(a.weight,class)*crate::relation_score::crossing_weight(b.weight,connection_class(g,c,b))).sqrt()*crate::relation_score::crossing_factor(class,connection_class(g,c,b));}
+   }}
+   if g.sf[g.si[12] as usize]>0.0 {for group in 0..g.si[15] as usize {let h=g.si[16] as usize+group*2;let mut hit=false;
+    for k in 0..g.si[h+1] as usize {let o=g.si[h] as usize+k*3;let comp=g.si[o] as usize;let pad=g.si[o+1] as usize;let net=g.si[o+2];let q=geometry_offset(g,c,comp)+7+pad*7;let side=g.geometry[q+6] as u32;
+     if a.owner!=comp as u32&&net!=a.net&&(a.layer==0||side==0||a.layer==side)&&hits(a.a,a.b,box_at(g,q+2)){hit=true;}
+    }if hit{pads+=crate::relation_score::crossing_weight(a.weight,class)*crate::relation_score::pad_factor(class);}
+   }}
+  }}out[c*2]=crossings;out[c*2+1]=pads;
  }
 }

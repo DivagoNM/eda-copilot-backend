@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Experimental explicit geometric connections: include authored pad-to-pad signalPath/criticalPair segments even when absent from the ordinary net tree; deduplicate matching segments and use shared Rust/CubeCL crossing importance (1/2/3/4/5) and pad multipliers (1/2/3). Preserve distance scoring and final threshold 10; requires score-contract v4 native rebuild.
+
 - Experimental Board Package geometric routing correction reuses `fast_route` instead of Micro-A*. Transport and transform owned pad obstacles; include pad/clearance/ratline penalties and obstruction of existing links by newly placed pads. Final PostPlace also selects its existing native geometric mode without Micro-A*; preserve block policy, relation weights and search budgets. Record the user-tested reduction of the final PostPlace improvement threshold from 100 to 10.
 
 - Experimental branch: share Rust/CubeCL distance-relation profiles across block, board, core-pair islands and PostPlace; normalize explicit signal-path topology weights and component endpoints. Remove duplicated distance formulas and hidden priority/stage multipliers. Score contract v3 requires a rebuilt addon. Core hard distance permits drift with x100 excess cost in the shared profile and explicit island warnings; physical overlap remains hard. Integration quality is not accepted: see `docs/experimental/pcb/unified-relations/README.md` for failing checks and remaining semantic gaps.

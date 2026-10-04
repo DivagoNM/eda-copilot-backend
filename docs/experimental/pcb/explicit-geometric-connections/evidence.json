@@ -1,0 +1,192 @@
+{
+  "addonSha256": "f2d31cc085c35b759149f78fbedab603d0a38ee01e03629ed4a1bd89436d118b",
+  "fixture": "STM32G0_CAN_RS485/2026-10-04T11-08-21-431Z",
+  "before": [
+    {
+      "baseline": {
+        "total": 188029.453125,
+        "pads": 14895.015625,
+        "pathTopology": 922.890625,
+        "distanceRelations": 15943.15625
+      },
+      "storedScore": 188029.453125,
+      "moves": []
+    },
+    {
+      "id": "D4",
+      "delta": 90,
+      "rotation": 270,
+      "improvement": 72.578125,
+      "total": 187956.875,
+      "pads": 14715,
+      "pathTopology": 802,
+      "distanceRelations": 16732.046875
+    },
+    {
+      "id": "D4",
+      "delta": 180,
+      "rotation": 0,
+      "improvement": 70.09375,
+      "total": 187959.359375,
+      "pads": 14715,
+      "pathTopology": 948.078125,
+      "distanceRelations": 16566.703125
+    },
+    {
+      "id": "D4",
+      "delta": 270,
+      "rotation": 90,
+      "improvement": -235.203125,
+      "total": 188264.65625,
+      "pads": 14895.015625,
+      "pathTopology": 1028.359375,
+      "distanceRelations": 16227.171875
+    },
+    {
+      "id": "D5",
+      "delta": 90,
+      "rotation": 0,
+      "improvement": -257.8125,
+      "total": 188287.265625,
+      "pads": 14355,
+      "pathTopology": 1094.390625,
+      "distanceRelations": 16803.5625
+    },
+    {
+      "id": "D5",
+      "delta": 180,
+      "rotation": 90,
+      "improvement": -3868.46875,
+      "total": 191897.921875,
+      "pads": 14355.015625,
+      "pathTopology": 1372.65625,
+      "distanceRelations": 20116.78125
+    },
+    {
+      "id": "D5",
+      "delta": 270,
+      "rotation": 180,
+      "improvement": -1839.9375,
+      "total": 189869.390625,
+      "pads": 14355,
+      "pathTopology": 1181.65625,
+      "distanceRelations": 18377.484375
+    }
+  ],
+  "after": [
+    {
+      "baseline": {
+        "total": 198964.453125,
+        "pads": 18990,
+        "pathTopology": 922.890625,
+        "distanceRelations": 15943.15625
+      },
+      "storedScore": 188029.453125,
+      "moves": []
+    },
+    {
+      "id": "D4",
+      "delta": 90,
+      "rotation": 270,
+      "improvement": 1692.578125,
+      "total": 197271.875,
+      "pads": 18450,
+      "pathTopology": 802,
+      "distanceRelations": 16732.0625
+    },
+    {
+      "id": "D4",
+      "delta": 180,
+      "rotation": 0,
+      "improvement": 1690.09375,
+      "total": 197274.359375,
+      "pads": 18450,
+      "pathTopology": 948.078125,
+      "distanceRelations": 16566.703125
+    },
+    {
+      "id": "D4",
+      "delta": 270,
+      "rotation": 90,
+      "improvement": -2035.203125,
+      "total": 200999.65625,
+      "pads": 19530,
+      "pathTopology": 1028.359375,
+      "distanceRelations": 16227.171875
+    },
+    {
+      "id": "D5",
+      "delta": 90,
+      "rotation": 0,
+      "improvement": 192.1875,
+      "total": 198772.265625,
+      "pads": 18450,
+      "pathTopology": 1094.390625,
+      "distanceRelations": 16803.5625
+    },
+    {
+      "id": "D5",
+      "delta": 180,
+      "rotation": 90,
+      "improvement": -5488.46875,
+      "total": 204452.921875,
+      "pads": 20070,
+      "pathTopology": 1372.65625,
+      "distanceRelations": 20116.78125
+    },
+    {
+      "id": "D5",
+      "delta": 270,
+      "rotation": 180,
+      "improvement": -2199.9375,
+      "total": 201164.390625,
+      "pads": 18990,
+      "pathTopology": 1181.65625,
+      "distanceRelations": 18377.484375
+    }
+  ],
+  "postReplay": {
+    "scope": "One iteration; automatic rotations restricted to D4/D5; swaps disabled; threshold 10",
+    "cpuGpuIdentical": true,
+    "scoreBefore": 198964.453125,
+    "scoreAfter": 197274.359375,
+    "moves": [
+      {
+        "description": "D4 rotate += 180",
+        "designators": [
+          "D4"
+        ],
+        "effectiveImprovement": 1690.093994140625,
+        "kind": "rotate_180",
+        "routeBudgetExhaustedAfter": 0,
+        "routeBudgetExhaustedBefore": 0,
+        "routeJobCount": 0,
+        "routePenaltyAfter": 0,
+        "routePenaltyBefore": 0,
+        "routeUnresolvedAfter": 0,
+        "routeUnresolvedBefore": 0,
+        "scoreAfter": 197274.359375,
+        "scoreBefore": 198964.453125
+      }
+    ]
+  },
+  "boardBlockReplay": {
+    "cpuGpuIdentical": true,
+    "board": {
+      "hardCount": 0,
+      "hardSeverity": 0,
+      "score": 4756.82080078125
+    },
+    "block": {
+      "hardCount": 0,
+      "hardSeverity": 0,
+      "score": 513.4400024414062
+    }
+  },
+  "tests": {
+    "rustPassed": 108,
+    "rustIgnored": 5,
+    "cpuIntegrationPassed": 40,
+    "gpuPostPlacePassed": 25
+  }
+}

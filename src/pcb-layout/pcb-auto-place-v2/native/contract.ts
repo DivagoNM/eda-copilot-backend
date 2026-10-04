@@ -368,6 +368,7 @@ export interface NativePassiveIslandSolutionV1 {
 }
 
 export interface NativePostPlaceScoreProblemV1 {
+    explicitConnections?: Array<{source: Point; target: Point; net: string; layer?: string; kind: 'signal_path' | 'critical_pair'}>;
     version: typeof NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION;
     padCrossingWeight?: number;
     routingObstacles?: NativeRoutingObstacle[];

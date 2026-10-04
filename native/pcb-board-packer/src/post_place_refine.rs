@@ -481,6 +481,7 @@ impl RefineProblem {
     fn score(&self, w: &World) -> Result<f32, String> { post_place::score(&self.score_problem(w)) }
     fn score_problem(&self, w: &World) -> PostPlaceScoreProblem {
         let mut p = PostPlaceScoreProblem {
+            explicit_connections: crate::fast_route::explicit_connections(&w.route.primitives.iter().collect::<Vec<_>>(), &w.route.relations, &w.obstacles),
             version: 1,
             pad_crossing_weight: self.pad_crossing_weight,
             routing_obstacles: if self.pad_crossing_weight > 0.0 { w.obstacles.clone() } else { vec![] },

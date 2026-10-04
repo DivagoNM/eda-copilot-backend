@@ -27,7 +27,7 @@ pub(super) struct Engine {
 }
 impl Engine {
  pub fn new(p:&RefineProblem,explicit:bool)->Result<Self,Error>{
-  let mut d=Data{si:vec![0;18],sf:vec![]};let n=p.components.len();
+  let mut d=Data{si:vec![0;20],sf:vec![]};let n=p.components.len();
   if p.nets.iter().map(|n|n.name.as_ref()).collect::<std::collections::HashSet<_>>().len()!=p.nets.len() {return Err(invalid("duplicate post-place net names"));}
   if n==0 || n>4096 {return Err(invalid("post-place component capacity"));}
   let mut components=Vec::new();let mut orientations=Vec::new();let mut geometry=0;
@@ -46,6 +46,18 @@ impl Engine {
    points.extend(net.points.iter().flat_map(|q|[q.component as u32,q.pad as u32]));segment_count+=net.points.len().saturating_sub(1);
   }
   d.si[2]=p.nets.len() as u32;d.si[3]=d.ints(&nets);d.si[6]=(points.len()/2) as u32;d.si[4]=d.ints(&points);d.si[5]=segment_count as u32;
+  let mut net_ids:FxHashMap<_,_>=p.nets.iter().enumerate().map(|(i,n)|(n.name.clone(),i as u32)).collect();
+  for c in &p.components {for pad in &c.pads {if let Some(net)=&pad.net {let next=net_ids.len() as u32;net_ids.entry(net.clone()).or_insert(next);}}}
+  let mut explicit_links=Vec::new();
+  for r in &p.route_problem.relations {
+   let class=if r.path_id.is_some(){2}else if r.kind.as_ref()=="critical_pair"||r.relation.as_deref()==Some("critical_pair"){1}else{continue;};
+   let (Some(a),Some(b))=(r.from.strip_prefix("pad:"),r.to.strip_prefix("pad:"))else{continue;};
+   let locate=|reference:&str|p.components.iter().enumerate().find_map(|(i,c)|c.pads.iter().enumerate().find(|(_,q)|q.reference.as_ref()==reference).map(|(j,q)|(i,j,q.net.clone())));
+   let (Some((ac,ap,Some(an))),Some((bc,bp,Some(bn))))=(locate(a),locate(b))else{continue;};
+   if an!=bn || an.is_empty(){continue;}
+   explicit_links.extend([d.ints(&[2,ac as u32,ap as u32]),d.ints(&[2,bc as u32,bp as u32]),net_ids[&an],class]);
+  }
+  d.si[18]=(explicit_links.len()/4) as u32;d.si[19]=d.ints(&explicit_links);
   let mut groups:Vec<Vec<u32>>=Vec::new();let mut group_ids=FxHashMap::default();
   for (i,c) in p.components.iter().enumerate(){for (j,pad) in c.pads.iter().enumerate(){
    // Every refiner obstacle is named. Keep first-occurrence physical-pad order.
@@ -53,7 +65,7 @@ impl Engine {
    // CPU owner exemptions use the reference prefix, which need not equal the
    // containing component on malformed/duplicated imported geometry.
    if pad.reference.rsplit_once('.').is_some_and(|(owner,_)|owner!=c.designator.as_ref()) {return Err(invalid("post-place obstacle owner mismatch"));}
-   let net=pad.net.as_ref().and_then(|name|p.nets.iter().position(|n|&n.name==name)).map_or(u32::MAX,|i|i as u32);
+   let net=pad.net.as_ref().and_then(|name|net_ids.get(name).copied()).unwrap_or(u32::MAX);
    groups[id].extend([i as u32,j as u32,net]);
   }}
   let mut table=Vec::new();for g in &groups {table.extend([d.ints(g),(g.len()/3) as u32]);}
@@ -119,17 +131,17 @@ impl Engine {
    let permit=budget.map(|b|b.acquire());
    if self.handles.is_none(){self.handles=Some((client.create_from_slice(u32::as_bytes(&d.si)),client.create_from_slice(f32::as_bytes(&d.sf))));}
    let (si,sf)=self.handles.as_ref().unwrap();let bih=client.create_from_slice(u32::as_bytes(&bi));let bfh=client.create_from_slice(f32::as_bytes(&bf));
-   let geometry_len=count*d.si[11] as usize;let edge_len=(count*ns*3).max(1);let length_len=(count*ns).max(1);let conn_len=(count*d.si[6] as usize).max(1);let term_len=(count*nt*3).max(1);let seg_len=(count*ns*2).max(1);let mask_len=(count*ns*ns.div_ceil(32)).max(1);
+   let geometry_len=count*d.si[11] as usize;let edge_len=(count*ns*3).max(1);let length_len=(count*ns).max(1);let conn_len=(count*d.si[6] as usize).max(1);let term_len=(count*nt*3).max(1);let seg_len=(count*ns.max(1)*2).max(1);
    let geo=session.workspace(ScratchKey::new("post-place-f32",0),geometry_len*4);let edges=session.workspace(ScratchKey::new("post-place-f32",1),edge_len*4);let lengths=session.workspace(ScratchKey::new("post-place-f32",2),length_len*4);let connected=session.workspace(ScratchKey::new("post-place-f32",3),conn_len*4);
-   let terms=session.workspace(ScratchKey::new("post-place-f32",4),term_len*4);let segments=session.workspace(ScratchKey::new("post-place-f32",5),seg_len*4);let masks=session.workspace(ScratchKey::new("post-place-f32",6),mask_len*4);let output=session.workspace(ScratchKey::new("post-place-f32",7),count*4);
+   let terms=session.workspace(ScratchKey::new("post-place-f32",4),term_len*4);let segments=session.workspace(ScratchKey::new("post-place-f32",5),seg_len*4);let output=session.workspace(ScratchKey::new("post-place-f32",7),count*4);
    let input=||unsafe{k::InputLaunch::new(ArrayArg::from_raw_parts(si.clone(),d.si.len()),ArrayArg::from_raw_parts(sf.clone(),d.sf.len()),ArrayArg::from_raw_parts(bih.clone(),bi.len()),ArrayArg::from_raw_parts(bfh.clone(),bf.len()),ArrayArg::from_raw_parts(geo.clone(),geometry_len),ArrayArg::from_raw_parts(edges.clone(),edge_len),ArrayArg::from_raw_parts(lengths.clone(),length_len))};
    let grid=|n:usize|CubeCount::Static(n.div_ceil(128) as u32,1,1);let dim=CubeDim::new_1d(128);
    unsafe{
     k::materialize::launch_unchecked::<WgpuRuntime>(&client,grid(count*d.si[0] as usize),dim,input(),ArrayArg::from_raw_parts(geo.clone(),geometry_len));
     if d.si[2]>0{k::mst::launch_unchecked::<WgpuRuntime>(&client,grid(count*d.si[2] as usize),dim,input(),ArrayArg::from_raw_parts(connected,conn_len),ArrayArg::from_raw_parts(edges.clone(),edge_len),ArrayArg::from_raw_parts(lengths.clone(),length_len));}
-    if ns>0{k::segment_costs::launch_unchecked::<WgpuRuntime>(&client,grid(count*ns),dim,input(),ArrayArg::from_raw_parts(segments.clone(),seg_len),ArrayArg::from_raw_parts(masks.clone(),mask_len));}
+    k::geometry_score::launch_unchecked::<WgpuRuntime>(&client,grid(count),dim,input(),ArrayArg::from_raw_parts(segments.clone(),seg_len));
     if nt>0{k::terms::launch_unchecked::<WgpuRuntime>(&client,grid(count*nt),dim,input(),ArrayArg::from_raw_parts(terms.clone(),term_len));}
-    k::reduce::launch_unchecked::<WgpuRuntime>(&client,grid(count),dim,input(),ArrayArg::from_raw_parts(segments,seg_len),ArrayArg::from_raw_parts(masks,mask_len),ArrayArg::from_raw_parts(terms.clone(),term_len),ArrayArg::from_raw_parts(output.clone(),count));
+    k::reduce::launch_unchecked::<WgpuRuntime>(&client,grid(count),dim,input(),ArrayArg::from_raw_parts(segments,seg_len),ArrayArg::from_raw_parts(terms.clone(),term_len),ArrayArg::from_raw_parts(output.clone(),count));
    }
    drop(permit);
    let bytes=crate::compute::client::read_one(client, output).map_err(|e|Error::new(ErrorKind::RuntimeFailure,e.to_string()))?;let diagnostic=if verify {
@@ -146,6 +158,8 @@ impl Engine {
    for (i,c) in candidates.iter().enumerate(){
     for (component,pose) in &c.changes{p.apply(&mut world,*component,pose)?;}
     let score_problem=p.score_problem(&world);
+    let expected_score=crate::post_place::score(&score_problem)?;
+    if !crate::f32_policy::score_close(scores[i],expected_score) {return Err(self.fail(Error::new(ErrorKind::RuntimeFailure,format!("post-place GPU full score mismatch candidate {i}: GPU={} CPU={expected_score}",scores[i]))));}
     let expected_terms=crate::post_place::term_reference(&score_problem)?;
     let mut actual=Vec::new();let mut fixed=0.0;let mut added=false;
     for j in 0..nt {let kind=if j<self.data.si[7] as usize{self.data.si[self.data.si[8] as usize+j*5]}else{4};let off=(i*nt+j)*3;
