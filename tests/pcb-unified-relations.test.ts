@@ -124,3 +124,16 @@ test('core hard distance allows drift with x100 excess cost and reports it',()=>
     island.overlap=true;
     assert.equal(addon.evaluateIslandQuality(island).hardCount,1);
 });
+import { expandHints } from '../src/pcb-layout/pcb-auto-place/hints.ts';
+import type { PlacementInput } from '../src/types/pcb/layout-model.ts';
+
+test('critical priority is a distance objective; only authored non-core hard limits veto admission', () => {
+    const pair = {relation:'critical_pair',source:{type:'pin',designator:'A',pin_number:'1'},target:{type:'pin',designator:'B',pin_number:'1'},priority:'critical',maxDistance:5};
+    const input = {hints:[pair,{...pair,hard:true},{...pair,hard:false},{...pair,hard:true,core:true},
+        {relation:'very_near',source:pair.source,target:pair.target,priority:'critical'}]} as unknown as PlacementInput;
+    const rules=expandHints(input);
+    assert.deepEqual(rules.map(r=>r.hard),[false,true,false,false,false]);
+    assert.equal(rules[0].max,5);
+    assert.equal(rules[4].max,3);
+    assert.equal(rules[3].inverseTauSquared,100);
+});

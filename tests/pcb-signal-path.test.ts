@@ -93,7 +93,7 @@ test.describe('ordered signal-path placement', () => {
         assert.deepEqual(pathRelations.map((relation) => relation.data?.pathSegmentIndex), [0, 1, 2, 3]);
     });
 
-    test('keeps omitted path limits soft and unbounded without changing criticalPair defaults', async () => {
+    test('keeps omitted path limits unbounded and criticalPair distance defaults soft', async () => {
         const circuit = pathCircuit();
         const rules = runPcbLayoutDsl(`${baseDsl()}
             signalPath("soft_path", [
@@ -111,7 +111,7 @@ test.describe('ordered signal-path placement', () => {
         assert.equal(pathRules.length, 2);
         assert.ok(pathRules.every((rule) => rule.max === undefined && rule.hard === false));
         assert.equal(regularPair?.max, 3);
-        assert.equal(regularPair?.hard, true);
+        assert.equal(regularPair?.hard, false);
     });
 
     test('scores a straight ordered path below a folded/backtracking path', () => {

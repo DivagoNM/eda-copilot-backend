@@ -28,7 +28,9 @@ export function expandHints(input: PlacementInput): NumericRule[] {
                 source: hint.source,
                 target: hint.target,
                 ...profile(),
-                hard: !hint.core && (hint.hard ?? (hint.path ? false : hint.priority === 'critical')),
+                // Priority selects the native distance curve, not an implicit veto.
+                // Explicit non-core hard limits remain mandatory; core allows penalized drift.
+                hard: !hint.core && hint.hard === true,
                 criticalPair: true,
                 corePair: hint.core,
                 crossingPenalty: hint.crossingPenalty ?? (hint.core ? 2 : 0),
@@ -69,7 +71,7 @@ export function expandHints(input: PlacementInput): NumericRule[] {
             source: hint.source,
             target: hint.target,
             ...profile(),
-            hard: hint.relation === 'very_near' && hint.priority === 'critical',
+            hard: false,
         }];
     });
 }

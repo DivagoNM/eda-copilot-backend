@@ -553,7 +553,11 @@ function solveBlockNode(
             selected.map(c => `${c.hypothesis}/${c.stage}: score=${c.quality.score.toFixed(2)}, electrical=${c.quality.electrical.toFixed(2)}, wire=${c.quality.wire.toFixed(2)}, area=${c.quality.area.toFixed(2)}`).join('; ') });
     // Keep named groups when local assembly cannot satisfy an external anchor;
     // board-level dissolution still needs those names to resolve its relations.
-    if (!selected.length) return groupedFallback ?? fallback;
+    if (!selected.length) {
+        context.diagnostics.push({ severity: 'error', nodeId: node.id,
+            message: 'No admissible block checkpoint. Returning an unaccepted grouped/original recovery layout for board repair; this is not a score-selected legal winner.' });
+        return groupedFallback ?? fallback;
+    }
     context.blockQualities.set(node.id, selected[0].quality);
     context.blockAlternatives.set(node.id, selected.slice(1));
     return selected[0].primitives;
