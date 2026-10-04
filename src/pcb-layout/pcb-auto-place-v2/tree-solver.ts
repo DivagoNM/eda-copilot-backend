@@ -424,7 +424,7 @@ function solveBlockNode(
     const relaxed = relaxBlockGroups(context.input, context.treeNodes, childPrimitives,
         // Fixed families are solved in their real board frame. An unresolved
         // edge-place intent still belongs to board placement and remains rigid.
-        originalRelations, hasFixedOrEdgeDescendant(node) && !originalPrimitives.some(p => p.locked) ? 'off' : 'all',
+        originalRelations, hasFixedOrEdgeDescendant(node) && !originalPrimitives.some(p => p.locked) ? 'off' : 'passives',
         designator => componentPrimitive(context, context.treeNodes.find(n => n.kind === 'component' && n.label === designator)!, node));
     childPrimitives = relaxed.primitives;
     if (relaxed.released.length) context.diagnostics.push({ severity: 'warning', nodeId: node.id,

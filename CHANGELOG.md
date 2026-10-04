@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Family search now releases only ordinary R/C/L support groups together. Keep crystal/mixed assemblies, bypass/core islands, fixed geometry and authored layouts rigid; retain unconstrained capacitor-cluster relaxation and full Beam/singles/pairs search.
+
 - Family admission: critical distance priority remains a soft native objective instead of becoming an implicit PostPlace/checkpoint veto. Preserve explicitly authored hard non-core distances and penalized core drift. Label an empty-portfolio recovery as unaccepted rather than a legal score winner.
 
 - Experimental explicit geometric connections: include authored pad-to-pad signalPath/criticalPair segments even when absent from the ordinary net tree; deduplicate matching segments and use shared Rust/CubeCL crossing importance (1/2/3/4/5) and pad multipliers (1/2/3). Preserve distance scoring and final threshold 10; requires score-contract v4 native rebuild.

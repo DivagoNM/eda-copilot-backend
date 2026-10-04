@@ -2,7 +2,7 @@ import * as fp from '../f32.ts';
 import type { PlacementInput, PlacementRelation, PlacementTreeNode } from '#types/pcb/layout-model.ts';
 import type { PlacementPrimitive } from './primitives.ts';
 
-export type GroupRelaxation = 'off' | 'satellites' | 'caps' | 'all';
+export type GroupRelaxation = 'off' | 'satellites' | 'caps' | 'all' | 'passives';
 
 /** Alternative representation, not an input/netlist rewrite. Core pairs,
  * lines, bypass islands, fixed geometry and explicit row topology stay rigid.
@@ -20,15 +20,22 @@ export function relaxBlockGroups(input: PlacementInput, nodes: PlacementTreeNode
             return c?.pcb.fixedPlacement || c?.pcb.edgeMount || c?.pcb.edgePlace || c?.pcb.syntheticBoardPad;
         });
         if (fixed || mode === 'off') return [p];
+        // Production experiment: only ordinary R/C/L support. Preserve crystal
+        // assemblies and mixed/active groups, even when authored as satellites.
+        if (mode === 'passives' && !p.placements.every(q => {
+            const c = input.components.find(c => c.designator === q.designator);
+            return c && /^[RCL]\d/.test(c.designator) && c.pins.length <= 2
+                && (c.pcb.role === 'passive' || c.pcb.role === 'decoupling_cap');
+        })) return [p];
         const node = nodes.find(n => n.id === p.sourceNodeId);
         const block = input.blocks.find(b => b.name === p.label);
         const satellite = p.kind === 'block' && block?.placement === 'satellite'
-            && (mode === 'satellites' || mode === 'all');
+            && (mode === 'satellites' || mode === 'all' || mode === 'passives');
         const cap = p.kind === 'island' && node?.data?.kind === 'cap_cluster'
-            && (mode === 'caps' || mode === 'all')
+            && (mode === 'caps' || mode === 'all' || mode === 'passives')
             && !['axis', 'maxRows', 'maxPerRow', 'topology'].some(k => node.data?.[k] != null);
         const passive = p.kind === 'island' && p.label.startsWith('passive_net:')
-            && (insideSatellite || ((mode === 'caps' || mode === 'all') && p.placements.every(q => /^C\d/.test(q.designator))));
+            && (insideSatellite || ((mode === 'caps' || mode === 'all' || mode === 'passives') && p.placements.every(q => /^C\d/.test(q.designator))));
         if (!satellite && !cap && !passive) return [p];
         const endpoints = [p.sourceNodeId.replace(/^tree:/, ''), `${p.kind}:${p.label}`];
         // A hard whole-group constraint cannot be represented by independent

@@ -101,3 +101,20 @@ test('Telemetry C33 stays next to U10 despite its strong external LTE connection
         assert.ok(Math.hypot(x.x-y.x,x.y-y.y)<=5);
     }
 });
+
+test('passive-only release keeps crystal and bypass islands while releasing resistor banks', () => {
+    const {input,nodes,params,make}=fixture('current_iso');
+    const bank=params.primitives.find(p=>p.kind==='block')!;
+    assert.ok(bank);
+    const normal=relaxBlockGroups(input,nodes,[bank],params.relations,'passives',make);
+    assert.ok(normal.released.includes(bank.label));
+    const member=input.components.find(c=>c.designator===bank.placements[0].designator)!;
+    member.pcb.role='crystal';
+    assert.deepEqual(relaxBlockGroups(input,nodes,[bank],params.relations,'passives',make).primitives,[bank]);
+    member.pcb.role='main_ic';
+    assert.deepEqual(relaxBlockGroups(input,nodes,[bank],params.relations,'passives',make).primitives,[bank]);
+    const capFixture=fixture('lte_power');
+    const caps=relaxBlockGroups(capFixture.input,capFixture.nodes,capFixture.params.primitives,capFixture.params.relations,'passives',capFixture.make);
+    assert.ok(caps.released.includes('cap_cluster:50'));
+    assert.equal(caps.primitives.find(p=>p.placements.some(q=>q.designator==='L1')),capFixture.params.primitives.find(p=>p.placements.some(q=>q.designator==='L1')));
+});
