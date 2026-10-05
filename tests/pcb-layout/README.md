@@ -35,3 +35,5 @@ During extraction verification on Windows x64, all 20 runners were exercised aga
 | CNTRL_ACESS_MAX, H743, PICO_DUCK, STEPPER_CONTROLLER, ThunderF722 | Layout generated with placement errors |
 
 All nine problem cases were also run against the original server source at `412386a`, using the same native addon and captured footprints. Validation messages, placement coordinates and placement reports matched exactly. The original fixture inputs are preserved so these existing problems remain visible.
+
+Live exports added on 2026-10-05: [ESP32_C3_MAN](ESP32_C3_MAN/README.md) (107 components, authored 120 x 85 mm mechanics) and [Portable_AC_DC_Telemetry](Portable_AC_DC_Telemetry/README.md) (154 components, original notched 100 x 100 mm polygon). Each includes a placement DSL and a runner with an offline --validate mode.

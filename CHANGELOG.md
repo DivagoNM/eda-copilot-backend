@@ -8,6 +8,16 @@
 
 ### PCB layout
 
+- Revise STEPPER_CONTROLLER for a clear top-side NEMA 17 motor face, two-sided screw access and an axis-centered bottom AS5600. Retain 45 mm width, grow height to 66 mm, inset ESP32-C3 over an antenna notch without protrusion, move through-hole interfaces outside the motor footprint and add functional satellites, ordered paths, hard power islands and fixture geometry assertions.
+
+- Redistribute STEPPER_CONTROLLER data/UART USB ports along the bottom-side motor-area edges, preserving user-approved flush USB tabs, actual electrical pad occupancy, supported pads and screw access. Keep the protruding driver module on top; make status pairs independently movable with electrical relations, and save the new full-run evidence and checked reference with explicit local repair provenance.
+
+- Add live EasyEDA ESP32_C3_MAN (107 components) and Portable AC/DC Telemetry (154 components) placement fixtures, original netlists and PCB snapshots, functional DSLs and offline electrical/ownership validation. Preserve the telemetry outline notch. ESP32_C3_MAN uses an authored 120 x 85 mm outline, locked edge connectors and controls, antenna overhang, mounting holes, shunt-access exclusions, a hard buck switch-node constraint and PowerPAD thermal geometry; verify mechanics and placement with the current local backend.
+
+- Revise Portable AC/DC Telemetry with locked source-facing interfaces, notch-relative ESP antenna placement, explicit KF301 mating direction, Kelvin/divider paths, attached support groups, four hard switching islands and real exposed-pad thermal geometry. Require clean placement geometry and preserved mechanics in its fixture runner.
+
+- Separate Portable Telemetry measurement and harvesting-power areas using functional placement exclusions; keep converters out of the upper-right analog area and remove competing J1/MCU attractions that mixed sensitive inputs with power and modem circuits.
+
 - Replace pin-count Dense IC halos with native pad-row access profiles: 0.127 mm track, 0.254 mm copper clearance and 0.6 mm via land. Count connected row pins, account for central copper/holes and jointly occupied inward via sites; include connectors. Share the row obstruction cost across block, Board Package and PostPlace CPU/CubeCL, without the former 20-component cutoff or compactness scaling. Add a 0.1 mm assembly margin above board component clearance for eligible ICs/connectors. Remove the TS pin-count clearance formula; score contract v5 requires native rebuild.
 
 - Family search now releases only ordinary R/C/L support groups together. Keep crystal/mixed assemblies, bypass/core islands, fixed geometry and authored layouts rigid; retain unconstrained capacitor-cluster relaxation and full Beam/singles/pairs search.
