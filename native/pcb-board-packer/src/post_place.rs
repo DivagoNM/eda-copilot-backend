@@ -10,14 +10,15 @@ pub(crate) fn layer_penalty(weight: f32, same_side: bool) -> f32 {
 
 #[derive(Clone, Copy)]
 struct Segment {
-    net: usize,
     from: usize,
     to: usize,
-    a: Point,
-    b: Point,
     length: f32,
     weight: f32,
-    class: u32,
+}
+
+pub(crate) fn route_plan(problem: &PostPlaceScoreProblem) -> crate::fast_route::plan::Plan {
+    crate::fast_route::nets_plan(&problem.nets, &problem.routing_obstacles, &problem.explicit_connections,
+        &[], &[], problem.route_clearance, crate::geometry::Box2 { left:0.0,right:0.0,top:0.0,bottom:0.0 })
 }
 
 pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
@@ -33,13 +34,6 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
         score += segment.length * 10.0 * segment.weight;
         score += segment.length * segment.length * 0.35 * segment.weight;
     }
-    let mut geometry_nets = problem.nets.clone();
-    let geometry = explicit_segments(&segments, &mut geometry_nets, &problem.explicit_connections);
-    score += crossing_penalty(&geometry, &geometry_nets) * 180.0;
-    if problem.pad_crossing_weight > 0.0 {
-        score += pad_hits(&geometry, &geometry_nets, &problem.routing_obstacles) * problem.pad_crossing_weight;
-    }
-
     for term in &problem.distances {
         let value = distance(term.source, term.target);
         score += crate::relation_score::distance_cost(value,term.weight,term.min.unwrap_or(-1.0),term.max.unwrap_or(-1.0),term.inverse_tau_squared);
@@ -75,6 +69,7 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
             path.prefer_facing_pads,
         );
     }
+    score += route_plan(problem).cpu();
     if !score.is_finite() {
         return Err("post-place F32 score overflow or invalid arithmetic".into());
     }
@@ -100,7 +95,7 @@ pub(crate) fn net_length(net: &PostPlaceNet) -> f32 {
     minimum_spanning_segments(0, net).iter().map(|s| s.length).sum()
 }
 
-fn minimum_spanning_segments(net_index: usize, net: &PostPlaceNet) -> Vec<Segment> {
+fn minimum_spanning_segments(_net_index: usize, net: &PostPlaceNet) -> Vec<Segment> {
     if net.points.len() < 2 {
         return Vec::new();
     }
@@ -134,190 +129,13 @@ fn minimum_spanning_segments(net_index: usize, net: &PostPlaceNet) -> Vec<Segmen
         connected[to] = true;
         connected_count += 1;
         result.push(Segment {
-            net: net_index,
             from,
             to,
-            a: net.points[from],
-            b: net.points[to],
             length,
             weight: net.weight,
-            class: 0,
         });
     }
     result
-}
-
-/// One charge per segment / foreign physical pad. In particular, do not exempt
-/// the source/target component of an external connection. Only a segment with
-/// both endpoints on one IC may ignore pads of that same immovable IC.
-fn pad_hits(segments: &[Segment], nets: &[PostPlaceNet], obstacles: &[RouteObstacle]) -> f32 {
-    let mut penalty = 0.0;
-    for s in segments {
-        let net = &nets[s.net];
-        let a = net.layers.get(s.from).and_then(|l| l.as_deref());
-        let b = net.layers.get(s.to).and_then(|l| l.as_deref());
-        let layer = match (a, b) { (Some(a), Some(b)) if a == b => Some(a),
-            (Some(a), None) | (None, Some(a)) => Some(a), _ => None };
-        let internal_owner = match (net.internal_owners.get(s.from).and_then(|v| v.as_deref()),
-            net.internal_owners.get(s.to).and_then(|v| v.as_deref())) {
-            (Some(a), Some(b)) if a == b => Some(a), _ => None,
-        };
-        let mut seen = rustc_hash::FxHashSet::default();
-        for (i, pad) in obstacles.iter().enumerate() {
-            if internal_owner.is_some_and(|owner| pad.reference.as_deref()
-                .and_then(|r| r.rsplit_once('.')).is_some_and(|(d, _)| d == owner)) { continue; }
-            if pad.net.as_ref() == Some(&net.name)
-                || (layer.is_some() && pad.layer.is_some() && layer != pad.layer.as_deref()) { continue; }
-            if crate::fast_route::hits(s.a, s.b, pad.box_) {
-                // Named pads can occur more than once in imported obstacle lists.
-                let key = pad.reference.as_deref().map(|r| (r, 0)).unwrap_or(("", i + 1));
-                if seen.insert(key) { penalty += s.weight * crate::relation_score::pad_factor(s.class); }
-            }
-        }
-    }
-    penalty
-}
-
-pub(crate) fn pad_crossing_penalty(nets: &[PostPlaceNet], obstacles: &[RouteObstacle]) -> f32 {
-    let segments: Vec<_> = nets.iter().enumerate().flat_map(|(i, n)| minimum_spanning_segments(i, n)).collect();
-    pad_hits(&segments, nets, obstacles)
-}
-
-/// Exact per-net/per-primitive reuse. A moved obstacle invalidates its contribution
-/// even when the net itself did not move. Call only when named-pad ownership is
-/// disjoint between groups; duplicate imports otherwise need global deduplication.
-#[derive(Default)]
-pub(crate) struct PadCrossingCache {
-    nets: rustc_hash::FxHashMap<std::sync::Arc<str>, CachedPadNet>,
-    hits: u64,
-    misses: u64,
-}
-struct CachedPadNet {
-    points: Vec<u32>,
-    layers: Vec<Option<std::sync::Arc<str>>>,
-    owners: Vec<Option<std::sync::Arc<str>>>,
-    weight: f32,
-    segments: Vec<Segment>,
-    groups: rustc_hash::FxHashMap<usize, (std::sync::Arc<Vec<RouteObstacle>>, f32)>,
-}
-impl PadCrossingCache {
-    pub(crate) fn stats(&self) -> (u64, u64) { (self.hits, self.misses) }
-    pub(crate) fn score(&mut self, nets: &[PostPlaceNet], groups: &[(usize, std::sync::Arc<Vec<RouteObstacle>>)]) -> f32 {
-        let mut total = 0.0;
-        for net in nets {
-            if net.points.len() < 2 { continue; }
-            let cached = self.nets.entry(net.name.clone()).or_insert_with(|| CachedPadNet {
-                points: vec![], layers: vec![], owners: vec![], weight: f32::NAN,
-                segments: vec![], groups: Default::default(),
-            });
-            if cached.points.len() != net.points.len()*2
-                || !cached.points.iter().copied().eq(net.points.iter().flat_map(|p| [p.x.to_bits(), p.y.to_bits()]))
-                || cached.layers != net.layers || cached.owners != net.internal_owners || cached.weight != net.weight {
-                cached.points.clear(); cached.points.extend(net.points.iter().flat_map(|p| [p.x.to_bits(), p.y.to_bits()]));
-                cached.layers.clone_from(&net.layers); cached.owners.clone_from(&net.internal_owners);
-                cached.weight = net.weight; cached.segments = minimum_spanning_segments(0, net); cached.groups.clear();
-            }
-            for (id, obstacles) in groups {
-                let value = if let Some((old, value)) = cached.groups.get(id).filter(|(old, _)| std::sync::Arc::ptr_eq(old, obstacles)) {
-                    let _ = old; self.hits += 1; *value
-                } else {
-                    self.misses += 1;
-                    let value = pad_hits(&cached.segments, std::slice::from_ref(net), obstacles);
-                    cached.groups.insert(*id, (obstacles.clone(), value)); value
-                };
-                total += value;
-            }
-        }
-        total
-    }
-}
-
-#[cfg(test)]
-mod incremental_pad_tests {
-    use super::*;
-    use std::sync::Arc;
-    #[test]
-    fn moving_foreign_pad_and_changing_net_invalidate_only_reusable_contributions() {
-        let mut cache = PadCrossingCache::default();
-        let mut net = PostPlaceNet { name: Arc::from("signal"), points: vec![Point{x:0.0,y:0.0},Point{x:4.0,y:0.0}],
-            layers: vec![Some(Arc::from("top"));2], internal_owners: vec![None;2], local_scopes: vec![], weight: 1.0 };
-        let obstacle = |y| Arc::new(vec![RouteObstacle {
-            box_: crate::geometry::Box2{left:1.0,right:2.0,top:y,bottom:y+0.5}, layer:Some(Arc::from("top")),
-            reference:Some(Arc::from("R2.1")),net:Some(Arc::from("other")),primitive_id:Some(Arc::from("R2")),
-        }]);
-        let mut groups = vec![(0,obstacle(2.0))];
-        for step in 0..6 {
-            if step==2 { groups[0].1=obstacle(-0.25); }
-            if step==3 { net.points[1].y=8.0; }
-            if step==4 { net.points[1].y=0.0; net.weight=0.25; }
-            if step==5 { net.layers=vec![Some(Arc::from("bottom"));2]; }
-            let expected=pad_crossing_penalty(std::slice::from_ref(&net),&groups[0].1);
-            assert_eq!(cache.score(std::slice::from_ref(&net),&groups),expected);
-            if step==2 { assert_eq!(expected,1.0); }
-        }
-        assert!(cache.stats().0>0);
-    }
-}
-
-fn segment_layer(s: Segment, nets: &[PostPlaceNet]) -> Option<&str> {
-    let n=&nets[s.net];let a=n.layers.get(s.from).and_then(|x|x.as_deref());let b=n.layers.get(s.to).and_then(|x|x.as_deref());
-    match (a,b) { (Some(a),Some(b)) if a==b=>Some(a), (Some(a),None)|(None,Some(a))=>Some(a), _=>None }
-}
-fn compatible_segment_layers(a: Segment,b: Segment,nets:&[PostPlaceNet])->bool {
-    let (a,b)=(segment_layer(a,nets),segment_layer(b,nets));a.is_none()||b.is_none()||a==b
-}
-fn explicit_segments(base:&[Segment],nets:&mut Vec<PostPlaceNet>,explicit:&[crate::model::ExplicitConnection])->Vec<Segment> {
-    let mut result=base.to_vec();
-    for e in explicit {
-        let class=crate::relation_score::connection_class(&e.kind);
-        if class==0 || distance(e.source,e.target)<EPSILON {continue;}
-        let same=|s:&Segment| nets[s.net].name==e.net &&
-            ((distance(s.a,e.source)<EPSILON && distance(s.b,e.target)<EPSILON)||(distance(s.b,e.source)<EPSILON && distance(s.a,e.target)<EPSILON));
-        if let Some(s)=result.iter_mut().find(|s|same(s)) {s.class=s.class.max(class);s.weight=crate::relation_score::crossing_weight(s.weight,s.class);continue;}
-        let index=nets.len();
-        let weight=1.0;
-        nets.push(PostPlaceNet{name:e.net.clone(),points:vec![e.source,e.target],layers:vec![e.layer.clone();2],weight,internal_owners:vec![],local_scopes:vec![]});
-        result.push(Segment{net:index,from:0,to:1,a:e.source,b:e.target,length:distance(e.source,e.target),weight,class});
-    }
-    result
-}
-
-fn crossing_penalty(segments: &[Segment], nets: &[PostPlaceNet]) -> f32 {
-    let mut penalty = 0.0;
-    for a_index in 0..segments.len() {
-        for b_index in (a_index + 1)..segments.len() {
-            let a = segments[a_index];
-            let b = segments[b_index];
-            if nets[a.net].name == nets[b.net].name || share_endpoint(a, b) || !compatible_segment_layers(a,b,nets) {
-                continue;
-            }
-            if properly_intersect(a.a, a.b, b.a, b.b) {
-                penalty += (a.weight * b.weight).sqrt() * crate::relation_score::crossing_factor(a.class,b.class);
-            }
-        }
-    }
-    penalty
-}
-
-fn properly_intersect(a: Point, b: Point, c: Point, d: Point) -> bool {
-    let o1 = cross(a, b, c);
-    let o2 = cross(a, b, d);
-    let o3 = cross(c, d, a);
-    let o4 = cross(c, d, b);
-    ((o1 > EPSILON && o2 < -EPSILON) || (o1 < -EPSILON && o2 > EPSILON))
-        && ((o3 > EPSILON && o4 < -EPSILON) || (o3 < -EPSILON && o4 > EPSILON))
-}
-
-fn share_endpoint(a: Segment, b: Segment) -> bool {
-    [a.a, a.b].iter().any(|left| {
-        [b.a, b.b]
-            .iter()
-            .any(|right| distance(*left, *right) < EPSILON)
-    })
-}
-
-fn cross(a: Point, b: Point, c: Point) -> f32 {
-    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
 }
 
 fn distance(a: Point, b: Point) -> f32 {
@@ -341,7 +159,7 @@ fn validate(problem: &PostPlaceScoreProblem) -> Result<(), String> {
     if problem.explicit_connections.iter().any(|e| !e.source.x.is_finite() || !e.source.y.is_finite() || !e.target.x.is_finite() || !e.target.y.is_finite() || e.net.is_empty() || crate::relation_score::connection_class(&e.kind)==0) {
         return Err("invalid explicit geometric connection".into());
     }
-    let all_finite = problem.pad_crossing_weight.is_finite() && problem.pad_crossing_weight >= 0.0 && problem.nets.iter().all(|net| {
+    let all_finite = problem.route_clearance.is_finite() && problem.route_clearance >= 0.0 && problem.nets.iter().all(|net| {
         (net.layers.is_empty() || net.layers.len() == net.points.len()) &&
         (net.internal_owners.is_empty() || net.internal_owners.len() == net.points.len()) &&
         (net.local_scopes.is_empty() || net.local_scopes.len() == net.points.len()) &&
@@ -371,7 +189,7 @@ pub(crate) fn graph_reference(problem:&PostPlaceScoreProblem)->Vec<(usize,usize,
 /// than maintaining a second host implementation of its formulas.
 #[cfg(feature="gpu")]
 pub(crate) fn term_reference(p:&PostPlaceScoreProblem)->Result<Vec<f32>,String>{
- let mut empty=PostPlaceScoreProblem{access_components:vec![],explicit_connections:vec![],version:1,pad_crossing_weight:0.0,routing_obstacles:vec![],nets:vec![],distances:vec![],clearances:vec![],fixed_penalties:vec![],edges:vec![],paths:vec![]};let mut result=Vec::new();
+ let mut empty=PostPlaceScoreProblem{route_clearance:0.0,access_components:vec![],explicit_connections:vec![],version:1,routing_obstacles:vec![],nets:vec![],distances:vec![],clearances:vec![],fixed_penalties:vec![],edges:vec![],paths:vec![]};let mut result=Vec::new();
  for t in &p.distances {empty.distances=vec![*t];result.push(score(&empty)?);}empty.distances.clear();
  for t in &p.clearances {empty.clearances=vec![*t];result.push(score(&empty)?);}empty.clearances.clear();
  empty.fixed_penalties=p.fixed_penalties.clone();result.push(score(&empty)?);empty.fixed_penalties.clear();
@@ -453,18 +271,18 @@ mod explicit_crossing_tests {
  #[test] fn mandatory_non_mst_segment_and_duplicate_priority() {
   let mut p=problem();let base=score(&p).unwrap();
   let a=explicit("A",Point{x:0.,y:0.},Point{x:2.,y:0.},"critical_pair");
-  p.explicit_connections=vec![a.clone()];assert!((score(&p).unwrap()-base-360.).abs()<0.001);
+  p.explicit_connections=vec![a.clone()];let critical=score(&p).unwrap();assert!(critical>base);
   let path=crate::model::ExplicitConnection{kind:"signal_path".into(),..a.clone()};
-  p.explicit_connections.push(path.clone());assert!((score(&p).unwrap()-base-540.).abs()<0.001);
-  p.explicit_connections.push(path);assert!((score(&p).unwrap()-base-540.).abs()<0.001);
+  p.explicit_connections.push(path.clone());let path_score=score(&p).unwrap();assert!(path_score>=critical);
+  p.explicit_connections.push(path);assert_eq!(score(&p).unwrap(),path_score);
   p.explicit_connections.push(explicit("B",Point{x:1.,y:-0.1},Point{x:1.,y:0.1},"signal_path"));
-  assert!((score(&p).unwrap()-base-900.).abs()<0.001);
+  assert!(score(&p).unwrap()>=path_score);
  }
  #[test] fn opposite_layers_and_explicit_pad_cost() {
   let mut p=problem();p.nets[1].layers=vec![Some("bottom".into());2];let base=score(&p).unwrap();
   p.explicit_connections.push(explicit("A",Point{x:0.,y:0.},Point{x:2.,y:0.},"signal_path"));
   assert_eq!(score(&p).unwrap(),base);
-  p.pad_crossing_weight=180.;p.routing_obstacles=vec![RouteObstacle{box_:crate::geometry::Box2{left:0.95,right:1.05,top:-0.05,bottom:0.05},layer:Some("top".into()),reference:Some("X.1".into()),net:Some("X".into()),primitive_id:None}];
-  assert!((score(&p).unwrap()-base-540.).abs()<0.001);
+  p.routing_obstacles=vec![RouteObstacle{box_:crate::geometry::Box2{left:0.95,right:1.05,top:-0.05,bottom:0.05},layer:Some("top".into()),reference:Some("X.1".into()),net:Some("X".into()),primitive_id:None}];
+  assert!(score(&p).unwrap()>base);
  }
 }

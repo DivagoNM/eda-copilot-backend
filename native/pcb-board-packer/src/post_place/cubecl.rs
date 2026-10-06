@@ -50,30 +50,6 @@ impl Engine {
    points.extend(net.points.iter().flat_map(|q|[q.component as u32,q.pad as u32]));segment_count+=net.points.len().saturating_sub(1);
   }
   d.si[2]=p.nets.len() as u32;d.si[3]=d.ints(&nets);d.si[6]=(points.len()/2) as u32;d.si[4]=d.ints(&points);d.si[5]=segment_count as u32;
-  let mut net_ids:FxHashMap<_,_>=p.nets.iter().enumerate().map(|(i,n)|(n.name.clone(),i as u32)).collect();
-  for c in &p.components {for pad in &c.pads {if let Some(net)=&pad.net {let next=net_ids.len() as u32;net_ids.entry(net.clone()).or_insert(next);}}}
-  let mut explicit_links=Vec::new();
-  for r in &p.route_problem.relations {
-   let class=if r.path_id.is_some(){2}else if r.kind.as_ref()=="critical_pair"||r.relation.as_deref()==Some("critical_pair"){1}else{continue;};
-   let (Some(a),Some(b))=(r.from.strip_prefix("pad:"),r.to.strip_prefix("pad:"))else{continue;};
-   let locate=|reference:&str|p.components.iter().enumerate().find_map(|(i,c)|c.pads.iter().enumerate().find(|(_,q)|q.reference.as_ref()==reference).map(|(j,q)|(i,j,q.net.clone())));
-   let (Some((ac,ap,Some(an))),Some((bc,bp,Some(bn))))=(locate(a),locate(b))else{continue;};
-   if an!=bn || an.is_empty(){continue;}
-   explicit_links.extend([d.ints(&[2,ac as u32,ap as u32]),d.ints(&[2,bc as u32,bp as u32]),net_ids[&an],class]);
-  }
-  d.si[18]=(explicit_links.len()/4) as u32;d.si[19]=d.ints(&explicit_links);
-  let mut groups:Vec<Vec<u32>>=Vec::new();let mut group_ids=FxHashMap::default();
-  for (i,c) in p.components.iter().enumerate(){for (j,pad) in c.pads.iter().enumerate(){
-   // Every refiner obstacle is named. Keep first-occurrence physical-pad order.
-   let next=groups.len();let id=*group_ids.entry(pad.reference.clone()).or_insert_with(||{groups.push(vec![]);next});
-   // CPU owner exemptions use the reference prefix, which need not equal the
-   // containing component on malformed/duplicated imported geometry.
-   if pad.reference.rsplit_once('.').is_some_and(|(owner,_)|owner!=c.designator.as_ref()) {return Err(invalid("post-place obstacle owner mismatch"));}
-   let net=pad.net.as_ref().and_then(|name|net_ids.get(name).copied()).unwrap_or(u32::MAX);
-   groups[id].extend([i as u32,j as u32,net]);
-  }}
-  let mut table=Vec::new();for g in &groups {table.extend([d.ints(g),(g.len()/3) as u32]);}
-  d.si[15]=groups.len() as u32;d.si[16]=d.ints(&table);d.si[12]=d.floats(&[p.pad_crossing_weight]);
   d.si[14]=d.floats(&[p.board.left,p.board.right,p.board.top,p.board.bottom]);
   let mut buckets:[Vec<u32>;5]=Default::default();
   for h in &p.hints {match h.kind.as_str(){
@@ -106,7 +82,7 @@ impl Engine {
    let priority=path.weight;
    paths.extend([d.ints(&raw),(raw.len()/3) as u32,u32::from(path.shape.as_ref()=="straight"),d.floats(&[priority]),u32::from(path.prefer_facing_pads)]);
   }d.si[9]=p.paths.len() as u32;d.si[10]=d.ints(&paths);
-  if d.sf.iter().any(|x|!x.is_finite()||x.abs()>1e7) || !p.pad_crossing_weight.is_finite() || p.pad_crossing_weight<0.0 {return Err(invalid("unsafe post-place GPU number"));}
+  if d.sf.iter().any(|x|!x.is_finite()||x.abs()>1e7) {return Err(invalid("unsafe post-place GPU number"));}
   if segment_count>4096 {return Err(invalid("post-place segment capacity"));}
   let call=if p.timeout_ms>0 && p.iterations>0 {Some(gpu::enter(REQUIREMENTS,gpu::Admission::explicit(explicit))?)}else{None};
   Ok(Self{data:d,orientations,handles:None,failure:None,batches:0,candidates:0,milliseconds:0.0,encode_ms:0.0,_call:call})
@@ -156,7 +132,18 @@ impl Engine {
     Some((u32::from_bytes(&e).to_vec(),f32::from_bytes(&l).to_vec(),f32::from_bytes(&g).to_vec(),f32::from_bytes(&t).to_vec()))
    }else{None};Ok((f32::from_bytes(&bytes)[..count].to_vec(),diagnostic))
   }) });
-  self.milliseconds+=started.elapsed().as_secs_f64()*1000.0;let (scores,diagnostic)=result.map_err(|e|self.fail(e))?;
+  self.milliseconds+=started.elapsed().as_secs_f64()*1000.0;let (mut scores,diagnostic)=result.map_err(|e|self.fail(e))?;
+  let route_permit=budget.map(|b|b.acquire());
+  let mut routes=crate::fast_route::plan::Plan::default();
+  let mut route_world=current.clone();
+  for c in candidates {
+   for (component,pose) in &c.changes {p.apply(&mut route_world,*component,pose)?;}
+   routes.append(crate::post_place::route_plan(&p.score_problem(&route_world)));
+   for (component,_) in &c.changes {p.apply(&mut route_world,*component,p.pose(current,*component))?;}
+  }
+  let route_scores=routes.gpu_many().map_err(|e|self.fail(e))?;
+  for (score,route) in scores.iter_mut().zip(route_scores) {*score+=route;}
+  drop(route_permit);
   if let Some((edges,lengths,geometry,terms))=diagnostic {
    let mut world=current.clone();
    for (i,c) in candidates.iter().enumerate(){

@@ -53,5 +53,5 @@ pub(super) fn checkpoint(stage:&str,primitives:&[super::WorkingPrimitive],contex
     let poses=primitives.iter().map(|p|serde_json::json!({"primitive":p.primitive,"rotation":p.rotation,
         "components":p.components.iter().map(|(index,c)|serde_json::json!({"index":index,"body":c.body_box,"holes":c.through_hole_boxes})).collect::<Vec<_>>()
     })).collect::<Vec<_>>();
-    eprintln!("[board-stage-checkpoint] {}",serde_json::json!({"stage":stage,"rank":super::state_rank(primitives,context),"poses":poses}));
+    eprintln!("[board-stage-checkpoint] {}",serde_json::json!({"stage":stage,"rank":super::full_state_rank(primitives,context),"poses":poses}));
 }

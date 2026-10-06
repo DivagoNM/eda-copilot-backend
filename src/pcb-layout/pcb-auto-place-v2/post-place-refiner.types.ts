@@ -6,14 +6,7 @@ export interface PostPlaceMove {
     description: string;
     scoreBefore: number;
     scoreAfter: number;
-    routePenaltyBefore: number;
-    routePenaltyAfter: number;
     effectiveImprovement: number;
-    routeJobCount: number;
-    routeUnresolvedBefore: number;
-    routeUnresolvedAfter: number;
-    routeBudgetExhaustedBefore: number;
-    routeBudgetExhaustedAfter: number;
 }
 
 export interface PostPlaceRefineResult {

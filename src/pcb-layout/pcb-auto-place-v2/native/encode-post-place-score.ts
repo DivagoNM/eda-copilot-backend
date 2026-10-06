@@ -5,7 +5,6 @@ import * as fp from '../../f32.ts';
 import type { Box, PcbComponent, Placement, PlacementInput } from '#types/pcb/layout-model.ts';
 import { isConnectedSignalName } from '#utils/signals.ts';
 import { boardBox, getBox, getPadWorld, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
-import { placementPadCrossingWeight } from '../block-policy.ts';
 import { expandHints, pathRelationWeight } from '../../pcb-auto-place/hints.ts';
 import {
     resolveTargetBox,
@@ -78,7 +77,8 @@ export function encodeNativePostPlaceScoreProblem(
             return [{source,target,net,layer:la===lb?la:!la?lb:!lb?la:undefined,kind:h.path?'signal_path' as const:'critical_pair' as const}];
         }),
         version: NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION,
-        padCrossingWeight: placementPadCrossingWeight(), routingObstacles,
+        routeClearance: input.board.clearances.component,
+        routingObstacles,
         nets: [...pointsByNet.entries()].map(([name, points], index) => ({ name, points, layers: layersByNet.get(name), internalOwners: ownersByNet.get(name), localScopes: scopesByNet.get(name), weight: weights[index] })),
         distances: [],
         clearances: [],

@@ -260,7 +260,7 @@ fn prepare_context(problem: BoardPackProblem,
 
 pub fn quality(problem: BoardPackProblem) -> Result<serde_json::Value, String> {
     let (primitives, context) = prepare_context(problem, #[cfg(feature = "gpu")] None);
-    let rank = state_rank(&primitives, &context);
+    let rank = full_state_rank(&primitives, &context);
     if !rank.score.is_finite() { return Err("board quality score is not finite".into()); }
     Ok(serde_json::json!({"rank":rank,"spacing":soft_spacing_penalty(&primitives,&context),
         "alignment":soft_alignment_score(&primitives,&context)}))
@@ -297,7 +297,7 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
     remaining.sort_by(|a, b| compare_f32(seed_rank(b, &context), seed_rank(a, &context)));
 
     let mut ordinal = 0usize;
-    let initial_rank = state_rank(&locked, &context);
+    let initial_rank = full_state_rank(&locked, &context);
     let mut states = vec![SearchState {
         placed: locked,
         remaining,
@@ -400,7 +400,7 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
     profile::checkpoint("repair",&repaired,&context);
     #[cfg(feature = "gpu")]
     if let Some(gpu)=&context.gpu {gpu.checkpoint("after_repair");}
-    let final_rank = state_rank(&repaired, &context);
+    let final_rank = full_state_rank(&repaired, &context);
     if !final_rank.score.is_finite() || !final_rank.hard_severity.is_finite() {
         return Err("board F32 rank overflow or invalid arithmetic".into());
     }
@@ -576,13 +576,11 @@ fn joint_pair_states(state: &SearchState, next_index: usize, context: &Context) 
         }
     }
     result=dedupe_states(result); result.sort_by(compare_states);
-    // Micro-route corrections are non-negative. Evaluate a bounded shortlist,
+    // FastRoute costs are non-negative. Evaluate a bounded shortlist,
     // then compare exact costs, just as for the ordinary beam transitions.
     result.truncate(16);
     for s in &mut result {
-        let n=s.placed.len();
-        s.route_penalty+=board_geometric_route_penalty(&s.placed[n-2],&s.placed[..n-2],context)
-            +board_geometric_route_penalty(&s.placed[n-1],&s.placed[..n-1],context);
+        s.route_penalty=board_layout_route(&s.placed.iter().collect::<Vec<_>>(),context);
         s.rank.score+=s.route_penalty;
     }
     result.sort_by(compare_states); result.truncate(4);
@@ -706,7 +704,7 @@ fn rerank_candidates(
     mut candidates: Vec<RankedCandidate>,
     primitive: &WorkingPrimitive,
     placed: &[WorkingPrimitive],
-    parent_route_penalty: f32,
+    _parent_route_penalty: f32,
     limit: Option<usize>,
     context: &Context,
 ) -> Vec<RankedCandidate> {
@@ -717,16 +715,15 @@ fn rerank_candidates(
         candidates.retain(|candidate| candidate.rank.hard_count == baseline_hard);
     }
     let candidates = crate::lazy_rank::top_k(candidates, limit.unwrap_or(32), |a, a_exact, b, b_exact| {
-        let lower_score = |candidate: &RankedCandidate, exact: bool| candidate.rank.score
-            + if !exact && candidate.rank.hard_count == baseline_hard { parent_route_penalty } else { 0.0 };
+        let lower_score = |candidate: &RankedCandidate, _exact: bool| candidate.rank.score;
         a.rank.hard_count.cmp(&b.rank.hard_count)
             .then_with(|| compare_f32(a.rank.hard_severity, b.rank.hard_severity))
             .then_with(|| compare_f32(lower_score(a, a_exact), lower_score(b, b_exact)))
             .then_with(|| a.ordinal.cmp(&b.ordinal))
     }, |candidate| {
-        if candidate.rank.hard_count == baseline_hard {
+        {
             let correction = board_geometric_route_penalty(&candidate.primitive, placed, context);
-            candidate.route_penalty = parent_route_penalty + correction;
+            candidate.route_penalty = correction;
             candidate.rank.score += candidate.route_penalty;
         }
     });
@@ -772,17 +769,18 @@ fn board_geometric_route_penalty(
     placed: &[WorkingPrimitive],
     context: &Context,
 ) -> f32 {
+    board_layout_route(&placed.iter().chain(std::iter::once(candidate)).collect::<Vec<_>>(), context)
+}
+fn board_layout_route(all: &[&WorkingPrimitive], context: &Context) -> f32 {
     let _profile = context.profile.span(12);
     let mut obstacles = Vec::new();
-    let mut candidate_pads = Vec::new();
-    for item in placed.iter().chain(std::iter::once(candidate)) {
+    for item in all {
         let source = &context.problem.primitives[item.source_index];
         let origin = box_center(&source.bbox);
         let center = box_center(&item.primitive.bbox);
         for pad in context.problem.routing_obstacles.iter().filter(|pad| pad.primitive_id.as_ref() == Some(&source.id)) {
             let mut pad = pad.clone();
             pad.box_ = translate_box(&rotate_box(&pad.box_, &origin, item.rotation), center.x-origin.x, center.y-origin.y);
-            if item.id == candidate.id { candidate_pads.push(pad.clone()); }
             obstacles.push(pad);
         }
     }
@@ -790,11 +788,8 @@ fn board_geometric_route_penalty(
     obstacles.extend(context.problem.obstacles.iter().map(|b| crate::model::RouteObstacle {
         box_: *b, layer: None, reference: None, net: None, primitive_id: None,
     }));
-    let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();
-    let plan=crate::fast_route::board_plan(
-        &candidate.primitive, &placed_primitives, &obstacles, &candidate_pads,
-        context.problem.clearance, context.problem.bounds, &context.problem.relations,
-    );
+    let plan = crate::fast_route::layout_plan(&all.iter().map(|p| &p.primitive).collect::<Vec<_>>(), &obstacles,
+        &[], &[], context.problem.clearance, context.problem.bounds, &context.problem.relations);
     #[cfg(feature="gpu")]
     if let Some(gpu)=&context.gpu { return gpu.route(&plan); }
     plan.cpu()
@@ -998,6 +993,12 @@ fn rotate_primitive(primitive: &mut WorkingPrimitive, angle: i32) {
     if primitive.gpu_pose.is_some() { primitive.gpu_pose = Some(compact::Pose::from_primitive(primitive)); }
 }
 
+fn full_state_rank(primitives: &[WorkingPrimitive], context: &Context) -> Rank {
+    let mut rank = state_rank(primitives, context);
+    rank.score += board_layout_route(&primitives.iter().collect::<Vec<_>>(), context);
+    rank
+}
+
 fn state_rank(primitives: &[WorkingPrimitive], context: &Context) -> Rank {
     let _profile = context.profile.span(2);
     let hard_count = hard_count(primitives, context);
@@ -1031,12 +1032,11 @@ fn local_improve(mut current: Vec<WorkingPrimitive>, context: &Context, lanes: &
                 score: current_rank.score
                     + board_geometric_route_penalty(&current[index], &fixed, context),
             };
-            let baseline_hard = hard_count(&fixed, context);
             if let Some(candidate) = crate::lazy_rank::improve(
                 local_candidates(&current[index], &fixed, context, lanes), best_rank,
                 compare_candidates, |candidate, best_rank| rank_improves(&candidate.rank, best_rank),
                 |candidate| candidate.rank.clone(), |candidate| {
-                    if candidate.rank.hard_count == baseline_hard {
+                    {
                         candidate.route_penalty = board_geometric_route_penalty(&candidate.primitive, &fixed, context);
                         candidate.rank.score += candidate.route_penalty;
                     }
@@ -1062,25 +1062,25 @@ fn repair_hard_violations(
     context: &Context,
     lanes: &mut [Context],
 ) -> Vec<WorkingPrimitive> {
-    let mut current_rank = state_rank(&current, context);
+    let mut current_rank = full_state_rank(&current, context);
     let max_passes = 8.max(current.len() * 6);
     for _ in 0..max_passes {
         let variants = hard_repair_variants(&current, context);
         #[cfg(feature = "gpu")]
         let (variants,gpu_ranks)=if let Some(gpu)=&context.gpu {
-            let flags=vec![false;variants.len()];let winners=gpu.shortlist(&[],&variants,&flags,1,0,context);
+            let flags=vec![false;variants.len()];let winners=gpu.shortlist(&[],&variants,&flags,variants.len().max(1),0,context);
             let selected=winners.iter().map(|row|variants[row.index].clone()).collect();
             (selected,Some(winners.into_iter().map(|row|row.rank).collect::<Vec<_>>()))
         }else{(variants,None)};
         #[cfg(not(feature = "gpu"))]
         let gpu_ranks:Option<Vec<Rank>>=None;
-        let ranks = if let Some(rows)=gpu_ranks {rows} else if variants.len() <= 1 || lanes.len() == 1 {
-            variants.iter().map(|variant| state_rank(variant, context)).collect::<Vec<_>>()
+        let ranks = if let Some(mut rows)=gpu_ranks { for (row,v) in rows.iter_mut().zip(&variants) { row.score+=board_layout_route(&v.iter().collect::<Vec<_>>(),context); } rows} else if variants.len() <= 1 || lanes.len() == 1 {
+            variants.iter().map(|variant| full_state_rank(variant, context)).collect::<Vec<_>>()
         } else {
             let chunk_size = variants.len().div_ceil(lanes.len());
             std::thread::scope(|scope| {
                 let handles: Vec<_> = variants.chunks(chunk_size).zip(lanes.iter_mut())
-                    .map(|(chunk, lane)| scope.spawn(move || { let _float_env = crate::float_env::Guard::enter(); chunk.iter().map(|variant| state_rank(variant, lane)).collect::<Vec<_>>() }))
+                    .map(|(chunk, lane)| scope.spawn(move || { let _float_env = crate::float_env::Guard::enter(); chunk.iter().map(|variant| full_state_rank(variant, lane)).collect::<Vec<_>>() }))
                     .collect();
                 handles.into_iter().flat_map(|handle| handle.join().expect("Repair scoring thread panicked")).collect()
             })
@@ -1102,7 +1102,7 @@ fn repair_hard_violations(
         current_rank = rank;
         if current_rank.hard_count == 0 {
             current = local_improve(current, context, lanes);
-            current_rank = state_rank(&current, context);
+            current_rank = full_state_rank(&current, context);
             if current_rank.hard_count == 0 {
                 break;
             }

@@ -18,7 +18,7 @@ mkdirSync(root, { recursive: true });
 
 const main = `#![allow(dead_code)]
 mod block_solver; mod fast_route; mod geometry; mod lazy_rank; mod model;
-mod micro_router; mod net_class; mod ordinary_net; mod post_place; mod signal_path;
+mod fast_route; mod net_class; mod ordinary_net; mod post_place; mod signal_path;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
     let problem: model::BlockSolveProblem = serde_json::from_slice(&std::fs::read(&args[2])?)?;

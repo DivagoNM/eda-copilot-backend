@@ -2,7 +2,6 @@ use crate::geometry::{
     box_center, normalize_rotation, overlap_depth, rotate_box, rotate_point, round_placement,
     translate_box, union_boxes, Box2, Point,
 };
-use crate::micro_router::{self, MicroRouteConfig};
 use crate::net_class::{is_ground, is_power, is_switching_power};
 use crate::model::{
     BlockComponentGeometry, BlockSolveProblem, BoardPackSolution, Placement, Primitive,
@@ -127,8 +126,6 @@ struct Context {
     pad_net_indices: Vec<Vec<Option<usize>>>,
     pad_point_metadata: Vec<Vec<(Option<Arc<str>>, Option<Arc<str>>)>>,
     pad_geometry: RefCell<Vec<Option<(PrimitivePoseKey, Arc<Vec<crate::model::RouteObstacle>>)>>> ,
-    pad_crossings: RefCell<crate::post_place::PadCrossingCache>,
-    split_pad_cache_safe: bool,
     net_endpoint_counts: FxHashMap<Arc<str>, usize>,
     trace: bool,
     trace_phase: RefCell<&'static str>,
@@ -308,11 +305,6 @@ fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<Worki
     let relations = compile_relations(&problem.relations, &primitives, problem.bounds.as_ref(), problem.experiments.local_access);
     let source_pads: Vec<Vec<_>> = problem.primitives.iter().map(|p| problem.routing_obstacles.iter()
         .filter(|o| o.primitive_id.as_ref() == Some(&p.id)).cloned().collect()).collect();
-    let mut owners = FxHashMap::default();
-    let mut split_pad_cache_safe = true;
-    for (i, pads) in source_pads.iter().enumerate() { for pad in pads {
-        if let Some(r) = &pad.reference { if owners.insert(r.clone(), i).is_some_and(|old| old != i) { split_pad_cache_safe = false; } }
-    }}
     let mut net_endpoint_counts = FxHashMap::default();
     for p in &problem.primitives { for cp in p.connection_points.iter() {
         if let Some(n) = &cp.net { *net_endpoint_counts.entry(n.clone()).or_insert(0usize) += 1; }
@@ -345,7 +337,7 @@ fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<Worki
         net_signal, net_weights,
         pad_nets: RefCell::new(pad_nets), pad_net_indices, pad_point_metadata,
         pad_geometry: RefCell::new(vec![None; source_pads.len()]), source_pads,
-        pad_crossings: RefCell::new(Default::default()), split_pad_cache_safe, net_endpoint_counts,
+        net_endpoint_counts,
         detail: DetailProfile { enabled: std::env::var_os("PCB_BLOCK_SOLVER_DETAIL").is_some(), ..Default::default() },
         trace: trace::enabled(&problem),
         trace_phase: RefCell::new("search"),
@@ -431,7 +423,7 @@ fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<cr
     }
     if context.detail.enabled {
         eprintln!("[block-detail] {}", serde_json::json!({"components":context.problem.components.len(),
-            "pairsOnly":resumed,"totals":*context.detail.totals.borrow(), "padCache":context.pad_crossings.borrow().stats()}));
+            "pairsOnly":resumed,"totals":*context.detail.totals.borrow()}));
     }
     if profile {
         #[cfg(feature="gpu")]
@@ -631,7 +623,7 @@ fn local_improve(mut current: Vec<WorkingPrimitive>, context: &Context) -> Vec<W
             let mut best_hard = current_hard;
             let mut best_base_score = current_score;
             let mut best_effective_score = current_score
-                + block_micro_route_penalty(&current[index], &fixed, context);
+                + block_route_penalty(&current[index], &fixed, context);
             #[cfg(feature = "gpu")]
             let gpu_ranked=if context.gpu_engine.borrow().is_some() {Some(cubecl::shortlist(&current,index,context,false))}else{None};
             #[cfg(not(feature = "gpu"))]
@@ -659,16 +651,14 @@ fn local_improve(mut current: Vec<WorkingPrimitive>, context: &Context) -> Vec<W
             ranked.truncate(16);
             for (candidate, evaluation, _) in ranked {
                 // Route corrections are nonnegative. This candidate cannot win
-                // even with a free route; do not run A* merely to reject it.
+                // even with a free route; skip its FastRoute evaluation.
                 if evaluation.hard_violations > best_hard
                     || (evaluation.hard_violations == best_hard
                         && evaluation.score + 0.001 >= best_effective_score) {
                     continue;
                 }
                 let effective_score = evaluation.score
-                    + if evaluation.hard_violations == current_hard {
-                        block_micro_route_penalty(&candidate, &fixed, context)
-                    } else { 0.0 };
+                    + block_route_penalty(&candidate, &fixed, context);
                 if evaluation.hard_violations < best_hard
                     || (evaluation.hard_violations == best_hard
                         && effective_score + 0.001 < best_effective_score)
@@ -781,17 +771,15 @@ fn ranked_block_candidates(
         ranked = selected;
     } else { ranked.truncate(16); }
     trace::candidates(context, "shortlist", placed, &ranked);
-    let baseline_hard = previous.evaluation.hard_violations;
     let result = crate::lazy_rank::top_k(ranked, limit, |a, a_exact, b, b_exact| {
-        let lower_score = |candidate: &RankedCandidate, exact: bool| candidate.score
-            + if !exact && candidate.hard_violations == baseline_hard { parent_route_penalty } else { 0.0 };
+        let lower_score = |candidate: &RankedCandidate, _exact: bool| candidate.score;
         a.hard_violations.cmp(&b.hard_violations)
             .then_with(|| compare_f32(lower_score(a, a_exact), lower_score(b, b_exact)))
             .then_with(|| a.ordinal.cmp(&b.ordinal))
     }, |candidate| {
-        if candidate.hard_violations == baseline_hard {
-            let correction = block_micro_route_penalty(&candidate.primitive, placed, context);
-            candidate.route_penalty = parent_route_penalty + correction;
+        {
+            let correction = block_route_penalty(&candidate.primitive, placed, context);
+            candidate.route_penalty = correction;
             candidate.score += candidate.route_penalty;
         }
     });
@@ -799,42 +787,19 @@ fn ranked_block_candidates(
     result
 }
 
-fn block_micro_route_penalty(
-    candidate: &WorkingPrimitive,
-    placed: &[WorkingPrimitive],
-    context: &Context,
-) -> f32 {
-    let _span = context.detail.span("block_micro_route_penalty");
-    let config = MicroRouteConfig::block();
-    use crate::model::BlockRoutingMetric;
-    if context.problem.experiments.routing_metric == BlockRoutingMetric::Off { return 0.0; }
-    if context.problem.experiments.routing_metric == BlockRoutingMetric::Geometric {
-        let all: Vec<_> = placed.iter().chain(std::iter::once(candidate)).collect();
-        let mut obstacles = transformed_pad_obstacles(&all, context);
-        for box_ in &context.problem.obstacles {
-            obstacles.push(crate::model::RouteObstacle{box_:*box_,layer:None,reference:None,net:None,primitive_id:None});
-        }
-        let plan=crate::fast_route::candidate_plan(&candidate.primitive,
-            &placed.iter().map(|p|&p.primitive).collect::<Vec<_>>(), &obstacles,
-            &context.problem.external_nets,&context.problem.experiments.ignored_nets,context.problem.clearance,
-            union_boxes(&all.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()), &context.problem.relations);
-        #[cfg(feature="gpu")]
-        if context.gpu_engine.borrow().is_some() {
-            return plan.gpu().unwrap_or_else(|error|cubecl::fail(error.to_string()));
-        }
-        return plan.cpu();
-    }
-    let bounds = micro_route_bounds(candidate, placed, context, &config);
-    let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();
-    micro_router::candidate_penalty(
-        &candidate.primitive,
-        &placed_primitives,
-        &context.problem.relations,
-        bounds,
-        &[],
-        &context.problem.obstacles,
-        &config,
-    )
+fn block_route_penalty(candidate: &WorkingPrimitive, placed: &[WorkingPrimitive], context: &Context) -> f32 {
+    block_layout_route(&placed.iter().chain(std::iter::once(candidate)).collect::<Vec<_>>(), context)
+}
+fn block_layout_route(all: &[&WorkingPrimitive], context: &Context) -> f32 {
+    if context.problem.experiments.routing_metric == crate::model::BlockRoutingMetric::Off { return 0.0; }
+    let mut obstacles = transformed_pad_obstacles(all, context);
+    obstacles.extend(context.problem.obstacles.iter().map(|b| crate::model::RouteObstacle { box_:*b,layer:None,reference:None,net:None,primitive_id:None }));
+    let plan = crate::fast_route::layout_plan(&all.iter().map(|p| &p.primitive).collect::<Vec<_>>(), &obstacles,
+        &context.problem.external_nets, &context.problem.experiments.ignored_nets, context.problem.clearance,
+        union_boxes(&all.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()), &context.problem.relations);
+    #[cfg(feature="gpu")]
+    if context.gpu_engine.borrow().is_some() { return plan.gpu().unwrap_or_else(|e|cubecl::fail(e.to_string())); }
+    plan.cpu()
 }
 
 fn prepared_pad_obstacles(item: &WorkingPrimitive, context: &Context) -> Arc<Vec<crate::model::RouteObstacle>> {
@@ -855,50 +820,6 @@ fn prepared_pad_obstacles(item: &WorkingPrimitive, context: &Context) -> Arc<Vec
 fn transformed_pad_obstacles(primitives: &[&WorkingPrimitive], context: &Context) -> Vec<crate::model::RouteObstacle> {
     primitives.iter().flat_map(|p| prepared_pad_obstacles(p, context).as_ref().clone()).collect()
 }
-fn direct_pad_crossing_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
-    let _span = context.detail.span("direct_pad_crossing_penalty");
-    let groups: Vec<_> = primitives.iter().map(|p| (p.source_index, prepared_pad_obstacles(p, context))).collect();
-    let mut nets = context.pad_nets.borrow_mut();
-    for net in nets.iter_mut() { net.points.clear(); net.layers.clear(); net.internal_owners.clear(); }
-    for p in primitives {
-        for (i, cp) in p.primitive.connection_points.iter().enumerate() {
-            let Some(index) = context.pad_net_indices[p.source_index][i] else { continue };
-            let net = &mut nets[index];
-            net.points.push(Point { x: cp.x, y: cp.y });
-            let (layer, owner) = &context.pad_point_metadata[p.source_index][i];
-            net.internal_owners.push(owner.clone());
-            net.layers.push(if context.split_pad_cache_safe { layer.clone() } else {
-                groups.iter().flat_map(|(_, pads)| pads.iter()).find(|o| o.reference.as_ref() == Some(&cp.reference)).and_then(|o| o.layer.clone())
-            });
-        }
-    }
-    let fresh = || crate::post_place::pad_crossing_penalty(&nets, &groups.iter().flat_map(|(_, p)| p.iter().cloned()).collect::<Vec<_>>());
-    if !context.split_pad_cache_safe { return fresh() * 180.0; }
-    let score = context.pad_crossings.borrow_mut().score(&nets, &groups);
-    if context.validate_incremental_scoring { assert!((score - fresh()).abs() < 1e-8, "incremental pad score mismatch"); }
-    score * 180.0
-}
-
-fn micro_route_bounds(
-    candidate: &WorkingPrimitive,
-    placed: &[WorkingPrimitive],
-    context: &Context,
-    config: &MicroRouteConfig,
-) -> Box2 {
-    if let Some(bounds) = context.problem.bounds { return bounds; }
-    let mut boxes: Vec<_> = placed.iter().map(|item| item.primitive.bbox).collect();
-    boxes.push(candidate.primitive.bbox);
-    boxes.extend(context.problem.obstacles.iter().copied());
-    let bounds = union_boxes(&boxes);
-    let margin = 5.0f32.max(config.clearance * 4.0 + config.trace_width);
-    Box2 {
-        left: bounds.left - margin,
-        right: bounds.right + margin,
-        top: bounds.top - margin,
-        bottom: bounds.bottom + margin,
-    }
-}
-
 fn best_candidate(
     placed: &[WorkingPrimitive],
     candidates: Vec<WorkingPrimitive>,
@@ -912,7 +833,7 @@ fn best_candidate(
         variant.push(candidate.clone());
         let evaluation = evaluate(&variant, context);
         let hard = evaluation.hard_violations;
-        let score = evaluation.score;
+        let score = evaluation.score + block_layout_route(&variant.iter().collect::<Vec<_>>(), context);
         if hard < best_hard
             || (hard == best_hard && compare_f32(score, best_score) == Ordering::Less)
         {
@@ -973,7 +894,8 @@ fn solution(
             }
         })
         .collect();
-    let evaluation = evaluate(primitives, context);
+    let mut evaluation = evaluate(primitives, context);
+    evaluation.score += block_layout_route(&primitives.iter().collect::<Vec<_>>(), context);
     if !evaluation.score.is_finite() {
         return Err("block F32 score overflow or invalid arithmetic".into());
     }
@@ -1250,7 +1172,7 @@ fn connected_pin_stretch(primitives: &[WorkingPrimitive], context: &Context) -> 
 /// moving candidates. Diagnostics are measurements, never extra score terms.
 pub fn quality(problem: BlockSolveProblem) -> Result<serde_json::Value, String> {
     let (primitives, context) = prepare_context(problem, false);
-    let score = score_block(&primitives, &context);
+    let score = score_block(&primitives, &context) + block_layout_route(&primitives.iter().collect::<Vec<_>>(), &context);
     if !score.is_finite() { return Err("block quality score is not finite".into()); }
     let bbox = union_boxes(&primitives.iter().map(|p| p.primitive.bbox).collect::<Vec<_>>());
     let width = bbox.right - bbox.left;
@@ -1379,12 +1301,7 @@ fn pair_improve(mut current: Vec<WorkingPrimitive>, context: &Context) -> Vec<Wo
                     }
                 }
             }
-            let route_pair = |v: &[WorkingPrimitive]| {
-                [i, j].iter().map(|&k| {
-                    let others: Vec<_> = v.iter().enumerate().filter(|(n,_)| *n != k).map(|(_,p)| p.clone()).collect();
-                    block_micro_route_penalty(&v[k], &others, context)
-                }).sum::<f32>()
-            };
+            let route_pair = |v: &[WorkingPrimitive]| block_layout_route(&v.iter().collect::<Vec<_>>(), context);
             let old = evaluate(&current, context);
             let mut best_score = old.score + route_pair(&current);
             let mut best_hard = old.hard_violations;
@@ -2267,9 +2184,6 @@ fn score_block_terms(primitives: &[WorkingPrimitive], context: &Context, primiti
         score += connected_pin_stretch(primitives, context);
     }
     if score > safe_ceiling { return None; }
-    if context.problem.experiments.pad_crossings {
-        score += direct_pad_crossing_penalty(primitives, context);
-    }
     let path_primitives: Vec<_> = primitives.iter().map(|item| &item.primitive).collect();
     score += { let _span = context.detail.span("signal_path_topology"); signal_path::explicit_topology_penalty(&path_primitives, &context.problem.relations) }
         + crate::ordinary_net::penalty(&path_primitives, &context.problem.relations) * if high { 2.5 } else { 4.0 };
@@ -3832,7 +3746,7 @@ mod candidate_tests {
             #[cfg(feature = "gpu")] gpu_engine:Default::default(),
             corridor_cache: Default::default(), escape_cache: Default::default(),
             detail: Default::default(), source_pads: vec![], pad_geometry: Default::default(),
-            pad_crossings: Default::default(), split_pad_cache_safe: true, net_endpoint_counts: Default::default(),
+            net_endpoint_counts: Default::default(),
             net_signal: vec![], net_weights: vec![], pad_nets: Default::default(), pad_net_indices: vec![], pad_point_metadata: vec![],
             evaluation_cache: RefCell::new(FxHashMap::default()),
             net_scoring_scratch: RefCell::new(NetScoringScratch {

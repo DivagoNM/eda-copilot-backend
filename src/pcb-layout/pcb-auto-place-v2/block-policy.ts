@@ -3,7 +3,6 @@ import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 
 export type BlockExperiments = NonNullable<NativeBlockSolveProblemV4['experiments']>;
 
-export function placementPadCrossingWeight() { return loadNativeBoardPacker().placementPadCrossingWeight(); }
 
 /** One production policy on the research branch. Search parameters are explicit
  * in the native input/cache; obsolete A/B environment switches are not read. */
@@ -12,7 +11,7 @@ export function blockPolicy(ignoredNets: string[] = []) {
         netCandidates: true, stableNetWeight: true, reducedHull: true, smoothAspect: true,
         frontierOrder: true, padOwnerCandidates: true, localAccess: true,
         orderEqualCritical: true, orderCoreAffinity: true, orderBranching: true, orderScarcity: true,
-        candidateClearance: true, candidateRings: true, padCrossings: true,
+        candidateClearance: true, candidateRings: true,
         longNets: true, extraPasses: true, pairSwaps: true, reinsertPair: true, keepDenseAccess: true,
         ignoredNets, routingMetric: 'geometric',
     };

@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Replace the remaining Micro-A* implementation and comparison APIs with a canonical full-layout FastRoute objective shared by block/board search, quality/checkpoints and post-place. Stop accumulating insertion-history penalties; remove duplicate straight-line pad/crossing costs, and batch post-place route jobs through the existing shared CPU/CubeCL arithmetic and whole-call recovery. Placement score contract v6 requires a native rebuild. See `docs/experimental/pcb/unified-fast-route/README.md`.
+
 - Evaluate substantial board and block geometric route corrections in CubeCL batches when their solver uses GPU; keep tiny batches on shared CPU arithmetic to avoid dispatch overhead. Reuse one CPU/GPU path-arithmetic implementation, shared connection planning and ordered F32 reductions; cache layer filtering and intern repeated obstacle arrays. Preserve lazy candidate selection and full-call CPU recovery on GPU failure. See `docs/experimental/pcb/geometric-route-gpu/README.md` for validation and measurements.
 
 - Revise STEPPER_CONTROLLER for a clear top-side NEMA 17 motor face, two-sided screw access and an axis-centered bottom AS5600. Retain 45 mm width, grow height to 66 mm, inset ESP32-C3 over an antenna notch without protrusion, move through-hole interfaces outside the motor footprint and add functional satellites, ordered paths, hard power islands and fixture geometry assertions.

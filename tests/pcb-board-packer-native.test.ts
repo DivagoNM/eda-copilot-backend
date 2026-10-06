@@ -238,9 +238,21 @@ nativeTest('native route scorer sees obstacle detours and bounded local power ne
     const free = routeScoreProblem(false, 'SIG');
     const blocked = routeScoreProblem(true, 'SIG');
     const blockedPower = routeScoreProblem(true, 'VBUS');
-    assert.equal(addon.scoreRouteLayout(free, ['route:A']), 0);
-    assert.ok(addon.scoreRouteLayout(blocked, ['route:A']) > 0);
-    assert.ok(addon.scoreRouteLayout(blockedPower, ['route:A']) > 0);
+    assert.equal(addon.scoreFastRouteLayout(free), 0);
+    assert.ok(addon.scoreFastRouteLayout(blocked) > 0);
+    assert.ok(addon.scoreFastRouteLayout(blockedPower) > 0);
+});
+
+nativeTest('FastRoute is independent of insertion order and is included in board quality', () => {
+    const addon = loadNativeBoardPacker();
+    const free = routeScoreProblem(false, 'SIG');
+    const blocked = { ...free, routingObstacles: [{ box: { left: -0.5, right: 0.5, top: -3, bottom: 3 }, net: 'OTHER' }] };
+    const route = addon.scoreFastRouteLayout(blocked);
+    assert.ok(route > 0);
+    assert.equal(addon.scoreFastRouteLayout({ ...blocked, primitives: [...blocked.primitives].reverse() }), route);
+    const before = addon.evaluateBoardQuality(free).rank.score;
+    const after = addon.evaluateBoardQuality(blocked).rank.score;
+    assert.ok(Math.abs(after - before - route) < 0.01);
 });
 
 function routeScoreProblem(blocked: boolean, net: string): NativeBoardPackProblemV7 {

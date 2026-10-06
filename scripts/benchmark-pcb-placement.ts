@@ -17,7 +17,7 @@ const code = readFileSync(new URL(`${fixture}.js`, root), 'utf8');
 const variantCode = process.argv[5] ? readFileSync(process.argv[5], 'utf8') : code;
 let native: Record<string, { calls: number; ms: number }> = {};
 const addon = loadNativeBoardPacker();
-for (const name of ['solveBlockPrimitives', 'solveBoardPacked', 'prepareRouteLayoutComparison', 'compareRouteLayoutCandidate'] as const) {
+for (const name of ['solveBlockPrimitives', 'solveBoardPacked', 'refinePostPlacement'] as const) {
     const original = addon[name] as (...args: unknown[]) => unknown;
     Object.defineProperty(addon, name, { configurable: true, writable: true, value: (...args: unknown[]) => {
         const start = performance.now();

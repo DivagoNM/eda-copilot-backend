@@ -31,51 +31,6 @@ export interface NativeRoutingObstacle {
     primitiveId?: string;
 }
 
-/** A fixed terminal-pair obligation, independent of candidate coordinates. */
-export interface NativePlannedRouteJob {
-    net: string;
-    sourcePrimitive: string;
-    sourceRef: string;
-    targetPrimitive: string;
-    targetRef: string;
-    priority: number;
-    weight: number;
-    viaCost: number;
-    ordinary: boolean;
-}
-
-export interface NativeRouteSample {
-    job: NativePlannedRouteJob;
-    status: 'found' | 'budget_exhausted' | 'no_path';
-    detour: number | null;
-    physicalCost: number | null;
-    planarLength: number | null;
-    vias: number;
-    expanded: number;
-    usedFallback: boolean;
-}
-
-export interface NativeRouteBaseline {
-    version: 1 | 2;
-    jobs: NativeRouteSample[];
-    /** Complete ordinary nets: terminal identities are fixed, tree edges may change. */
-    topologyNets?: string[];
-    /** Conservative route-score improvement ceiling; absent on older addons. */
-    maximumImprovement?: number;
-    penaltyCeiling?: number;
-}
-
-export interface NativeRouteComparison {
-    beforePenalty: number;
-    afterPenalty: number;
-    unresolvedBefore: number;
-    unresolvedAfter: number;
-    budgetExhaustedBefore: number;
-    budgetExhaustedAfter: number;
-    feasibilityOrder: -1 | 0 | 1;
-    jobs: NativeRouteSample[];
-}
-
 export interface NativePathPort extends Point {
     pathId: string;
     order: number;
@@ -217,7 +172,6 @@ export interface NativeBoardPackerAddon {
     placementNetWeights(names: string[], board: boolean): number[];
     placementNetClass(name: string): {ground: boolean; power: boolean; switching: boolean};
     placementOrientationWeight(problem: {kind: 'external'; role: string; net: string} | {kind: 'side'; hard: boolean; gap?: number}): number;
-    placementPadCrossingWeight(): number;
     placementPriorityWeight(priority: string): number;
     placementRelationProfile(request: { relation: string; priority: string; weight?: number; minDistance?: number; maxDistance?: number; path?: boolean; core?: boolean; hard?: boolean }): {weight: number; inverseTauSquared: number; topologyWeight: number; min?: number; max?: number};
     placementLayerPenalties(terms: Array<[number, boolean]>): number[];
@@ -233,24 +187,7 @@ export interface NativeBoardPackerAddon {
     numericContract?: () => string;
     contractVersion(): number;
     solveBoardPacked(problem: NativeBoardPackProblemV7): NativeBoardPackSolutionV7;
-    /** Bounded Micro-A* score for routes affected by the listed component-level primitives. */
-    scoreRouteLayout(problem: NativeBoardPackProblemV7, changedPrimitiveIds: string[]): number;
-    /** Same score with enriched pad/copper obstacles used by post-place refinement. */
-    scoreRouteLayoutWithObstacles(
-        problem: NativeBoardPackProblemV7,
-        changedPrimitiveIds: string[],
-        routingObstacles: NativeRoutingObstacle[],
-    ): number;
-    prepareRouteLayoutComparison(
-        problem: NativeBoardPackProblemV7,
-        changedPrimitiveIds: string[],
-        routingObstacles: NativeRoutingObstacle[],
-    ): NativeRouteBaseline;
-    compareRouteLayoutCandidate(
-        problem: NativeBoardPackProblemV7,
-        routingObstacles: NativeRoutingObstacle[],
-        baseline: NativeRouteBaseline,
-    ): NativeRouteComparison;
+    scoreFastRouteLayout(problem: NativeBoardPackProblemV7): number;
     blockContractVersion(): number;
     blockSearchStagesVersion?(): number;
     solveBlockPrimitives(problem: NativeBlockSolveProblemV4): NativeBlockSolveSolutionV4;
@@ -284,7 +221,7 @@ export interface NativeBlockSolveProblemV4 {
         obstacles: Array<{designator: string; layer?: Layer; box: Box; clearance: number}> };
     /** Opt-in research controls; deliberately not exposed by the placement DSL. */
     experiments?: {
-        routingMetric?: 'micro' | 'off' | 'geometric';
+        routingMetric?: 'off' | 'geometric';
         ignoredNets?: string[];
         keepDenseAccess?: boolean;
         candidateClearance?: boolean;
@@ -296,7 +233,6 @@ export interface NativeBlockSolveProblemV4 {
         orderScarcity?: boolean;
         padOwnerCandidates?: boolean;
         localAccess?: boolean;
-        padCrossings?: boolean;
         netCandidates?: boolean;
         stableNetWeight?: boolean;
         reducedHull?: boolean;
@@ -372,10 +308,10 @@ export interface NativePassiveIslandSolutionV1 {
 }
 
 export interface NativePostPlaceScoreProblemV1 {
+    routeClearance?: number;
     accessComponents?: Array<{body: Box; layer: string; rows: NativeAccessRow[]}>;
     explicitConnections?: Array<{source: Point; target: Point; net: string; layer?: string; kind: 'signal_path' | 'critical_pair'}>;
     version: typeof NATIVE_POST_PLACE_SCORE_CONTRACT_VERSION;
-    padCrossingWeight?: number;
     routingObstacles?: NativeRoutingObstacle[];
     nets: Array<{ name: string; points: Point[]; weight: number; layers?: Array<string | null>; internalOwners?: Array<string | null>; localScopes?: Array<string | null> }>;
     distances: Array<{ source: Point; target: Point; weight: number; inverseTauSquared?: number; min?: number; max?: number }>;

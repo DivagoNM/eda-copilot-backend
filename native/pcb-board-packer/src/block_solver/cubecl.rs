@@ -140,7 +140,6 @@ fn supported(context: &Context) -> bool {
         || context.gpu_sources.iter().any(|p|p.components.is_empty())
         || p.primitives.len() > 256
         || p.components.len() > 256
-        || !context.split_pad_cache_safe
     {
         return false;
     }
@@ -486,26 +485,8 @@ fn prepare(
         let r = &by_net[&id];
         let name = &engine.names[id as usize];
         let ground = is_ground(name);
-        let eligible = !name.is_empty()
-            && !ground
-            && !context
-                .problem
-                .experiments
-                .ignored_nets
-                .iter()
-                .any(|s| s.eq_ignore_ascii_case(name));
-        let units = if eligible && context.problem.experiments.pad_crossings {
-            if is_power(name) {
-                1
-            } else {
-                4
-            }
-        } else {
-            0
-        };
-        if units != 0 && r.len() > 256 {
-            fail("GPU net exceeds the 256-endpoint workspace".into());
-        }
+        let eligible = !name.is_empty() && !ground && !context.problem.experiments.ignored_nets.iter().any(|s| s.eq_ignore_ascii_case(name));
+        let units = 0; // FastRoute owns route/pad costs.
         nets.push(Net {
             start: refs.len() as u32,
             count: r.len() as u32,
@@ -1328,22 +1309,15 @@ pub(super) fn ranked(
         ranked,
         limit,
         |a, ae, b, be| {
-            let lower = |v: &RankedCandidate, exact: bool| {
-                v.score
-                    + if !exact && v.hard_violations == previous.evaluation.hard_violations {
-                        parent
-                    } else {
-                        0.0
-                    }
-            };
+            let lower = |v: &RankedCandidate, _exact: bool| v.score;
             a.hard_violations
                 .cmp(&b.hard_violations)
                 .then_with(|| compare_f32(lower(a, ae), lower(b, be)))
                 .then_with(|| a.ordinal.cmp(&b.ordinal))
         },
         |v| {
-            if v.hard_violations == previous.evaluation.hard_violations {
-                v.route_penalty = parent + block_micro_route_penalty(&v.primitive, placed, context);
+            {
+                v.route_penalty = block_route_penalty(&v.primitive, placed, context);
                 v.score += v.route_penalty;
             }
         },

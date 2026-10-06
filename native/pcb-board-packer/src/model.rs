@@ -258,7 +258,6 @@ pub struct BlockExperiments {
     pub order_scarcity: bool,
     pub pad_owner_candidates: bool,
     pub local_access: bool,
-    pub pad_crossings: bool,
     pub stable_net_weight: bool,
     pub reduced_hull: bool,
     pub smooth_aspect: bool,
@@ -270,7 +269,7 @@ pub struct BlockExperiments {
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BlockRoutingMetric { Micro, Off, #[default] Geometric }
+pub enum BlockRoutingMetric { Off, #[default] Geometric }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -330,12 +329,12 @@ pub struct PassiveIslandPlacement {
 #[serde(rename_all = "camelCase")]
 pub struct PostPlaceScoreProblem {
     #[serde(default)]
+    pub route_clearance: f32,
+    #[serde(default)]
     pub access_components: Vec<crate::pad_access::Component>,
     #[serde(default)]
     pub explicit_connections: Vec<ExplicitConnection>,
     pub version: u32,
-    #[serde(default)]
-    pub pad_crossing_weight: f32,
     #[serde(default)]
     pub routing_obstacles: Vec<RouteObstacle>,
     pub nets: Vec<PostPlaceNet>,

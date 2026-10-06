@@ -76,7 +76,7 @@ test('a parent block with satellite children receives net candidates and beam se
         assert.ok(params.primitives.some(p => p.kind === 'component'));
         assert.equal(params.options.searchWidth, 4);
         assert.equal(params.options.experiments?.netCandidates, true);
-        assert.equal(params.options.experiments?.padCrossings, true);
+        assert.equal(params.options.experiments?.routingMetric, 'geometric');
         throw stop;
     }, () => solvePlacementTreeBottomUp(input, { ...graph, root: node })), e => e === stop);
     assert.ok(reached);

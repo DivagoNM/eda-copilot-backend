@@ -22,10 +22,4 @@ export declare function solveBoardPacked(problem: any): any
 
 export declare function solvePassiveNetIsland(problem: any): any
 
-export declare function scoreRouteLayout(problem: any, changedPrimitiveIds: string[]): number
-
-export declare function scoreRouteLayoutWithObstacles(problem: any, changedPrimitiveIds: string[], routingObstacles: any): number
-
-export declare function prepareRouteLayoutComparison(problem: any, changedPrimitiveIds: string[], routingObstacles: any): any
-
-export declare function compareRouteLayoutCandidate(problem: any, routingObstacles: any, baseline: any): any
+export declare function scoreFastRouteLayout(problem: any): number

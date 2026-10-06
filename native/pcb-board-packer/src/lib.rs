@@ -1,6 +1,4 @@
 mod post_place_refine;
-#[cfg(feature = "placement-bench")]
-mod post_place_probe;
 mod block_solver;
 mod compute;
 mod fast_route;
@@ -14,7 +12,6 @@ mod rotation;
 mod numerics;
 mod lazy_rank;
 mod model;
-mod micro_router;
 mod net_class;
 mod ordinary_net;
 mod passive_island_solver;
@@ -27,7 +24,7 @@ mod signal_path;
 mod solver;
 
 use model::{
-    BlockSolveProblem, BoardPackProblem, PassiveIslandProblem, PostPlaceScoreProblem, RouteObstacle,
+    BlockSolveProblem, BoardPackProblem, PassiveIslandProblem, PostPlaceScoreProblem,
     SignalPathBridgeProblem, SignalPathEvaluationProblem,
 };
 use napi::{Error, Result, Status};
@@ -109,8 +106,6 @@ pub fn placement_orientation_weight(problem: Value) -> Result<f32> {
     Ok(placement_quality::orientation_weight(&problem))
 }
 
-#[napi]
-pub fn placement_pad_crossing_weight() -> f32 { 180.0 }
 
 #[napi]
 pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
@@ -120,7 +115,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 5 }
+pub fn placement_score_contract_version() -> u32 { 6 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {
@@ -264,75 +259,16 @@ pub fn solve_board_packed(mut problem: Value) -> Result<Value> {
     Ok(output)
 }
 
+/// Canonical full-layout geometric routing score (also used by solver stages).
 #[napi]
-pub fn score_route_layout(mut problem: Value, changed_primitive_ids: Vec<String>) -> Result<f32> {
+pub fn score_fast_route_layout(mut problem: Value) -> Result<f32> {
     let _float_env = float_env::Guard::enter();
     boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
     let problem: BoardPackProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
-    problem
-        .validate(CONTRACT_VERSION)
-        .map_err(invalid_problem)?;
-    Ok(micro_router::changed_layout_penalty(
-        &problem.primitives,
-        &problem.relations,
-        problem.bounds,
-        &problem.board_outline,
-        &problem.obstacles,
-        &[],
-        &changed_primitive_ids,
-        &micro_router::MicroRouteConfig::post_place(),
-    ))
-}
-
-#[napi]
-pub fn score_route_layout_with_obstacles(
-    mut problem: Value,
-    changed_primitive_ids: Vec<String>,
-    mut routing_obstacles: Value,
-) -> Result<f32> {
-    let _float_env = float_env::Guard::enter();
-    let frame = boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
-    frame.localize_related(&mut routing_obstacles).map_err(invalid_problem)?;
-    let problem: BoardPackProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
     problem.validate(CONTRACT_VERSION).map_err(invalid_problem)?;
-    let routing_obstacles: Vec<RouteObstacle> =
-        serde_json::from_value(routing_obstacles).map_err(invalid_problem)?;
-    Ok(micro_router::changed_layout_penalty(
-        &problem.primitives,
-        &problem.relations,
-        problem.bounds,
-        &problem.board_outline,
-        &problem.obstacles,
-        &routing_obstacles,
-        &changed_primitive_ids,
-        &micro_router::MicroRouteConfig::post_place(),
-    ))
-}
-
-/// Freeze and evaluate one bounded job plan on the current layout.
-#[napi]
-pub fn prepare_route_layout_comparison(mut problem: Value, changed_primitive_ids: Vec<String>, mut routing_obstacles: Value) -> Result<Value> {
-    let _float_env = float_env::Guard::enter();
-    let frame = boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
-    frame.localize_related(&mut routing_obstacles).map_err(invalid_problem)?;
-    let problem: BoardPackProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
-    problem.validate(CONTRACT_VERSION).map_err(invalid_problem)?;
-    let obstacles: Vec<RouteObstacle> = serde_json::from_value(routing_obstacles).map_err(invalid_problem)?;
-    serde_json::to_value(micro_router::comparison::prepare(&problem, &obstacles, &changed_primitive_ids)).map_err(invalid_problem)
-}
-
-/// Evaluate a variant against exactly the baseline's terminal pairs and order.
-#[napi]
-pub fn compare_route_layout_candidate(mut problem: Value, mut routing_obstacles: Value, baseline: Value) -> Result<Value> {
-    let _float_env = float_env::Guard::enter();
-    let frame = boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
-    frame.localize_related(&mut routing_obstacles).map_err(invalid_problem)?;
-    let problem: BoardPackProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
-    problem.validate(CONTRACT_VERSION).map_err(invalid_problem)?;
-    let obstacles: Vec<RouteObstacle> = serde_json::from_value(routing_obstacles).map_err(invalid_problem)?;
-    let baseline: micro_router::comparison::RouteBaseline = serde_json::from_value(baseline).map_err(invalid_problem)?;
-    let result = micro_router::comparison::compare(&problem, &obstacles, &baseline).map_err(invalid_problem)?;
-    serde_json::to_value(result).map_err(invalid_problem)
+    let mut obstacles=problem.routing_obstacles.clone();
+    obstacles.extend(problem.obstacles.iter().map(|b| model::RouteObstacle {box_:*b,layer:None,reference:None,net:None,primitive_id:None}));
+    Ok(fast_route::layout_plan(&problem.primitives.iter().collect::<Vec<_>>(), &obstacles, &[], &[], problem.clearance, problem.bounds, &problem.relations).cpu())
 }
 
 #[napi]

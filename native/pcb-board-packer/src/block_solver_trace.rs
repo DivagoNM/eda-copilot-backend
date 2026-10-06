@@ -36,9 +36,8 @@ pub(super) fn parts(ps: &[WorkingPrimitive], c: &Context) -> Value {
         else { ps.iter().map(|p|p.primitive.placements.len()).sum() };
     let small = n > 0 && n < 5;
     let (signal,ground) = same_net_spread_penalties(ps,c,if small {None} else {Some(3)},if small {None} else {Some(4.0)});
-    json!({"total":score_block(ps,c),
+    json!({"baseTotal":score_block(ps,c),
         "relations":scoped_relation_penalty(ps,c) * if high {0.45} else {1.0},
-        "padCrossings":if c.problem.experiments.pad_crossings {direct_pad_crossing_penalty(ps,c)} else {0.0},
         "signalSpread":signal * if small {18.0} else {4.0} * if high {0.65} else {1.0},
         "groundSpread":ground * if small {2.5} else {0.15} * if high {0.65} else {1.0},
         "longNets":if c.problem.experiments.long_nets {long_local_net_penalty(ps,c)} else {0.0},

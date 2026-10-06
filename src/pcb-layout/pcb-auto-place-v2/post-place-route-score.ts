@@ -1,5 +1,4 @@
 import * as fp from '../f32.ts';
-import { performance } from 'node:perf_hooks';
 import type {
     PcbComponent,
     Placement,
@@ -20,8 +19,6 @@ import { createClearanceResolver, type ClearanceResolver } from '../pcb-auto-pla
 import { buildPlacementGraph } from '../pcb-auto-place/placement-graph.ts';
 import type { PlacementPrimitive } from './primitives.ts';
 import { encodeNativeBoardPackProblem } from './native/encode-board-problem.ts';
-import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
-import type { NativeRouteBaseline } from './native/contract.ts';
 
 export type PostPlaceRouteScoreContext = {
     timing?: { encodingMs: number; nativeMs: number };
@@ -37,53 +34,6 @@ export function createPostPlaceRouteScoreContext(input: PlacementInput): PostPla
         componentByDesignator: new Map(input.components.map((component) => [component.designator, component])),
         clearanceResolver: createClearanceResolver(input),
     };
-}
-
-/**
- * Route-aware score used only for local post-place variants. The native
- * Micro-A* receives component-level primitives so endpoint carving never makes
- * unrelated siblings in a larger block/macro transparent.
- */
-export function postPlaceRoutePenalty(
-    input: PlacementInput,
-    placements: Placement[],
-    changedDesignators: Set<string>,
-    context: PostPlaceRouteScoreContext,
-) {
-    if (changedDesignators.size === 0) return 0;
-    const { problem, routingObstacles } = routeLayoutProblem(input, placements, context);
-    const changedPrimitiveIds = [...changedDesignators].sort().map((designator) => `post:${designator}`);
-    return loadNativeBoardPacker().scoreRouteLayoutWithObstacles(problem, changedPrimitiveIds, routingObstacles);
-}
-
-/** Cache only for the current refinement iteration, once per changed set. */
-export function preparePostPlaceRouteComparison(
-    input: PlacementInput, placements: Placement[], changedDesignators: Set<string>, context: PostPlaceRouteScoreContext,
-): NativeRouteBaseline {
-    const started = performance.now();
-    const { problem, routingObstacles } = routeLayoutProblem(input, placements, context);
-    const encoded = performance.now();
-    const result = loadNativeBoardPacker().prepareRouteLayoutComparison(problem,
-        [...changedDesignators].sort().map((designator) => `post:${designator}`), routingObstacles);
-    if (context.timing) {
-        context.timing.encodingMs += encoded - started;
-        context.timing.nativeMs += performance.now() - encoded;
-    }
-    return result;
-}
-
-export function comparePostPlaceRouteCandidate(
-    input: PlacementInput, placements: Placement[], baseline: NativeRouteBaseline, context: PostPlaceRouteScoreContext,
-) {
-    const started = performance.now();
-    const { problem, routingObstacles } = routeLayoutProblem(input, placements, context);
-    const encoded = performance.now();
-    const result = loadNativeBoardPacker().compareRouteLayoutCandidate(problem, routingObstacles, baseline);
-    if (context.timing) {
-        context.timing.encodingMs += encoded - started;
-        context.timing.nativeMs += performance.now() - encoded;
-    }
-    return result;
 }
 
 export function routeLayoutProblem(input: PlacementInput, placements: Placement[], context: PostPlaceRouteScoreContext) {

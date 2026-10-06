@@ -76,7 +76,6 @@ Each `totals` entry is `[count, total_nanoseconds]`. For timed operations, `coun
 | `candidate_hard_violation_count`, `hard_geometry_violation_count` | Hard-constraint checks of a proposed primitive and full-geometry checks. |
 | `candidates_pruned_hard`, `candidates_pruned_score` | Candidates rejected because hard rank could not enter the shortlist or partial score exceeded its safe bound. |
 | `score_block_with_overlap_matrix` | Full or bounded block score calculation (the main scoring envelope). |
-| `block_micro_route_penalty` | Extra route-quality check on shortlisted candidates. **Historical name:** with `routing_metric=geometric`, this calls the fast geometric route penalty, not Micro-A*. `routing_metric=off` returns zero; micro routing is used only if explicitly selected. |
 | `convex_hull`, `overlap_penalty` | Compactness hull and physical overlap parts of the score. |
 | `dense_ic_access_penalty`, `external_port_exposure_penalty`, `port_facing_penalty` | Room to escape IC pads, access to external block connections, and port direction. |
 | `scoped_relation_penalty`, `same_net_spread_penalties`, `signal_path_topology` | DSL relation distances, spread of pads on the same net, and signal-path structure. |
@@ -95,14 +94,16 @@ All `*Ms` fields here are milliseconds. The pass generates possible moves, rejec
 | `geometryMs`, `hardRejected` | Time checking hard placement violations and number rejected there. |
 | `globalScoreMs`, `scoreNativeMs` | Time scoring candidate board geometry inside Rust. These currently measure the same work. |
 | `scoreEncodingMs` | Reserved for encoding a score request across a language boundary. Current native refinement scores directly in Rust, so this stays `0`; it is not missing measurement of `globalScoreMs`. |
-| `baselineEvaluations`, `baselineCacheHits`, `baselineMs` | Route baselines computed, reused, and time spent computing new baselines. Used for route-aware refinement. |
-| `boundRejected` | Candidate rejected by an optimistic route-improvement bound before the route comparison. |
-| `routeEvaluations`, `routeMs` | Number and time of detailed route comparisons. `0` means this pass used geometric scoring, or no candidate reached route comparison; it does **not** mean no connections were scored. |
-| `routeNativeMs` | Native route work including baseline preparation and comparison. |
+| `baselineEvaluations`, `baselineCacheHits`, `baselineMs` | Retired Micro-A* counters, retained as zero for profile compatibility. |
+| `boundRejected` | Retired Micro-A* bound counter; zero. |
+| `routeEvaluations`, `routeMs` | Retired separate route-comparison counters; zero. FastRoute is part of the complete score. |
+| `routeNativeMs` | Retired separate route-comparison timer; zero. |
 | `routeEncodingMs` | Reserved route-request encoding time; stays `0` in the current all-Rust path. |
-| `feasibilityRejected` | Candidates rejected because the route comparison worsened feasibility. |
+| `feasibilityRejected` | Retired Micro-A* feasibility counter; zero. Physical placement checks remain in `hardRejected`. |
 | `insufficientImprovement` | Legal candidates whose improvement did not exceed the configured minimum. |
 | `accepted` | Whether this iteration applied a best move. |
 | `timedOut` | Whether the overall refinement deadline had been reached by the end of this iteration. |
 
 For example, `routeEvaluations=0`, `scoreEncodingMs=0`, and `globalScoreMs>0` means the pass still scored candidates, entirely inside Rust, without a detailed route comparison. `total` can exceed the sum of per-field times because it also includes setup, scheduling, diagnostics, and other uninstrumented work.
+
+FastRoute GPU jobs appear under the shared runtime queue class `geometric-route`. Set `PCB_ROUTE_GPU_PROFILE=1` to log path/work counts and small-work CPU admission. See [unified FastRoute](experimental/pcb/unified-fast-route/README.md) for the shared score, backend policy and old-capture migration.

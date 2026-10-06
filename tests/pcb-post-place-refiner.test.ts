@@ -48,8 +48,6 @@ test.describe('post-place refinement', () => {
         assert.ok(result.scoreAfter < result.scoreBefore);
         assert.ok(result.moves.every((candidate) => candidate.scoreAfter < candidate.scoreBefore));
         assert.ok(move);
-        assert.ok(Number.isFinite(move.routePenaltyBefore));
-        assert.ok(Number.isFinite(move.routePenaltyAfter));
         assert.ok(move.effectiveImprovement > 0);
     });
 
@@ -274,7 +272,6 @@ function gpuRefine(problem: object, backend: string, options: Record<string,stri
 test('post-place GPU preserves full scores, paths, layers, clearance and stable winners', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
     const input=pairInput();
     const problem=encodeNativePostPlaceRefineProblem(input,pairPlacements(),1);
-    problem.padCrossingWeight=13;
     const target=(component:number)=>({kind:'component' as const,component});
     problem.hints.push(
         {kind:'distance',source:target(0),target:target(2),all:false,weight:1.7,min:1,max:6},
@@ -291,6 +288,19 @@ test('post-place GPU preserves full scores, paths, layers, clearance and stable 
     assert.deepEqual(gpu.value,cpu.value);
     assert.match(gpu.log,/\[post-place-gpu\]/);
     assert.doesNotMatch(gpu.log,/fallback|validation failed/);
+});
+
+test('post-place batches FastRoute on GPU and replays the complete call on route failure', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
+    const problem=encodeNativePostPlaceRefineProblem(pairInput(),pairPlacements(),1);
+    const cpu=gpuRefine(problem,'cpu');
+    const gpu=gpuRefine(problem,'cubecl',{PCB_ROUTE_GPU_FORCE:'1',PCB_ROUTE_GPU_VERIFY:'1',PCB_ROUTE_GPU_PROFILE:'1',PCB_POST_PLACE_GPU_VERIFY:'1'});
+    assert.deepEqual(gpu.value,cpu.value);
+    assert.match(gpu.log,/\[geometric-route-gpu\]/);
+    assert.doesNotMatch(gpu.log,/fallback/);
+    const failed=gpuRefine(problem,'cubecl',{PCB_ROUTE_GPU_FAIL:'1'});
+    assert.deepEqual(failed.value,cpu.value);
+    assert.match(failed.log,/post-place-gpu-fallback/);
+    assert.match(failed.log,/injected geometric route failure/);
 });
 
 test('post-place GPU failure discards moves and restores the full CPU budget', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
@@ -574,17 +584,14 @@ test('native timeout stops serial and parallel search and leaves a reusable vali
     assert.deepEqual(parallel, serial);
 });
 
-test('board postrefine defaults to geometry without micro-router jobs; explicit micro remains available', () => {
+test('board postrefine uses the canonical geometric score', () => {
     const input=pairInput(), poses=pairPlacements(), addon=loadNativeBoardPacker();
     const problem=encodeNativePostPlaceRefineProblem(input,poses,1);
     assert.equal(problem.routingMetric,'geometric');
-    const micro=addon.refinePostPlacement({...problem,routingMetric:'micro'});
-    assert.ok(micro.profile.iterations.some(p=>p.routeEvaluations>0));
     const block=addon.refinePostPlacement(problem);
     assert.ok(block.moves.length>0);
     assert.ok(block.scoreAfter<block.scoreBefore);
     assert.ok(block.profile.iterations.every(p=>p.routeEvaluations===0));
-    assert.ok(block.moves.every(m=>m.routePenaltyBefore===0&&m.routePenaltyAfter===0));
 });
 
 

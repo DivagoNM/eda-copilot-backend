@@ -21,9 +21,10 @@ fn evaluate(f:&Array<f32>,n:&Array<u32>,obstacles:&Array<f32>,links:&Array<f32>,
     }
 }
 impl Plan {
-    pub(crate) fn gpu(&self)->Result<f32,Error> {
+    pub(crate) fn gpu(&self)->Result<f32,Error> { Ok(self.gpu_many()?.into_iter().reduce(|a,b|a+b).unwrap_or(0.0)) }
+    pub(crate) fn gpu_many(&self)->Result<Vec<f32>,Error> {
         let count=self.ints.len()/5;
-        if count==0 {return Ok(self.reduce(&[]));}
+        if count==0 {return Ok(self.reduce_many(&[]));}
         if std::env::var("PCB_ROUTE_GPU_FAIL").as_deref()==Ok("1") {return Err("injected geometric route failure".into());}
         // A saved nine-primitive block regressed with one GPU dispatch per tiny
         // correction. Keep small batches on the identical shared CPU evaluator.
@@ -33,7 +34,7 @@ impl Plan {
             if std::env::var("PCB_ROUTE_GPU_PROFILE").as_deref()==Ok("1") {
                 eprintln!("[geometric-route-cpu] {}",serde_json::json!({"paths":count,"work":work,"reason":"below GPU work threshold"}));
             }
-            return Ok(self.cpu());
+            return Ok(self.reduce_many(&self.cpu_paths()));
         }
         let started=std::time::Instant::now();
         let paths=gpu::with_batch(Requirements{f32:true,u64:false},"geometric-route",count,|session| {
@@ -64,7 +65,7 @@ impl Plan {
         if std::env::var("PCB_ROUTE_GPU_PROFILE").as_deref()==Ok("1") {
             eprintln!("[geometric-route-gpu] {}",serde_json::json!({"paths":count,"jobs":count/7,"work":work,"wallMs":started.elapsed().as_secs_f64()*1000.0}));
         }
-        Ok(self.reduce(&paths))
+        Ok(self.reduce_many(&paths))
     }
 }
 

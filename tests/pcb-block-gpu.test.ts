@@ -89,7 +89,7 @@ function problem(): NativeBlockSolveProblemV4 {
         componentPairClearance: Array.from({ length: n * n }, (_, i) => Math.floor(i / n) === i % n ? 0 : .25),
         relations: [{ id: 'facing', kind: 'critical_pair', from: 'C0.1', to: 'C1.1', hard: false,
             effect: 'move_both', satelliteAnchor: false, preferFacingPads: true, pathId: 'path', pathShape: 'straight', weight: 2, maxDistance: 4 }],
-        experiments: { routingMetric: 'geometric', localAccess: true, stableNetWeight: true, padCrossings: true,
+        experiments: { routingMetric: 'geometric', localAccess: true, stableNetWeight: true,
             netCandidates: false, longNets: true, pairSwaps: true, reinsertPair: true } };
 }
 

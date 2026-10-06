@@ -15,21 +15,23 @@ import { withBlockSolverCapture } from '../src/pcb-layout/pcb-auto-place-v2/bloc
 import { solvePlacementTreeBottomUp } from '../src/pcb-layout/pcb-auto-place-v2/tree-solver.ts';
 import { buildPlacementGraph } from '../src/pcb-layout/pcb-auto-place/placement-graph.ts';
 
-test('internal IC segment ignores only its own IC pads; every foreign pad still costs', () => {
+test('FastRoute uses the same obstacle model for internal and external connections', () => {
     const addon = loadNativeBoardPacker();
     const problem: NativePostPlaceScoreProblemV1 = {
-        version: 1, padCrossingWeight: 180, nets: [{ name: 'N', points: [{x:0,y:0},{x:4,y:0}],
+        version: 1, routeClearance: 0.25, nets: [{ name: 'N', points: [{x:0,y:0},{x:4,y:0}],
             weight: 1, layers: ['top','top'], internalOwners: ['U1','U1'] }],
         routingObstacles: ['U1.3','U1.4','R1.1','R2.1'].map((ref,i)=>({ref, net:'OTHER',layer:'top',
             box:{left:.5+i*.5,right:.7+i*.5,top:-.1,bottom:.1}})),
         distances:[], clearances:[], fixedPenalties:[], edges:[], paths:[],
     };
     const baseline = addon.scorePostPlace({...problem,routingObstacles:[]});
-    assert.ok(Math.abs(addon.scorePostPlace(problem)-baseline-360) <= f32ScoreTolerance(addon.scorePostPlace(problem),baseline));
+    const score = addon.scorePostPlace(problem);
+    assert.ok(score > baseline);
     problem.nets[0].internalOwners = ['U1',null];
-    assert.ok(Math.abs(addon.scorePostPlace(problem)-baseline-720) <= f32ScoreTolerance(addon.scorePostPlace(problem),baseline), 'external line still sees unrelated IC pads');
+    assert.equal(addon.scorePostPlace(problem),score, 'owner metadata does not switch route formulas');
     problem.routingObstacles!.push(problem.routingObstacles![2]);
-    assert.ok(Math.abs(addon.scorePostPlace(problem)-baseline-720) <= f32ScoreTolerance(addon.scorePostPlace(problem),baseline), 'duplicate physical pad is charged once');
+    assert.equal(addon.scorePostPlace(problem),score, 'duplicate physical pad is charged once');
+
 });
 
 const input = (): PlacementInput => JSON.parse(readFileSync(new URL('./fixtures/block-placement/Telemetry/input.json', import.meta.url),'utf8'));
@@ -64,7 +66,7 @@ test('a small area saving cannot buy several times longer C9 links; bad variants
     assert.ok(a.links['C9.1->U2']<3 && b.links['C9.1->U2']>7);
     assert.ok(b.area<a.area, 'the damaging historical move really did save area');
     assert.ok(b.localStretch>a.localStretch+200);
-    assert.ok(b.score>a.score+200);
+    assert.ok(b.score>a.score, 'the full FastRoute objective still rejects the damaging move');
     const worse=b;
     assert.equal(comparableBlockQuality(worse,a),false);
     const candidate={stage:'singles',hypothesis:'role:C9=passive',primitives:near,quality:a};

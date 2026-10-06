@@ -6,15 +6,21 @@ use rustc_hash::FxHashMap;
 
 pub(super) enum Cost {
     Constant(f32), Job(usize), Add(Box<Cost>,Box<Cost>), Min(Box<Cost>,Box<Cost>),
-    Scale(Box<Cost>,f32), PositiveDifference(Box<Cost>,Box<Cost>),
+    Scale(Box<Cost>,f32),
 }
 impl Cost {
+    fn offset(&mut self, offset: usize) {
+        match self {
+            Self::Job(i) => *i += offset,
+            Self::Add(a,b) | Self::Min(a,b) => { a.offset(offset); b.offset(offset); },
+            Self::Scale(a,_) => a.offset(offset), Self::Constant(_) => {},
+        }
+    }
     pub fn min(self, other: Self) -> Self { Self::Min(Box::new(self),Box::new(other)) }
-    pub fn positive_difference(self, other: Self) -> Self { Self::PositiveDifference(Box::new(self),Box::new(other)) }
     fn value(&self, jobs: &[f32]) -> f32 { match self {
         Self::Constant(v)=>*v, Self::Job(i)=>jobs[*i],
         Self::Add(a,b)=>a.value(jobs)+b.value(jobs), Self::Min(a,b)=>a.value(jobs).min(b.value(jobs)),
-        Self::Scale(a,b)=>a.value(jobs)*b, Self::PositiveDifference(a,b)=>(a.value(jobs)-b.value(jobs)).max(0.0),
+        Self::Scale(a,b)=>a.value(jobs)*b,
     } }
 }
 impl std::ops::Add for Cost { type Output=Self; fn add(self,b:Self)->Self { Self::Add(Box::new(self),Box::new(b)) } }
@@ -37,6 +43,20 @@ fn intern(data: Vec<f32>, storage: &mut Vec<f32>, sets: &mut FxHashMap<Vec<u32>,
     })
 }
 impl Plan {
+    /// One root per layout, one dispatch for the whole candidate batch.
+    pub(crate) fn append(&mut self, mut other: Self) {
+        let jobs=self.ints.len()/35;
+        for root in &mut other.roots { root.offset(jobs); }
+        let obstacles=(self.obstacles.len()/4) as u32;
+        let links=(self.links.len()/5) as u32;
+        for n in other.ints.chunks_exact_mut(5) { n[1]+=obstacles; n[3]+=links; }
+        self.floats.extend(other.floats); self.ints.extend(other.ints);
+        self.obstacles.extend(other.obstacles); self.links.extend(other.links); self.roots.extend(other.roots);
+    }
+    pub(super) fn reduce_many(&self,paths:&[f32])->Vec<f32> {
+        let jobs:Vec<_>=paths.chunks_exact(7).map(|p|p.iter().copied().reduce(f32::min).unwrap()).collect();
+        self.roots.iter().map(|c|c.value(&jobs)).collect()
+    }
     // Approximate segment/obstacle work, including the clearance-band test.
     // Used only for dispatch admission, never for scores or candidate pruning.
     pub(super) fn work(&self)->usize {
@@ -68,7 +88,7 @@ impl Plan {
     }
     pub(super) fn reduce(&self,paths:&[f32])->f32 {
         let jobs:Vec<_>=paths.chunks_exact(7).map(|p|p.iter().copied().reduce(f32::min).unwrap()).collect();
-        // Separate roots represent the original board outgoing + added correction.
+        // Scalar callers sum roots; batched callers keep one result per layout.
         self.roots.iter().map(|c|c.value(&jobs)).reduce(|a,b|a+b).unwrap_or(0.0)
     }
     pub(crate) fn cpu(&self)->f32 { self.reduce(&self.cpu_paths()) }

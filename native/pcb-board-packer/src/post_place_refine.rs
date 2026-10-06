@@ -1,5 +1,5 @@
 //! Complete post-placement search. Input is decoded once; candidate evaluation
-//! stays on scoped Rust threads with private baseline caches and ordered reduction.
+//! stays on scoped Rust threads with private geometry caches and ordered reduction.
 use crate::geometry::{
     box_inside_polygon_board, js_round, normalize_rotation, union_boxes, Box2, Point,
 };
@@ -7,10 +7,7 @@ use crate::model::{
     BoardPackProblem, ConnectionPoint, PathPort, Placement, PostPlaceClearance, PostPlaceDistance,
     PostPlaceEdge, PostPlaceNet, PostPlacePath, PostPlaceScoreProblem, RouteObstacle,
 };
-use crate::{
-    micro_router::comparison::{self, RouteBaseline, RouteComparison},
-    post_place,
-};
+use crate::post_place;
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -29,7 +26,7 @@ mod gpu;
 
 #[derive(Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-enum RefineRoutingMetric { #[default] Micro, Geometric }
+enum RefineRoutingMetric { #[default] Geometric }
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -37,8 +34,6 @@ pub struct RefineProblem {
     version: u32,
     #[serde(default)]
     routing_metric: RefineRoutingMetric,
-    #[serde(default)]
-    pad_crossing_weight: f32,
     threads: usize,
     iterations: usize,
     timeout_ms: u64,
@@ -489,11 +484,11 @@ impl RefineProblem {
     fn score(&self, w: &World) -> Result<f32, String> { post_place::score(&self.score_problem(w)) }
     fn score_problem(&self, w: &World) -> PostPlaceScoreProblem {
         let mut p = PostPlaceScoreProblem {
+            route_clearance: w.route.clearance,
             access_components: self.access_components(w),
             explicit_connections: crate::fast_route::explicit_connections(&w.route.primitives.iter().collect::<Vec<_>>(), &w.route.relations, &w.obstacles),
             version: 1,
-            pad_crossing_weight: self.pad_crossing_weight,
-            routing_obstacles: if self.pad_crossing_weight > 0.0 { w.obstacles.clone() } else { vec![] },
+            routing_obstacles: w.obstacles.clone(),
             nets: self
                 .nets
                 .iter()
@@ -1004,11 +999,9 @@ impl BatchProfile {
 }
 struct Cache {
     violations: FxHashSet<String>,
-    baseline: Option<RouteBaseline>,
 }
 struct Evaluation {
     score: f32,
-    comparison: RouteComparison,
     improvement: f32,
 }
 fn elapsed(s: Instant) -> f64 {
@@ -1022,7 +1015,7 @@ fn evaluate(
     scratch: &mut World,
     cache: &mut FxHashMap<Vec<usize>, Cache>,
     stats: &mut BatchProfile,
-    incumbent: Option<f32>,
+    _incumbent: Option<f32>,
     precomputed: Option<f32>,
     deadline: Instant,
 ) -> Result<Option<Evaluation>, String> {
@@ -1043,7 +1036,6 @@ fn evaluate(
         let started = Instant::now();
         let entry = cache.entry(changed.clone()).or_insert_with(|| Cache {
             violations: if precomputed.is_some() { FxHashSet::default() } else { p.violations(current, &changed) },
-            baseline: None,
         });
         let world = &*scratch;
         let valid = precomputed.is_some() || p.violations(world, &changed).is_subset(&entry.violations);
@@ -1063,68 +1055,9 @@ fn evaluate(
         if Instant::now() >= deadline {
             return Ok(None);
         }
-        // Geometric refinement accepts against the existing native score only.
-        // Both local blocks and the board can explicitly select this mode.
-        if p.routing_metric == RefineRoutingMetric::Geometric {
-            let improvement = current_score - score;
-            if improvement <= p.min_delta {
-                stats.insufficient_improvement += 1;
-                return Ok(None);
-            }
-            return Ok(Some(Evaluation { score, comparison: RouteComparison::default(), improvement }));
-        }
-        if entry.baseline.is_none() {
-            let started = Instant::now();
-            let ids: Vec<_> = changed
-                .iter()
-                .map(|i| format!("post:{}", p.components[*i].designator))
-                .collect();
-            entry.baseline = Some(comparison::prepare(
-                &current.route,
-                &current.obstacles,
-                &ids,
-            ));
-            let time = elapsed(started);
-            stats.baseline_ms += time;
-            stats.route_native_ms += time;
-            stats.baseline_evaluations += 1;
-        } else {
-            stats.baseline_cache_hits += 1;
-        }
-        if Instant::now() >= deadline {
-            return Ok(None);
-        }
-        let baseline = entry.baseline.as_ref().unwrap();
-        if let Some(upper)=comparison::total_improvement_ceiling(baseline,current_score,score) {
-            use crate::interval::Interval as I;
-            if upper < p.min_delta
-                || incumbent.is_some_and(|best| upper < I::exact(best).sub(I::exact(EPS)).lo)
-            {
-                stats.bound_rejected += 1;
-                return Ok(None);
-            }
-        }
-        let started = Instant::now();
-        let comparison = comparison::compare(&world.route, &world.obstacles, baseline)?;
-        let time = elapsed(started);
-        stats.route_ms += time;
-        stats.route_native_ms += time;
-        stats.route_evaluations += 1;
-        if comparison.feasibility_order > 0 {
-            stats.feasibility_rejected += 1;
-            return Ok(None);
-        }
-        let improvement =
-            (current_score + comparison.before_penalty) - (score + comparison.after_penalty);
-        if improvement <= p.min_delta {
-            stats.insufficient_improvement += 1;
-            return Ok(None);
-        }
-        Ok(Some(Evaluation {
-            score,
-            comparison,
-            improvement,
-        }))
+        let improvement = current_score - score;
+        if improvement <= p.min_delta { stats.insufficient_improvement += 1; return Ok(None); }
+        Ok(Some(Evaluation { score, improvement }))
     })();
     // Revert every changed pose, including rejected and failed evaluations.
     for (i, pose) in &previous {
@@ -1481,8 +1414,7 @@ fn solve_inner(p:&RefineProblem,started:Instant,#[cfg(feature="gpu")] engine:&mu
             break;
         };
         let c = &candidates[i];
-        let r = &best.comparison;
-        moves.push(json!({"kind":c.kind,"designators":c.changes.iter().map(|(i,_)|p.components[*i].designator.as_ref()).collect::<Vec<_>>(),"description":c.description,"scoreBefore":rounded(current_score),"scoreAfter":rounded(best.score),"routePenaltyBefore":rounded(r.before_penalty),"routePenaltyAfter":rounded(r.after_penalty),"effectiveImprovement":rounded(best.improvement),"routeJobCount":r.jobs.len(),"routeUnresolvedBefore":r.unresolved_before,"routeUnresolvedAfter":r.unresolved_after,"routeBudgetExhaustedBefore":r.budget_exhausted_before,"routeBudgetExhaustedAfter":r.budget_exhausted_after}));
+        moves.push(json!({"kind":c.kind,"designators":c.changes.iter().map(|(i,_)|p.components[*i].designator.as_ref()).collect::<Vec<_>>(),"description":c.description,"scoreBefore":rounded(current_score),"scoreAfter":rounded(best.score),"effectiveImprovement":rounded(best.improvement)}));
         for (i, pose) in &c.changes {
             p.apply(&mut current, *i, pose)?;
         }
@@ -1511,9 +1443,8 @@ fn solve_inner(p:&RefineProblem,started:Instant,#[cfg(feature="gpu")] engine:&mu
 #[cfg(feature="gpu")]
 fn gpu_iteration(p:&RefineProblem,current:&World,current_score:f32,candidates:&[Candidate],threads:usize,deadline:Instant,engine:&mut gpu::Engine)->Result<(Vec<Option<Evaluation>>,BatchProfile),String>{
     let chunk_size=engine.chunk_size()?;
-    // Completed geometric groups feed the original CPU route evaluator while
-    // the producer works on the next GPU batch. A route group never spans
-    // workers, so its baseline cache and feasibility sequence stay intact.
+    // Completed full scores feed ordered CPU acceptance while the producer
+    // evaluates the next GPU batch. Hard-geometry baselines stay group-local.
     let mut groups:Vec<Vec<usize>>=Vec::new();
     if threads<=1 {for chunk in (0..candidates.len()).collect::<Vec<_>>().chunks(chunk_size){groups.push(chunk.to_vec());}}
     else {let mut map=FxHashMap::default();for (i,c) in candidates.iter().enumerate(){let key=c.changes.iter().map(|(i,_)|*i).collect::<Vec<_>>();let id=*map.entry(key).or_insert_with(||{groups.push(vec![]);groups.len()-1});groups[id].push(i);}}

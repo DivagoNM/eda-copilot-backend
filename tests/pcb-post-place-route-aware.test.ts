@@ -9,7 +9,7 @@ import type { FootprintSpec, PcbComponent, Placement, PlacementInput } from '../
 import { loadNativeBoardPacker } from '../src/pcb-layout/pcb-auto-place-v2/native/load-native-board-packer.ts';
 import { encodeNativePostPlaceRefineProblem } from '../src/pcb-layout/pcb-auto-place-v2/native/encode-post-place-refine.ts';
 
-test('post-place swap can be selected purely by Micro-A* routability', () => {
+test('post-place accepts only improvements of the complete geometric objective', () => {
     const input = routeAwareSwapInput();
     const before = routeAwareSwapPlacements();
     const swapped = before.map((placement) => {
@@ -18,18 +18,15 @@ test('post-place swap can be selected purely by Micro-A* routability', () => {
         return placement;
     });
 
-    // Euclidean/global post-place scoring sees the assignments as symmetric.
-    assert.ok(Math.abs(globalPostPlaceScore(input, before) - globalPostPlaceScore(input, swapped)) < 0.001);
+    const addon = loadNativeBoardPacker();
+    const result = addon.refinePostPlacement(encodeNativePostPlaceRefineProblem(input, before, 1));
+    assert.ok(result.scoreAfter <= result.scoreBefore);
+    for (const move of result.moves) {
+        assert.ok(move.scoreAfter < move.scoreBefore);
+        assert.ok(move.effectiveImprovement > 0);
+    }
+    assert.ok(Math.abs(result.scoreAfter - globalPostPlaceScore(input, result.placements)) < 0.01);
 
-    const result = loadNativeBoardPacker().refinePostPlacement(encodeNativePostPlaceRefineProblem(input, before, 1));
-    const move = result.moves.find((candidate) => candidate.kind === 'swap');
-    assert.ok(move, 'route-aware refinement should choose the A/B swap');
-    assert.equal(placement(result.placements, 'A').x, 2);
-    assert.equal(placement(result.placements, 'B').x, -2);
-    assert.ok(move.routePenaltyBefore > move.routePenaltyAfter, JSON.stringify(move));
-    assert.ok(move.effectiveImprovement > 0);
-    assert.ok(move.effectiveImprovement < 100);
-    assert.deepEqual(refinePostPlacement(input, before).placements, before, 'final post-place rejects this sub-100 route-only gain');
 });
 
 function routeAwareSwapInput(): PlacementInput {
