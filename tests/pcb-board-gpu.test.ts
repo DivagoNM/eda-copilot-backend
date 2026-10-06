@@ -13,6 +13,31 @@ const addonPath = resolve(process.env.PCB_BOARD_PACKER_NATIVE_PATH
     ?? resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename()));
 const gpuEnabled = process.env.PCB_BOARD_GPU_TESTS === '1';
 
+test('geometric route GPU preserves owned pads and replays the original board on failure', { skip: !gpuEnabled }, () => {
+    const p = minimalProblem();
+    p.searchWidth = 4;
+    const source = structuredClone(p.primitives[0]);
+    p.primitives = [0, 1, 2].map(i => ({ ...structuredClone(source), id: `P${i}`,
+        placements: [{ ...source.placements[0], designator: `U${i}` }],
+        connectionPoints: [{ ref: `U${i}.1`, net: i === 2 ? 'OTHER' : 'SIG', x: .8, y: 0 }],
+    }));
+    p.components = p.primitives.map((primitive, i) => ({ ...structuredClone(p.components[0]), primitiveId: primitive.id, designator: `U${i}` }));
+    p.componentConflict = Array.from({ length: 9 }, (_, i) => Number(Math.floor(i / 3) !== i % 3));
+    p.componentPairClearance = p.componentConflict.map(v => v * .2);
+    p.routingObstacles = p.primitives.map((primitive, i) => ({ primitiveId: primitive.id, ref: `U${i}.1`,
+        net: i === 2 ? 'OTHER' : 'SIG', layer: i === 1 ? 'bottom' : 'top',
+        box: { left: .6, right: 1, top: -.3, bottom: .3 } }));
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_ROUTE_GPU_VERIFY: '1', PCB_ROUTE_GPU_PROFILE: '1', PCB_ROUTE_GPU_FORCE: '1' });
+    assert.match(gpu.log, /\[geometric-route-gpu\]/);
+    assert.doesNotMatch(gpu.log, /board-gpu-fallback/);
+    assert.deepEqual(gpu.solution, cpu.solution);
+    const failed = run(p, 'cubecl', { PCB_ROUTE_GPU_FAIL: '1' });
+    assert.match(failed.log, /injected geometric route failure/);
+    assert.match(failed.log, /board-gpu-fallback/);
+    assert.deepEqual(failed.solution, cpu.solution);
+});
+
 function run(problem: NativeBoardPackProblemV7, backend: string | undefined, options: Record<string, string> = {}, boundaryError?: RegExp) {
     const child = spawnSync(process.execPath, ['--input-type=commonjs', '-e',
         'const fs=require("node:fs");const addon=require(process.argv[1]);const inputs=JSON.parse(fs.readFileSync(0,"utf8"));'

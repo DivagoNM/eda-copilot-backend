@@ -791,12 +791,13 @@ fn board_geometric_route_penalty(
         box_: *b, layer: None, reference: None, net: None, primitive_id: None,
     }));
     let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();
-    crate::fast_route::board_candidate_penalty(
-        &candidate.primitive, &placed_primitives, &obstacles,
+    let plan=crate::fast_route::board_plan(
+        &candidate.primitive, &placed_primitives, &obstacles, &candidate_pads,
         context.problem.clearance, context.problem.bounds, &context.problem.relations,
-    ) + crate::fast_route::added_obstacle_penalty(
-        &placed_primitives, &obstacles, &candidate_pads, context.problem.clearance, &context.problem.relations,
-    )
+    );
+    #[cfg(feature="gpu")]
+    if let Some(gpu)=&context.gpu { return gpu.route(&plan); }
+    plan.cpu()
 }
 
 fn position_candidates(

@@ -814,10 +814,15 @@ fn block_micro_route_penalty(
         for box_ in &context.problem.obstacles {
             obstacles.push(crate::model::RouteObstacle{box_:*box_,layer:None,reference:None,net:None,primitive_id:None});
         }
-        return crate::fast_route::candidate_penalty(&candidate.primitive,
+        let plan=crate::fast_route::candidate_plan(&candidate.primitive,
             &placed.iter().map(|p|&p.primitive).collect::<Vec<_>>(), &obstacles,
             &context.problem.external_nets,&context.problem.experiments.ignored_nets,context.problem.clearance,
             union_boxes(&all.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()), &context.problem.relations);
+        #[cfg(feature="gpu")]
+        if context.gpu_engine.borrow().is_some() {
+            return plan.gpu().unwrap_or_else(|error|cubecl::fail(error.to_string()));
+        }
+        return plan.cpu();
     }
     let bounds = micro_route_bounds(candidate, placed, context, &config);
     let placed_primitives: Vec<_> = placed.iter().map(|item| &item.primitive).collect();

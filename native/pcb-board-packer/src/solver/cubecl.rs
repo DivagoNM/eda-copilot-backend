@@ -638,6 +638,13 @@ impl Control {
         let call=if p.primitives.iter().any(|p|!p.locked) {Some(gpu::enter(REQUIREMENTS,gpu::Admission::explicit(explicit))?)}else{None};
         Ok(Arc::new(Self {engines:Mutex::new(vec![engine]),phase:Mutex::new("beam"),failure:Mutex::new(None),wait_nanos:AtomicU64::new(0),_call:call}))
     }
+    pub fn route(&self,plan:&crate::fast_route::plan::Plan)->f32 {
+        if self.failure().is_some() {std::panic::panic_any(Abort);}
+        match plan.gpu() { Ok(score)=>score, Err(error)=>{
+            *self.failure.lock().unwrap_or_else(|e|e.into_inner())=Some(error);
+            std::panic::panic_any(Abort);
+        }}
+    }
     pub fn failure(&self)->Option<Error> {self.failure.lock().unwrap_or_else(|e|e.into_inner()).clone()}
     pub fn legality(&self,fixed:&[WorkingPrimitive],states:&[Vec<WorkingPrimitive>],context:&Context)->Vec<Rank> {
         self.evaluate_mode(fixed,states,context,true,None).into_iter().map(|row|row.rank).collect()

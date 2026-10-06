@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Evaluate substantial board and block geometric route corrections in CubeCL batches when their solver uses GPU; keep tiny batches on shared CPU arithmetic to avoid dispatch overhead. Reuse one CPU/GPU path-arithmetic implementation, shared connection planning and ordered F32 reductions; cache layer filtering and intern repeated obstacle arrays. Preserve lazy candidate selection and full-call CPU recovery on GPU failure. See `docs/experimental/pcb/geometric-route-gpu/README.md` for validation and measurements.
+
 - Revise STEPPER_CONTROLLER for a clear top-side NEMA 17 motor face, two-sided screw access and an axis-centered bottom AS5600. Retain 45 mm width, grow height to 66 mm, inset ESP32-C3 over an antenna notch without protrusion, move through-hole interfaces outside the motor footprint and add functional satellites, ordered paths, hard power islands and fixture geometry assertions.
 
 - Redistribute STEPPER_CONTROLLER data/UART USB ports along the bottom-side motor-area edges, preserving user-approved flush USB tabs, actual electrical pad occupancy, supported pads and screw access. Keep the protruding driver module on top; make status pairs independently movable with electrical relations, and save the new full-run evidence and checked reference with explicit local repair provenance.

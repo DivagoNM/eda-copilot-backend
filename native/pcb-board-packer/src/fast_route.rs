@@ -6,6 +6,12 @@ use crate::model::{Primitive, RouteObstacle};
 use crate::net_class::is_ground;
 use std::sync::Arc;
 
+mod arithmetic;
+pub(crate) mod plan;
+#[cfg(feature="gpu")]
+mod gpu;
+use plan::{Cost, Plan};
+
 type Segment = (Point, Point);
 
 pub fn candidate_penalty(
@@ -18,14 +24,16 @@ pub fn candidate_penalty(
     bounds: Box2,
     relations: &[crate::model::Relation],
 ) -> f32 {
-    candidate_penalty_inner(candidate, placed, obstacles, external, ignored, clearance, bounds, false, relations)
+    candidate_plan(candidate, placed, obstacles, external, ignored, clearance, bounds, relations).cpu()
 }
 
 pub fn board_candidate_penalty(candidate: &Primitive, placed: &[&Primitive], obstacles: &[RouteObstacle], clearance: f32, bounds: Box2, relations: &[crate::model::Relation]) -> f32 {
-    candidate_penalty_inner(candidate, placed, obstacles, &[], &[], clearance, bounds, true, relations)
+    let mut plan=Plan::default();
+    let root=candidate_penalty_inner(&mut plan,candidate, placed, obstacles, &[], &[], clearance, bounds, true, relations);
+    plan.root(root); plan.cpu()
 }
 
-fn candidate_penalty_inner(candidate: &Primitive, placed: &[&Primitive], obstacles: &[RouteObstacle], external: &[Arc<str>], ignored: &[Arc<str>], clearance: f32, bounds: Box2, board: bool, relations: &[crate::model::Relation]) -> f32 {
+fn candidate_penalty_inner(plan:&mut Plan, candidate: &Primitive, placed: &[&Primitive], obstacles: &[RouteObstacle], external: &[Arc<str>], ignored: &[Arc<str>], clearance: f32, bounds: Box2, board: bool, relations: &[crate::model::Relation]) -> Cost {
     let all:Vec<_>=placed.iter().copied().chain(std::iter::once(candidate)).collect();
     let explicit=explicit_connections(&all,relations,obstacles);
     let eligible = |n: &str| {
@@ -43,7 +51,9 @@ fn candidate_penalty_inner(candidate: &Primitive, placed: &[&Primitive], obstacl
     // bus length; grow a deterministic nearest-edge spanning tree per net.
     let mut skeleton = skeleton(placed, &eligible, if board {usize::MAX} else {32});
     extend_explicit_skeleton(&mut skeleton,&explicit);
-    let mut total = 0.0;
+    let mut ordinary_layers=CompatibleLinks::new(&skeleton,placed,obstacles);
+    let mut explicit_layers=CompatibleLinks::new(&skeleton,&all,obstacles);
+    let mut total = Cost::Constant(0.0);
     for net in nets {
         let sources: Vec<_> = candidate
             .connection_points
@@ -81,62 +91,34 @@ fn candidate_penalty_inner(candidate: &Primitive, placed: &[&Primitive], obstacl
             .filter(|(_,a,b,_)| explicit_class(&net,*a,*b,&explicit)==0)
             .take(4)
             .map(|(_, a, b, layer)| {
-                let compatible = if board { compatible_links(&skeleton, placed, obstacles, layer.as_deref()) } else { skeleton.clone() };
-                weighted_path_cost(
+                let compatible = if board { ordinary_layers.get(layer.as_deref()) } else { &skeleton };
+                plan.path(
                     *a,
                     *b,
                     &net,
                     obstacles,
-                    &compatible,
+                    compatible,
                     clearance,
                     layer.as_deref(),
                     &explicit,
                 )
             })
-            .reduce(f32::min)
+            .reduce(Cost::min)
         {
-            total += best;
+            total = total + best;
         }
         if external.contains(&net) {
             // Keep an escape to some side of the block; actual neighbour direction
             // becomes known only to board-level portfolio selection.
-            let escape = sources
-                .iter()
-                .flat_map(|p| {
-                    let a = Point { x: p.x, y: p.y };
-                    [
-                        Point {
-                            x: bounds.left,
-                            y: p.y,
-                        },
-                        Point {
-                            x: bounds.right,
-                            y: p.y,
-                        },
-                        Point {
-                            x: p.x,
-                            y: bounds.top,
-                        },
-                        Point {
-                            x: p.x,
-                            y: bounds.bottom,
-                        },
-                    ]
-                    .map(|b| {
-                        path_cost(
-                            a,
-                            b,
-                            &net,
-                            obstacles,
-                            &skeleton,
-                            clearance,
-                            pad_layer(&p.reference, obstacles),
-                        ) + distance(a, b) * 0.25
-                    })
-                })
-                .reduce(f32::min)
-                .unwrap_or(0.0);
-            total += escape * 0.5;
+            let mut escapes=Vec::new();
+            for p in &sources {
+                let a=Point{x:p.x,y:p.y};
+                for b in [Point{x:bounds.left,y:p.y},Point{x:bounds.right,y:p.y},Point{x:p.x,y:bounds.top},Point{x:p.x,y:bounds.bottom}] {
+                    escapes.push(plan.path(a,b,&net,obstacles,&skeleton,clearance,pad_layer(&p.reference,obstacles),&[])+distance(a,b)*0.25);
+                }
+            }
+            let escape=escapes.into_iter().reduce(Cost::min).unwrap_or(Cost::Constant(0.0));
+            total = total + escape * 0.5;
         }
     }
     let mut seen=Vec::new();
@@ -144,8 +126,8 @@ fn candidate_penalty_inner(candidate: &Primitive, placed: &[&Primitive], obstacl
         if !candidate.connection_points.iter().any(|p|p.net.as_ref()==Some(&e.net) && (distance(Point{x:p.x,y:p.y},e.source)<0.001||distance(Point{x:p.x,y:p.y},e.target)<0.001)) {continue;}
         if distance(e.source,e.target)<0.001 || seen.iter().any(|other:&crate::model::ExplicitConnection|same_explicit(other,e)) {continue;}
         seen.push(e.clone());
-        let compatible=compatible_links(&skeleton,&all,obstacles,e.layer.as_deref());
-        total+=weighted_path_cost(e.source,e.target,&e.net,obstacles,&compatible,clearance,e.layer.as_deref(),&explicit);
+        let compatible=explicit_layers.get(e.layer.as_deref());
+        total=total+plan.path(e.source,e.target,&e.net,obstacles,&compatible,clearance,e.layer.as_deref(),&explicit);
     }
     total
 }
@@ -153,20 +135,21 @@ fn candidate_penalty_inner(candidate: &Primitive, placed: &[&Primitive], obstacl
 /// A new block can obstruct existing links even when it shares none of their nets.
 /// Reuse path_cost and charge only the additional obstruction, keeping the lazy
 /// board shortlist's non-negative correction bound valid.
-pub fn added_obstacle_penalty(
-    placed: &[&Primitive], all: &[RouteObstacle], added: &[RouteObstacle], clearance: f32, relations: &[crate::model::Relation],
-) -> f32 {
-    if added.is_empty() { return 0.0; }
+fn added_obstacle_plan(
+    plan:&mut Plan, placed: &[&Primitive], all: &[RouteObstacle], added: &[RouteObstacle], clearance: f32, relations: &[crate::model::Relation],
+) -> Cost {
+    if added.is_empty() { return Cost::Constant(0.0); }
     let before: Vec<_> = all.iter().filter(|p| !added.iter().any(|q|
         p.primitive_id == q.primitive_id && p.reference == q.reference)).cloned().collect();
     let explicit=explicit_connections(placed,relations,all);
     let mut links = skeleton(placed, &|n| !n.is_empty() && !is_ground(n), usize::MAX);
     extend_explicit_skeleton(&mut links,&explicit);
-    links.iter().map(|(net, (a,b))| {
-        let layer = link_layer(net, *a, *b, placed, all);
-        let compatible = compatible_links(&links, placed, all, layer.as_deref());
-        (weighted_path_cost(*a,*b,net,all,&compatible,clearance,layer.as_deref(),&explicit)
-            -weighted_path_cost(*a,*b,net,&before,&compatible,clearance,layer.as_deref(),&explicit)).max(0.0)
+    let mut compatible=CompatibleLinks::new(&links,placed,all);
+    links.iter().enumerate().map(|(index,(net, (a,b)))| {
+        let layer = compatible.layers[index].clone();
+        let compatible = compatible.get(layer.as_deref());
+        plan.path(*a,*b,net,all,&compatible,clearance,layer.as_deref(),&explicit)
+            .positive_difference(plan.path(*a,*b,net,&before,&compatible,clearance,layer.as_deref(),&explicit))
     }).sum()
 }
 
@@ -178,11 +161,21 @@ fn link_layer(net: &str, a: Point, b: Point, primitives: &[&Primitive], obstacle
         (Some(a),Some(b)) => common_layer(a,b,obstacles), _ => None,
     }
 }
-fn compatible_links(links: &[(Arc<str>,Segment)], primitives: &[&Primitive], obstacles: &[RouteObstacle], layer: Option<&str>) -> Vec<(Arc<str>,Segment)> {
-    links.iter().filter(|(net,(a,b))| {
-        let other=link_layer(net,*a,*b,primitives,obstacles);
-        layer.is_none() || other.is_none() || layer == other.as_deref()
-    }).cloned().collect()
+// Layer lookup walks the placement geometry. Resolve it once per skeleton,
+// then reuse each filtered list for every endpoint alternative / before-after job.
+struct CompatibleLinks<'a> {
+    links: &'a [(Arc<str>,Segment)], layers: Vec<Option<Arc<str>>>,
+    filtered: std::collections::BTreeMap<Arc<str>,Vec<(Arc<str>,Segment)>>,
+}
+impl<'a> CompatibleLinks<'a> {
+    fn new(links:&'a [(Arc<str>,Segment)],primitives:&[&Primitive],obstacles:&[RouteObstacle])->Self {
+        Self{links,layers:links.iter().map(|(n,(a,b))|link_layer(n,*a,*b,primitives,obstacles)).collect(),filtered:Default::default()}
+    }
+    fn get(&mut self,layer:Option<&str>)->&[(Arc<str>,Segment)] {
+        let Some(layer)=layer else { return self.links; };
+        self.filtered.entry(Arc::from(layer)).or_insert_with(||self.links.iter().zip(&self.layers)
+            .filter(|(_,other)|other.is_none() || other.as_deref()==Some(layer)).map(|(link,_)|link.clone()).collect())
+    }
 }
 
 fn skeleton(
@@ -263,124 +256,31 @@ fn path_cost(a:Point,b:Point,net:&str,obstacles:&[RouteObstacle],skeleton:&[(Arc
  weighted_path_cost(a,b,net,obstacles,skeleton,clearance,layer,&[])
 }
 
-fn weighted_path_cost(
-    a: Point,
-    b: Point,
-    net: &str,
-    obstacles: &[RouteObstacle],
-    skeleton: &[(Arc<str>, Segment)],
-    clearance: f32,
-    layer: Option<&str>,
-    explicit: &[crate::model::ExplicitConnection],
-) -> f32 {
-    let class=explicit_class(net,a,b,explicit);
-    let middle = Point {
-        x: (a.x + b.x) * 0.5,
-        y: (a.y + b.y) * 0.5,
-    };
-    // Direct, both Ls and four doglegs. Constant-size search, no grid expansion.
-    let gap = clearance.max(0.25) * 2.0;
-    let mut paths = vec![
-        vec![a, b],
-        vec![a, Point { x: a.x, y: b.y }, b],
-        vec![a, Point { x: b.x, y: a.y }, b],
-    ];
-    for d in [-gap, gap] {
-        paths.push(vec![
-            a,
-            Point {
-                x: middle.x + d,
-                y: a.y,
-            },
-            Point {
-                x: middle.x + d,
-                y: b.y,
-            },
-            b,
-        ]);
-        paths.push(vec![
-            a,
-            Point {
-                x: a.x,
-                y: middle.y + d,
-            },
-            Point {
-                x: b.x,
-                y: middle.y + d,
-            },
-            b,
-        ]);
-    }
-    paths
-        .iter()
-        .map(|path| {
-            let mut cost = (path.windows(2).map(|s| distance(s[0], s[1])).sum::<f32>()
-                - distance(a, b))
-            .max(0.0);
-            for obstacle in obstacles {
-                if layer.is_some() && obstacle.layer.is_some() && layer != obstacle.layer.as_deref()
-                {
-                    continue;
-                }
-                if obstacle.net.as_deref() == Some(net) {
-                    continue;
-                }
-                if path.windows(2).any(|s| hits(s[0], s[1], obstacle.box_)) {
-                    cost += 20.0 * crate::relation_score::pad_factor(class);
-                } else {
-                    let q = obstacle.box_;
-                    let expanded = Box2 {
-                        left: q.left - clearance,
-                        right: q.right + clearance,
-                        top: q.top - clearance,
-                        bottom: q.bottom + clearance,
-                    };
-                    if path.windows(2).any(|s| hits(s[0], s[1], expanded)) {
-                        cost += 2.0;
-                    }
-                }
-            }
-            for (other, (c, d)) in skeleton {
-                if other.as_ref() != net && path.windows(2).any(|s| crosses(s[0], s[1], *c, *d)) {
-                    cost += 3.0 * crate::relation_score::crossing_factor(class,explicit_class(other,*c,*d,explicit));
-                }
-            }
-            cost
-        })
-        .reduce(f32::min)
-        .unwrap_or(0.0)
+fn weighted_path_cost(a:Point,b:Point,net:&str,obstacles:&[RouteObstacle],skeleton:&[(Arc<str>,Segment)],clearance:f32,layer:Option<&str>,explicit:&[crate::model::ExplicitConnection])->f32 {
+    let mut plan=Plan::default(); let root=plan.path(a,b,net,obstacles,skeleton,clearance,layer,explicit); plan.root(root); plan.cpu()
 }
 
 fn distance(a: Point, b: Point) -> f32 {
     crate::numerics::hypot(a.x - b.x,a.y - b.y)
 }
-fn crosses(a: Point, b: Point, c: Point, d: Point) -> bool {
-    let orient =
-        |p: Point, q: Point, r: Point| (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
-    orient(a, b, c) * orient(a, b, d) < -1e-9 && orient(c, d, a) * orient(c, d, b) < -1e-9
-}
 pub(crate) fn hits(a: Point, b: Point, q: Box2) -> bool {
-    let mut lo = 0.0f32;
-    let mut hi = 1.0f32;
-    for (start, delta, min, max) in [
-        (a.x, b.x - a.x, q.left, q.right),
-        (a.y, b.y - a.y, q.top, q.bottom),
-    ] {
-        if delta.abs() < 1e-9 {
-            if start < min || start > max {
-                return false;
-            }
-        } else {
-            let t1 = (min - start) / delta;
-            let t2 = (max - start) / delta;
-            lo = lo.max(t1.min(t2));
-            hi = hi.min(t1.max(t2));
-            if lo > hi {
-                return false;
-            }
-        }
-    }
-    true
+    arithmetic::hits(arithmetic::P{x:a.x,y:a.y},arithmetic::P{x:b.x,y:b.y},q.left,q.right,q.top,q.bottom)
+}
+
+pub(crate) fn candidate_plan(candidate:&Primitive,placed:&[&Primitive],obstacles:&[RouteObstacle],external:&[Arc<str>],ignored:&[Arc<str>],clearance:f32,bounds:Box2,relations:&[crate::model::Relation])->Plan {
+    let mut plan=Plan::default();
+    let root=candidate_penalty_inner(&mut plan,candidate,placed,obstacles,external,ignored,clearance,bounds,false,relations);
+    plan.root(root); plan
+}
+pub(crate) fn board_plan(candidate:&Primitive,placed:&[&Primitive],obstacles:&[RouteObstacle],added:&[RouteObstacle],clearance:f32,bounds:Box2,relations:&[crate::model::Relation])->Plan {
+    let mut plan=Plan::default();
+    let root=candidate_penalty_inner(&mut plan,candidate,placed,obstacles,&[],&[],clearance,bounds,true,relations);
+    plan.root(root);
+    let root=added_obstacle_plan(&mut plan,placed,obstacles,added,clearance,relations);
+    plan.root(root); plan
+}
+pub fn added_obstacle_penalty(placed:&[&Primitive],all:&[RouteObstacle],added:&[RouteObstacle],clearance:f32,relations:&[crate::model::Relation])->f32 {
+    let mut plan=Plan::default(); let root=added_obstacle_plan(&mut plan,placed,all,added,clearance,relations); plan.root(root); plan.cpu()
 }
 
 #[cfg(test)]

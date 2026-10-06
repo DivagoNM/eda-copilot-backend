@@ -10,6 +10,23 @@ const require = createRequire(import.meta.url);
 const addon = resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename());
 const gpuEnabled = process.env.PCB_BLOCK_GPU_TESTS === '1';
 
+test('geometric route GPU is used by block search and failures replay the full CPU call', { skip: !gpuEnabled }, () => {
+    const p = problem();
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_ROUTE_GPU_VERIFY: '1', PCB_ROUTE_GPU_PROFILE: '1', PCB_ROUTE_GPU_FORCE: '1' });
+    assert.match(gpu.log, /\[geometric-route-gpu\]/);
+    assert.doesNotMatch(gpu.log, /block-gpu-fallback/);
+    assert.deepEqual(gpu.solution, cpu.solution);
+    const small = run(p, 'cubecl', { PCB_ROUTE_GPU_PROFILE: '1' });
+    assert.match(small.log, /\[geometric-route-cpu\]/);
+    assert.doesNotMatch(small.log, /block-gpu-fallback/);
+    assert.deepEqual(small.solution, cpu.solution);
+    const failed = run(p, 'cubecl', { PCB_ROUTE_GPU_FAIL: '1' });
+    assert.match(failed.log, /injected geometric route failure/);
+    assert.match(failed.log, /block-gpu-fallback/);
+    assert.deepEqual(failed.solution, cpu.solution);
+});
+
 test('GPU batch lends one CPU slot while retaining ordered results and full-call recovery', { skip: !gpuEnabled }, () => {
     const first=problem();const second=problem();second.primitives[0].locked=true;
     const problems=[first,second];
