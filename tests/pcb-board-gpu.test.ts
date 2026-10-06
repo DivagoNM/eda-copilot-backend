@@ -13,6 +13,25 @@ const addonPath = resolve(process.env.PCB_BOARD_PACKER_NATIVE_PATH
     ?? resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename()));
 const gpuEnabled = process.env.PCB_BOARD_GPU_TESTS === '1';
 
+test('folded block relations reuse moving pad endpoints on CPU and GPU', () => {
+    const p = minimalProblem();
+    p.components[0].blockName = 'folded';
+    p.components[0].bodyBox = { left: -1, right: 0, top: -.5, bottom: .5 };
+    p.primitives[0].connectionPoints = [{ ref: 'U1.1', x: -.5, y: 0 }];
+    p.relations = [{ id: 'folded-near', kind: 'hint', from: 'block:folded', to: 'anchor:board.right',
+        relation: 'near', priority: 'high', hard: false, effect: 'move_from', satelliteAnchor: false }];
+    const explicit = structuredClone(p);
+    explicit.relations[0].from = 'pad:U1.1';
+    const cpu = run(p, 'cpu');
+    assert.deepEqual(cpu.solution, run(explicit, 'cpu').solution);
+    if (gpuEnabled) {
+        const gpu = run(p, 'cubecl', { PCB_BOARD_GPU_VERIFY: '1' });
+        assert.doesNotMatch(gpu.log, /fallback/);
+        assert.match(gpu.log, /\[board-backend\].*"backend":"cubecl"/);
+        assert.deepEqual(gpu.solution, cpu.solution);
+    }
+});
+
 test('geometric route GPU preserves owned pads and replays the original board on failure', { skip: !gpuEnabled }, () => {
     const p = minimalProblem();
     p.searchWidth = 4;

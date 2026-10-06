@@ -136,7 +136,8 @@ struct Context {
     gpu: Option<Arc<cubecl::Control>>,
 }
 
-pub fn solve(problem: BoardPackProblem) -> Result<BoardPackSolution, String> {
+pub fn solve(mut problem: BoardPackProblem) -> Result<BoardPackSolution, String> {
+    attach_block_relation_points(&mut problem)?;
     let available = std::thread::available_parallelism().map_or(1, |n| n.get());
     let limit = (available / 2).clamp(1, 8);
     let threads = std::env::var("PCB_BOARD_PACKER_THREADS")
@@ -258,7 +259,8 @@ fn prepare_context(problem: BoardPackProblem,
     (primitives, context)
 }
 
-pub fn quality(problem: BoardPackProblem) -> Result<serde_json::Value, String> {
+pub fn quality(mut problem: BoardPackProblem) -> Result<serde_json::Value, String> {
+    attach_block_relation_points(&mut problem)?;
     let (primitives, context) = prepare_context(problem, #[cfg(feature = "gpu")] None);
     let rank = full_state_rank(&primitives, &context);
     if !rank.score.is_finite() { return Err("board quality score is not finite".into()); }
@@ -2456,12 +2458,52 @@ fn compile_relations(
         .collect()
 }
 
+/// Authored block ownership survives island/satellite folding in component
+/// metadata. Keep the group's center attached to its rigid owner, using the
+/// existing CPU/GPU point transforms rather than the parent's packing center.
+fn attach_block_relation_points(problem: &mut BoardPackProblem) -> Result<(), String> {
+    let endpoints: BTreeSet<_> = problem.relations.iter()
+        .flat_map(|r| [&r.from, &r.to])
+        .filter(|e| e.starts_with("block:")).cloned().collect();
+    for endpoint in endpoints {
+        let name = endpoint.strip_prefix("block:").unwrap();
+        let members: Vec<_> = problem.components.iter()
+            .filter(|c| c.block_name.as_ref() == name).collect();
+        let Some(first) = members.first() else { continue; };
+        if members.iter().any(|c| c.primitive_id != first.primitive_id) {
+            return Err(format!("board relation {endpoint} spans multiple rigid primitives"));
+        }
+        let point = box_center(&union_boxes(&members.iter().map(|c| c.body_box).collect::<Vec<_>>()));
+        let owner = problem.primitives.iter_mut().find(|p| p.id == first.primitive_id)
+            .ok_or_else(|| format!("missing rigid owner for board relation {endpoint}"))?;
+        if let Some(existing) = Arc::make_mut(&mut owner.connection_points).iter_mut()
+            .find(|p| p.reference == endpoint) {
+            existing.x = point.x; existing.y = point.y;
+        } else {
+            Arc::make_mut(&mut owner.connection_points).push(crate::model::ConnectionPoint {
+                reference: endpoint, x: point.x, y: point.y, net: None,
+            });
+            if !owner.connection_point_layers.is_empty() {
+                Arc::make_mut(&mut owner.connection_point_layers).push(Arc::from("multi"));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn compile_endpoint(
     endpoint: &str,
     problem: &BoardPackProblem,
     primitive_ids: &FxHashMap<Arc<str>, u32>,
     designator_ids: &FxHashMap<Arc<str>, u32>,
 ) -> CompiledEndpoint {
+    if endpoint.starts_with("block:") {
+        for primitive in &problem.primitives {
+            if let Some(point) = primitive.connection_points.iter().position(|p| p.reference.as_ref() == endpoint) {
+                return CompiledEndpoint::Pad { primitive: primitive_ids[&primitive.id], point };
+            }
+        }
+    }
     if let Some(designator) = endpoint.strip_prefix("component:") {
         for primitive in &problem.primitives {
             if primitive
@@ -3232,6 +3274,38 @@ mod alignment_search_tests {
         let expanded=expand_states(&[state],32,&context);
         assert!(expanded.iter().any(|s|s.remaining.len()==2));
         assert!(expanded.iter().any(|s|s.remaining.len()==1));
+    }
+
+    #[test]
+    fn folded_block_endpoint_follows_member_geometry_without_tree_identity() {
+        let (context, _) = fixture();
+        let mut problem = (*context.problem).clone();
+        problem.components = vec![ComponentGeometry {
+            designator: "U1".into(), primitive_id: "U1".into(), block_name: "divider".into(),
+            layer: "top".into(), body_box: Box2 {left: 5., right: 7., top: -1., bottom: 1.},
+            access_rows: vec![], through_hole_boxes: Arc::new(vec![]),
+            board_overflow: Default::default(), edge_clearance: 0.,
+        }];
+        problem.relations = vec![serde_json::from_value(json!({
+            "id":"near-divider", "kind":"hint", "from":"block:divider", "to":"anchor:board.right",
+            "relation":"near", "priority":"high", "weight":140, "hard":false, "effect":"move_from", "satelliteAnchor":false
+        })).unwrap()];
+        attach_block_relation_points(&mut problem).unwrap();
+        attach_block_relation_points(&mut problem).unwrap();
+        assert_eq!(problem.primitives[0].connection_points.len(), 1);
+        assert!(problem.primitives[0].connection_points[0].net.is_none());
+        let (mut ps, context) = prepare_context(problem, #[cfg(feature="gpu")] None);
+        let endpoint = context.relations[0].from;
+        let initial = endpoint_point(&ps, endpoint).unwrap().0;
+        assert_eq!((initial.x, initial.y), (6., 0.));
+        let before = relation_penalty(&ps, &context);
+        rotate_primitive(&mut ps[0], 180);
+        let rotated = endpoint_point(&ps, endpoint).unwrap().0;
+        assert_eq!((rotated.x, rotated.y), (-6., 0.));
+        assert!(relation_penalty(&ps, &context) > before);
+        translate_primitive(&mut ps[0], 3., 2.);
+        let moved = endpoint_point(&ps, endpoint).unwrap().0;
+        assert_eq!((moved.x, moved.y), (-3., 2.));
     }
 
     #[test]

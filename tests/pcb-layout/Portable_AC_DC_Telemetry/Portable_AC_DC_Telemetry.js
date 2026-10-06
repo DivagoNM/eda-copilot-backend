@@ -26,7 +26,7 @@ block("adc_voltage_input", ["R10","R11","R12","R13","C18"], "analog", { placemen
 block("adc_current_input", ["R14","R15","C19"], "analog", { placement: "satellite", attachTo: "adc", anchor: pin("U4","6") });
 near(block("voltage_divider"), comp("J1"), "high");
 near(block("current_filter"), comp("R6"), "high");
-near(comp("U1"),comp("J1"),"high");
+// near(comp("U1"),comp("J1"),"high");
 near(comp("U2"),comp("J2"),"high");
 near(comp("U4"),comp("U1"),"high");
 near(comp("U4"),comp("U2"),"high");

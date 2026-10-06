@@ -115,7 +115,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 6 }
+pub fn placement_score_contract_version() -> u32 { 7 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {
