@@ -198,3 +198,49 @@ test('GPU external relations select the present endpoint in both directions', {s
         assert.ok(gpu.solution.rank.score<=cpu.solution.rank.score*1.01+.01);
     }
 });
+
+
+test('folded block relation matches an explicit moving point on CPU and GPU', () => {
+    const p = problem();
+    p.components[0].blockName = 'folded';
+    p.components[0].bodyBox = {left: .5, right: 1, top: -.25, bottom: .25};
+    p.primitives[0].connectionPoints.push({ref: 'group-oracle', x: .75, y: 0});
+    p.relations = [{id: 'group-near', kind: 'hint', from: 'block:folded', to: 'component:C1',
+        relation: 'near', priority: 'high', hard: false, effect: 'move_from', satelliteAnchor: false}];
+    const explicit = structuredClone(p);explicit.relations[0].from = 'pad:group-oracle';
+    assert.deepEqual(require(addon).evaluateBlockQuality(p), require(addon).evaluateBlockQuality(explicit));
+    const cpu = run(p, 'cpu');
+    assert.deepEqual(cpu.solution, run(explicit, 'cpu').solution);
+    if (gpuEnabled) {
+        const gpu = run(p, 'cubecl', {PCB_BLOCK_GPU_VERIFY: '1'});
+        assert.doesNotMatch(gpu.log, /block-gpu-fallback/);
+        assert.deepEqual(gpu.solution, cpu.solution);
+    }
+});
+
+for (const backend of ['cpu', 'cubecl']) test(`group points survive deferred pairs through single and batch ${backend}`, {skip:backend === 'cubecl' && !gpuEnabled}, () => {
+    const p = problem();
+    p.components[0].blockName = 'folded';
+    p.primitives[1].locked = true;
+    p.relations = [{id:'group', kind:'hint', from:'block:folded', to:'component:C1',
+        relation:'near', hard:false, effect:'move_from', satelliteAnchor:false},
+        {id:'locked-group',kind:'hint',from:'block:P1',to:'component:C0',relation:'near',hard:false,effect:'move_from',satelliteAnchor:false}];
+    const child = spawnSync(process.execPath, ['-e', `
+        const assert=require('assert/strict'),a=require(process.argv[1]);
+        const p=JSON.parse(require('fs').readFileSync(0,'utf8'));
+        const initial=a.solveBlockPrimitivesBatch([{...p,deferPairs:true}],1)[0];
+        assert(initial.pairSeed.some(s=>s.primitive.connectionPoints.some(p=>p.ref==='block:folded')));
+        const resume={...p,pairSeed:initial.pairSeed};
+        const single=a.solveBlockPrimitives(resume);
+        const batch=a.solveBlockPrimitivesBatch([resume],1)[0];
+        assert.deepEqual(batch,single);
+        const full=a.solveBlockPrimitives(p);
+        assert.deepEqual(single.rank,full.rank);assert.deepEqual(single.states,full.states);
+        const invalid=structuredClone(resume);invalid.pairSeed.find(s=>!s.primitive.locked).primitive.connectionPoints.push({ref:'forged',x:0,y:0});
+        assert.throws(()=>a.solveBlockPrimitivesBatch([invalid],1),/invalid pairSeed geometry or inventory/);
+        console.log('ok');
+    `, addon], {input:JSON.stringify(p),encoding:'utf8',windowsHide:true,
+        env:{...process.env,PCB_BLOCK_BACKEND:backend,PCB_BOARD_PACKER_THREADS:'1'},maxBuffer:4*1024*1024});
+    assert.equal(child.status,0,child.stderr || String(child.error));
+    assert.doesNotMatch(child.stderr,/block-gpu-fallback/);
+});

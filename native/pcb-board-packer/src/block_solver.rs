@@ -210,7 +210,8 @@ enum CompiledEndpoint {
     Missing,
 }
 
-pub fn solve_block(problem: BlockSolveProblem) -> Result<crate::model::BlockSolveSolution, String> {
+pub fn solve_block(mut problem: BlockSolveProblem) -> Result<crate::model::BlockSolveSolution, String> {
+    attach_group_relation_points(&mut problem)?;
     #[cfg(feature = "gpu")]
     {
         let requested=std::env::var("PCB_BLOCK_BACKEND").unwrap_or_else(|_|"auto".into());
@@ -242,6 +243,11 @@ pub fn solve_block(problem: BlockSolveProblem) -> Result<crate::model::BlockSolv
     }
     solve_block_inner(problem,false)
 }
+pub(crate) fn attach_group_relation_points(problem: &mut BlockSolveProblem) -> Result<(), String> {
+    crate::group_endpoints::attach(&mut problem.primitives, &problem.relations, &Default::default(),
+        &problem.components.iter().map(|c| (&c.designator, &c.primitive_id, &c.block_name, c.body_box)).collect::<Vec<_>>())
+}
+
 fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<WorkingPrimitive>, Context) {
     let primitive_ids = lexical_ids(
         problem
@@ -1170,7 +1176,8 @@ fn connected_pin_stretch(primitives: &[WorkingPrimitive], context: &Context) -> 
 
 /// Evaluate a supplied layout with the search evaluator, without generating or
 /// moving candidates. Diagnostics are measurements, never extra score terms.
-pub fn quality(problem: BlockSolveProblem) -> Result<serde_json::Value, String> {
+pub fn quality(mut problem: BlockSolveProblem) -> Result<serde_json::Value, String> {
+    attach_group_relation_points(&mut problem)?;
     let (primitives, context) = prepare_context(problem, false);
     let score = score_block(&primitives, &context) + block_layout_route(&primitives.iter().collect::<Vec<_>>(), &context);
     if !score.is_finite() { return Err("block quality score is not finite".into()); }
@@ -2820,6 +2827,13 @@ fn compile_endpoint(
     bounds: Option<&Box2>,
     resolve_islands: bool,
 ) -> CompiledEndpoint {
+    if endpoint.starts_with("block:") || endpoint.starts_with("module:") {
+        for primitive in primitives {
+            if let Some(point_index) = primitive.primitive.connection_points.iter().position(|p| p.reference.as_ref() == endpoint) {
+                return CompiledEndpoint::Pad { primitive_id: primitive.id, point_index };
+            }
+        }
+    }
     if let Some(name) = endpoint.strip_prefix("component:") {
         for primitive in primitives {
             if let Some(placement_index) = primitive.primitive.placements.iter().position(|p|p.designator.as_ref()==name) {
@@ -3356,6 +3370,9 @@ fn seed_rank(primitive: &WorkingPrimitive, context: &Context) -> f32 {
 }
 
 fn primitive_touches_endpoint(primitive: &WorkingPrimitive, endpoint: &str) -> bool {
+    if endpoint.starts_with("block:") || endpoint.starts_with("module:") {
+        return primitive.primitive.connection_points.iter().any(|p| p.reference.as_ref() == endpoint);
+    }
     if let Some(reference) = endpoint.strip_prefix("pad:") {
         return primitive
             .primitive
@@ -3670,6 +3687,37 @@ fn point_to_box_distance(p: Point, b: &Box2) -> f32 {
 #[cfg(test)]
 mod candidate_tests {
     use super::*;
+
+    #[test]
+    fn folded_group_point_rotates_in_block_solver() {
+        let (_, _, context) = usb_fixture();
+        let mut problem = context.problem;
+        problem.primitives.truncate(1);
+        let owner = &mut problem.primitives[0];
+        owner.bbox = Box2 { left: -10., right: 10., top: -10., bottom: 10. };
+        owner.source_node_ids = Arc::new(vec![]);
+        let id = owner.id.clone();
+        problem.components.retain(|c| c.primitive_id == id);
+        problem.components.truncate(1);
+        problem.components[0].block_name = "folded".into();
+        problem.components[0].body_box = Box2 {left: 5., right: 7., top: -1., bottom: 1.};
+        problem.relations = vec![serde_json::from_value(serde_json::json!({
+            "id":"near", "kind":"hint", "from":"block:folded", "to":"anchor:board.right",
+            "relation":"near", "hard":false, "effect":"move_from", "satelliteAnchor":false
+        })).unwrap()];
+        problem.bounds = Some(Box2 {left:-20., right:20., top:-20., bottom:20.});
+        attach_group_relation_points(&mut problem).unwrap();
+        let count = problem.primitives[0].connection_points.len();
+        attach_group_relation_points(&mut problem).unwrap();
+        assert_eq!(count, problem.primitives[0].connection_points.len());
+        let (mut ps, context) = prepare_context(problem, false);
+        let endpoint = &context.relations[0].from;
+        assert_eq!(endpoint_point(&ps, endpoint).unwrap().point.x, 6.);
+        let before = scoped_relation_penalty(&ps, &context);
+        ps[0] = rotate_primitive(&ps[0], 180);
+        assert_eq!(endpoint_point(&ps, endpoint).unwrap().point.x, -6.);
+        assert!(scoped_relation_penalty(&ps, &context) > before);
+    }
 
     #[test]
     fn component_body_preserves_offset_on_rotation_and_translation() {

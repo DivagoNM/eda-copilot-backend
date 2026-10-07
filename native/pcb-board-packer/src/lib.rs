@@ -3,6 +3,7 @@ mod block_solver;
 mod compute;
 mod fast_route;
 mod geometry;
+mod group_endpoints;
 mod float_env;
 mod f32_policy;
 mod interval;
@@ -44,7 +45,8 @@ pub fn numeric_contract() -> String { "f32-rte-ftz-v1".into() }
 pub fn evaluate_block_quality(mut problem: Value) -> Result<Value> {
     let _float_env = float_env::Guard::enter();
     boundary::Frame::localize(&mut problem).map_err(invalid_problem)?;
-    let problem: BlockSolveProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
+    let mut problem: BlockSolveProblem = serde_json::from_value(problem).map_err(invalid_problem)?;
+    block_solver::attach_group_relation_points(&mut problem).map_err(invalid_problem)?;
     problem.validate(BLOCK_CONTRACT_VERSION).map_err(invalid_problem)?;
     block_solver::quality(problem).map_err(invalid_problem)
 }
@@ -115,7 +117,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 7 }
+pub fn placement_score_contract_version() -> u32 { 8 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {
@@ -281,8 +283,9 @@ pub fn block_contract_version() -> u32 {
 pub fn solve_block_primitives(mut problem: Value) -> Result<Value> {
     let _float_env = float_env::Guard::enter();
     let frame = boundary::Frame::localize_block(&mut problem).map_err(invalid_block_problem)?;
-    let problem: BlockSolveProblem =
+    let mut problem: BlockSolveProblem =
         serde_json::from_value(problem).map_err(invalid_block_problem)?;
+    block_solver::attach_group_relation_points(&mut problem).map_err(invalid_block_problem)?;
     problem
         .validate(BLOCK_CONTRACT_VERSION)
         .map_err(invalid_block_problem)?;
@@ -310,7 +313,8 @@ pub fn solve_block_primitives_batch(problems: Vec<Value>, threads: u32) -> Resul
     let _float_env = float_env::Guard::enter();
     let problems = problems.into_iter().map(|mut value| {
         let frame = boundary::Frame::localize_block(&mut value).map_err(invalid_block_problem)?;
-        let problem: BlockSolveProblem = serde_json::from_value(value).map_err(invalid_block_problem)?;
+        let mut problem: BlockSolveProblem = serde_json::from_value(value).map_err(invalid_block_problem)?;
+        block_solver::attach_group_relation_points(&mut problem).map_err(invalid_block_problem)?;
         problem.validate(BLOCK_CONTRACT_VERSION).map_err(invalid_block_problem)?;
         frame.capture("block",&problem);
         Ok((problem,frame))

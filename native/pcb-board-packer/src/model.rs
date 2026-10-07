@@ -6,6 +6,8 @@ use std::sync::Arc;
 #[serde(rename_all = "camelCase")]
 pub struct BoardPackProblem {
     #[serde(default)]
+    pub relation_groups: crate::group_endpoints::Groups,
+    #[serde(default)]
     pub routing_obstacles: Vec<RouteObstacle>,
     #[serde(default)]
     pub soft_alignment: Option<SoftAlignment>,

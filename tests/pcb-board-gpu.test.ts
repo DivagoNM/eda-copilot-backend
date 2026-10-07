@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { encodeNativeBoardPackProblem } from '../src/pcb-layout/pcb-auto-place-v2/native/encode-board-problem.ts';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -13,15 +14,17 @@ const addonPath = resolve(process.env.PCB_BOARD_PACKER_NATIVE_PATH
     ?? resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename()));
 const gpuEnabled = process.env.PCB_BOARD_GPU_TESTS === '1';
 
-test('folded block relations reuse moving pad endpoints on CPU and GPU', () => {
+for (const kind of ['block', 'module']) test(`folded ${kind} relations reuse moving pad endpoints on CPU and GPU`, () => {
     const p = minimalProblem();
     p.components[0].blockName = 'folded';
+    if (kind === 'module') p.relationGroups = { 'module:folded': ['U1'] };
     p.components[0].bodyBox = { left: -1, right: 0, top: -.5, bottom: .5 };
     p.primitives[0].connectionPoints = [{ ref: 'U1.1', x: -.5, y: 0 }];
-    p.relations = [{ id: 'folded-near', kind: 'hint', from: 'block:folded', to: 'anchor:board.right',
+    p.relations = [{ id: 'folded-near', kind: 'hint', from: `${kind}:folded`, to: 'anchor:board.right',
         relation: 'near', priority: 'high', hard: false, effect: 'move_from', satelliteAnchor: false }];
     const explicit = structuredClone(p);
     explicit.relations[0].from = 'pad:U1.1';
+    assert.deepEqual(require(addonPath).evaluateBoardQuality(p), require(addonPath).evaluateBoardQuality(explicit));
     const cpu = run(p, 'cpu');
     assert.deepEqual(cpu.solution, run(explicit, 'cpu').solution);
     if (gpuEnabled) {
@@ -539,4 +542,34 @@ test('CUDA server allocation failure returns CPU recovery without invalid-handle
     assert.match(gpu.log,/board-gpu-fallback/);
     assert.match(gpu.log,/CUDA out of memory/);
     assert.doesNotMatch(gpu.log,/Memory page .* doesn't exist|memory allocation of .* failed/);
+});
+
+
+test('module membership is encoded from the tree before rigid ownership is resolved', () => {
+    const p = encodeNativeBoardPackProblem({
+        node: {id: 'board', kind: 'board', label: 'board', children: [
+            {id: 'tree:module:analog', kind: 'module', label: 'analog', children: [
+                {id: 'tree:block:divider', kind: 'block', label: 'divider', children: [
+                    {id: 'tree:component:R1', kind: 'component', label: 'R1', children: []},
+                    {id: 'tree:component:R2', kind: 'component', label: 'R2', children: []},
+                ]},
+            ]},
+            {id: 'tree:component:U1', kind: 'component', label: 'U1', children: []},
+        ]},
+        primitives: [], relations: [], options: {grid: .5, clearance: .2,
+            bounds: {left:-10, right:10, top:-10, bottom:10}},
+    });
+    assert.deepEqual(p.relationGroups, {'module:analog': ['R1', 'R2']});
+});
+
+test('module membership spanning rigid owners is rejected instead of picking the first', () => {
+    const p = minimalProblem();
+    p.relationGroups = {'module:split': ['U1', 'U2']};
+    const other = structuredClone(p.primitives[0]);other.id = 'other';other.placements[0].designator = 'U2';
+    p.primitives.push(other);
+    p.components.push({...p.components[0], designator: 'U2', primitiveId: 'other'});
+    p.componentConflict = [0, 1, 1, 0];p.componentPairClearance = [0, .2, .2, 0];
+    p.relations = [{id:'split', kind:'hint', from:'module:split', to:'anchor:board.right',
+        hard:false, effect:'move_from', satelliteAnchor:false}];
+    assert.throws(() => require(addonPath).evaluateBoardQuality(p), /spans multiple rigid primitives/);
 });

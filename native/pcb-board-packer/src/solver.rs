@@ -2462,33 +2462,8 @@ fn compile_relations(
 /// metadata. Keep the group's center attached to its rigid owner, using the
 /// existing CPU/GPU point transforms rather than the parent's packing center.
 fn attach_block_relation_points(problem: &mut BoardPackProblem) -> Result<(), String> {
-    let endpoints: BTreeSet<_> = problem.relations.iter()
-        .flat_map(|r| [&r.from, &r.to])
-        .filter(|e| e.starts_with("block:")).cloned().collect();
-    for endpoint in endpoints {
-        let name = endpoint.strip_prefix("block:").unwrap();
-        let members: Vec<_> = problem.components.iter()
-            .filter(|c| c.block_name.as_ref() == name).collect();
-        let Some(first) = members.first() else { continue; };
-        if members.iter().any(|c| c.primitive_id != first.primitive_id) {
-            return Err(format!("board relation {endpoint} spans multiple rigid primitives"));
-        }
-        let point = box_center(&union_boxes(&members.iter().map(|c| c.body_box).collect::<Vec<_>>()));
-        let owner = problem.primitives.iter_mut().find(|p| p.id == first.primitive_id)
-            .ok_or_else(|| format!("missing rigid owner for board relation {endpoint}"))?;
-        if let Some(existing) = Arc::make_mut(&mut owner.connection_points).iter_mut()
-            .find(|p| p.reference == endpoint) {
-            existing.x = point.x; existing.y = point.y;
-        } else {
-            Arc::make_mut(&mut owner.connection_points).push(crate::model::ConnectionPoint {
-                reference: endpoint, x: point.x, y: point.y, net: None,
-            });
-            if !owner.connection_point_layers.is_empty() {
-                Arc::make_mut(&mut owner.connection_point_layers).push(Arc::from("multi"));
-            }
-        }
-    }
-    Ok(())
+    crate::group_endpoints::attach(&mut problem.primitives, &problem.relations, &problem.relation_groups,
+        &problem.components.iter().map(|c| (&c.designator, &c.primitive_id, &c.block_name, c.body_box)).collect::<Vec<_>>())
 }
 
 fn compile_endpoint(
@@ -2497,7 +2472,7 @@ fn compile_endpoint(
     primitive_ids: &FxHashMap<Arc<str>, u32>,
     designator_ids: &FxHashMap<Arc<str>, u32>,
 ) -> CompiledEndpoint {
-    if endpoint.starts_with("block:") {
+    if endpoint.starts_with("block:") || endpoint.starts_with("module:") {
         for primitive in &problem.primitives {
             if let Some(point) = primitive.connection_points.iter().position(|p| p.reference.as_ref() == endpoint) {
                 return CompiledEndpoint::Pad { primitive: primitive_ids[&primitive.id], point };

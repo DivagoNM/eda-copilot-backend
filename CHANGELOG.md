@@ -8,6 +8,10 @@
 
 ### PCB layout
 
+- Prepare derived block group points before validating single/batch pair-search continuations, so `pairSeed` and source primitive inventories agree. Preserve strict inventory and locked-pose checks; add CPU/GPU continuation regression coverage.
+
+- Preserve nested block geometry in Block Solver and module geometry in Board Packer using shared native group endpoint preparation and existing CPU/GPU point transforms. Encode module membership from the placement tree, reuse the same preparation in quality evaluation, and reject references spanning independent rigid owners. No weight changes; placement score contract v8 requires a native rebuild. See `docs/experimental/pcb/block-relation-context/README.md`.
+
 - Preserve authored block relation geometry in Board Packer after satellite/island folding: resolve `block:` endpoints from original component ownership and move their group center with the rigid parent through existing CPU/GPU point transforms. Restore references whose tree identity disappeared, without changing relation weights. Placement score contract v7 requires a native rebuild. See `docs/experimental/pcb/block-relation-context/README.md`.
 
 - Replace the remaining Micro-A* implementation and comparison APIs with a canonical full-layout FastRoute objective shared by block/board search, quality/checkpoints and post-place. Stop accumulating insertion-history penalties; remove duplicate straight-line pad/crossing costs, and batch post-place route jobs through the existing shared CPU/CubeCL arithmetic and whole-call recovery. Placement score contract v6 requires a native rebuild. See `docs/experimental/pcb/unified-fast-route/README.md`.
