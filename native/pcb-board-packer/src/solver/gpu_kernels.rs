@@ -53,11 +53,7 @@ fn packing(g: &Input, p: usize) -> B {
 }
 #[cube]
 fn overlap(a: B,b: B,c: f32) -> f32 {
-    let x1=a.r+c-b.l; let x2=b.r+c-a.l;
-    let y1=a.b+c-b.t; let y2=b.b+c-a.t;
-    let mut result=0.0;
-    if x1>0.0 && x2>0.0 && y1>0.0 && y2>0.0 { result=min(min(x1,x2),min(y1,y2)); }
-    result
+    crate::geometry_policy::overlap(a.l,a.r,a.t,a.b,b.l,b.r,b.t,b.b,c)
 }
 #[cube]
 fn packing_overlap(g:&Input,a:usize,b:usize,c:f32)->f32 {
@@ -108,7 +104,7 @@ fn hard_overlap(g:&Input,a:usize,b:usize)->f32 {
             }
         }}
     }
-    if result<=1e-9 {result=0.0;} result
+    result
 }
 #[cube]
 fn access_penalty(g:&Input,c:usize,n:usize)->f32{
@@ -124,7 +120,7 @@ fn access_penalty(g:&Input,c:usize,n:usize)->f32{
 
 #[cube]
 fn outside_bounds(b:B,board:B)->f32 {
-    max(board.l-b.l,0.0)+max(b.r-board.r,0.0)+max(board.t-b.t,0.0)+max(b.b-board.b,0.0)
+    crate::geometry_policy::outside(b.l,b.r,b.t,b.b,board.l,board.r,board.t,board.b)
 }
 #[derive(Clone, Copy, CubeType)]
 pub struct P { pub x:f32, pub y:f32 }
@@ -137,9 +133,7 @@ fn corner(b:B,i:usize)->P {
 fn polygon_point(g:&Input,i:usize)->P {let f=g.si[4] as usize+i*2;P{x:g.sf[f],y:g.sf[f+1]}}
 #[cube]
 fn on_segment(p:P,a:P,b:P)->bool {
-    ((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x)).abs()<1e-6
-        && p.x<=max(a.x,b.x)+1e-6 && p.x>=min(a.x,b.x)-1e-6
-        && p.y<=max(a.y,b.y)+1e-6 && p.y>=min(a.y,b.y)-1e-6
+    crate::geometry_policy::on_segment(p.x,p.y,a.x,a.y,b.x,b.y)
 }
 #[cube]
 fn distance_segment(p:P,a:P,b:P)->f32 {
@@ -168,21 +162,18 @@ fn distance_polygon(g:&Input,p:P)->f32 {
 }
 #[cube]
 fn crosses(a:P,b:P,c:P,d:P)->bool {
-    let denominator=(a.x-b.x)*(c.y-d.y)-(a.y-b.y)*(c.x-d.x);let mut result=false;
-    if denominator.abs()>=1e-6 {
-        let t=((a.x-c.x)*(c.y-d.y)-(a.y-c.y)*(c.x-d.x))/denominator;
-        let u=-((a.x-b.x)*(a.y-c.y)-(a.y-b.y)*(a.x-c.x))/denominator;
-        result=t>=-1e-6 && t<=1.0+1e-6 && u>=-1e-6 && u<=1.0+1e-6;
-    }result
+    crate::geometry_policy::crosses(a.x,a.y,b.x,b.y,c.x,c.y,d.x,d.y)
 }
 #[cube]
 fn outside_polygon(g:&Input,b:B,board:B,edge:f32)->bool {
     let mut outside=false;
     for i in 0..4 {let p=corner(b,i);
-        if p.x<board.l+edge-1e-6 || p.x>board.r-edge+1e-6 || p.y<board.t+edge-1e-6 || p.y>board.b-edge+1e-6
-            || !inside_polygon(g,p) || (edge>0.0 && distance_polygon(g,p)+1e-6<edge) {outside=true;}
+        if p.x<board.l+edge-crate::geometry_policy::epsilon() || p.x>board.r-edge+crate::geometry_policy::epsilon() || p.y<board.t+edge-crate::geometry_policy::epsilon() || p.y>board.b-edge+crate::geometry_policy::epsilon()
+            || !inside_polygon(g,p) || (edge>0.0 && distance_polygon(g,p)+crate::geometry_policy::epsilon()<edge) {outside=true;}
     }
     for i in 0..4 {for j in 0..g.si[5] as usize {
+        let vertex=polygon_point(g,j);
+        if crate::geometry_policy::inside_box(vertex.x,vertex.y,b.l,b.r,b.t,b.b) {outside=true;}
         if crosses(corner(b,i),corner(b,(i+1)%4),polygon_point(g,j),polygon_point(g,(j+1)%g.si[5] as usize)) {outside=true;}
     }}outside
 }
@@ -191,7 +182,7 @@ fn polygon_severity(g:&Input,b:B,bounds:B,edge:f32)->f32 {
     let mut severity=outside_bounds(b,bounds);
     for i in 0..4 {
         let p=corner(b,i);let d=distance_polygon(g,p);
-        if !inside_polygon(g,p) || (edge>0.0 && d+1e-6<edge) {severity+=max(d,0.01)+max(edge-d,0.0);}
+        if !inside_polygon(g,p) || (edge>0.0 && d+crate::geometry_policy::epsilon()<edge) {severity+=max(d,0.01)+max(edge-d,0.0);}
     }severity
 }
 #[cube]

@@ -3,6 +3,7 @@ mod block_solver;
 mod compute;
 mod fast_route;
 mod geometry;
+mod geometry_policy;
 mod group_endpoints;
 mod float_env;
 mod f32_policy;
@@ -38,6 +39,9 @@ const BLOCK_CONTRACT_VERSION: u32 = 4;
 const PASSIVE_ISLAND_CONTRACT_VERSION: u32 = 1;
 const POST_PLACE_SCORE_CONTRACT_VERSION: u32 = 1;
 const SIGNAL_PATH_CONTRACT_VERSION: u32 = 1;
+
+#[napi]
+pub fn placement_geometry_epsilon() -> f32 { geometry_policy::DISTANCE_EPSILON_MM }
 
 #[napi]
 pub fn numeric_contract() -> String { "f32-rte-ftz-v1".into() }
@@ -118,7 +122,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 11 }
+pub fn placement_score_contract_version() -> u32 { 12 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {

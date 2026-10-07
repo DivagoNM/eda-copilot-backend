@@ -128,7 +128,7 @@ pub fn profile(r: &Request) -> Result<Profile, String> {
             demand += deficit;
             let mid = center(b);
             let mut point = mid;
-            let d = 0.3 + CLEARANCE + 0.001;
+            let d = 0.3 + CLEARANCE + crate::geometry_policy::DISTANCE_EPSILON_MM;
             match side {
                 0 => point.x = b.right + d,
                 1 => point.x = b.left - d,
@@ -140,10 +140,8 @@ pub fn profile(r: &Request) -> Result<Profile, String> {
             let free = r.pads.iter().all(|q| {
                 let margin = if p.net == q.net { 0.3 } else { 0.3 + CLEARANCE };
                 let q = q.box_;
-                point.x + margin <= q.left
-                    || point.x - margin >= q.right
-                    || point.y + margin <= q.top
-                    || point.y - margin >= q.bottom
+                crate::geometry_policy::overlap(point.x,point.x,point.y,point.y,
+                    q.left,q.right,q.top,q.bottom,margin)==0.0
             });
             // Independent slots are not enough: adjacent pins cannot claim
             // overlapping via lands. Reserve deterministic inward sites jointly.
@@ -152,7 +150,7 @@ pub fn profile(r: &Request) -> Result<Profile, String> {
                     let spacing = 0.6 + if *net == p.net { 0.0 } else { CLEARANCE };
                     let dx = point.x - q.x;
                     let dy = point.y - q.y;
-                    dx * dx + dy * dy >= spacing * spacing
+                    crate::geometry_policy::violation(spacing-crate::numerics::hypot(dx,dy))==0.0
                 });
             if !free {
                 blocked_inside += deficit;

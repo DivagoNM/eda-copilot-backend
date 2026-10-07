@@ -2088,10 +2088,7 @@ fn primitive_component_boxes(primitive: &WorkingPrimitive) -> Vec<Box2> {
 }
 
 fn primitive_outside_bounds(primitive: &WorkingPrimitive, bounds: &Box2) -> bool {
-    primitive.primitive.bbox.left < bounds.left
-        || primitive.primitive.bbox.right > bounds.right
-        || primitive.primitive.bbox.top < bounds.top
-        || primitive.primitive.bbox.bottom > bounds.bottom
+    crate::geometry::box_outside_bounds_severity(&primitive.primitive.bbox,bounds)>0.0
 }
 
 fn score_block(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
@@ -2258,10 +2255,7 @@ fn bounds_penalty(primitives: &[WorkingPrimitive], bounds: Option<&Box2>) -> f32
         .iter()
         .map(|primitive| {
             let box_ = primitive.primitive.bbox;
-            let overflow = (bounds.left - box_.left).max(0.0)
-                + (box_.right - bounds.right).max(0.0)
-                + (bounds.top - box_.top).max(0.0)
-                + (box_.bottom - bounds.bottom).max(0.0);
+            let overflow = crate::geometry::box_outside_bounds_severity(&box_,bounds);
             if overflow > 0.0 {
                 10_000_000.0 + overflow * 500_000.0
             } else {
@@ -3621,46 +3615,11 @@ fn segment_box_distance(a: Point, b: Point, box_: &Box2) -> f32 {
     best
 }
 pub(crate) fn segment_intersects_box(a: Point, b: Point, box_: &Box2) -> bool {
-    if point_inside_box(a, box_) || point_inside_box(b, box_) {
-        return true;
-    }
-    let c = [
-        Point {
-            x: box_.left,
-            y: box_.top,
-        },
-        Point {
-            x: box_.right,
-            y: box_.top,
-        },
-        Point {
-            x: box_.right,
-            y: box_.bottom,
-        },
-        Point {
-            x: box_.left,
-            y: box_.bottom,
-        },
-    ];
-    (0..4).any(|i| segments_intersect(a, b, c[i], c[(i + 1) % 4]))
+    crate::geometry_policy::hits_box(a.x,a.y,b.x,b.y,box_.left,box_.right,box_.top,box_.bottom)
 }
-fn point_inside_box(p: Point, b: &Box2) -> bool {
-    p.x >= b.left && p.x <= b.right && p.y >= b.top && p.y <= b.bottom
-}
-fn orientation(a: Point, b: Point, c: Point) -> f32 {
-    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
-}
-fn segments_intersect(a: Point, b: Point, c: Point, d: Point) -> bool {
-    let o1 = orientation(a, b, c);
-    let o2 = orientation(a, b, d);
-    let o3 = orientation(c, d, a);
-    let o4 = orientation(c, d, b);
-    (o1 == 0.0 && point_to_segment_distance(c, a, b) < 0.000001)
-        || (o2 == 0.0 && point_to_segment_distance(d, a, b) < 0.000001)
-        || (o3 == 0.0 && point_to_segment_distance(a, c, d) < 0.000001)
-        || (o4 == 0.0 && point_to_segment_distance(b, c, d) < 0.000001)
-        || (o1 > 0.0) != (o2 > 0.0) && (o3 > 0.0) != (o4 > 0.0)
-}
+
+
+
 fn point_to_segment_distance(p: Point, a: Point, b: Point) -> f32 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;

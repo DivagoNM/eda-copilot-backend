@@ -1,6 +1,8 @@
 import { F32_ROTATION_BITS as SIN_COS_BITS } from './f32-rotation-bits.ts';
 
 export const PCB_NUMERIC_CONTRACT = 'f32-rte-ftz-v1';
+/** Millimetres; mirrored by native geometry_policy and checked by contract tests. */
+export const PCB_PLACEMENT_EPSILON = Math.fround(0.001);
 const MIN_NORMAL = 2 ** -126;
 
 /** Binary32 operands/results, with signed FTZ. JSON number remains transport. */

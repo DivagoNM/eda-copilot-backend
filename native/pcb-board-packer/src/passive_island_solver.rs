@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 use std::cmp::Ordering;
 use rustc_hash::{FxHashSet}; 
 
-const PLACEMENT_EPSILON: f32 = 0.005;
+const PLACEMENT_EPSILON: f32 = crate::geometry_policy::DISTANCE_EPSILON_MM;
 const ROTATION_LIMIT: usize = 4096;
 
 #[derive(Clone, Copy)]
@@ -597,10 +597,7 @@ fn has_overlap(problem: &PassiveIslandProblem, placements: &[CandidatePlacement]
 }
 
 fn boxes_overlap(a: &Box2, b: &Box2, clearance: f32) -> bool {
-    !(a.right + clearance - PLACEMENT_EPSILON < b.left
-        || a.left - clearance + PLACEMENT_EPSILON > b.right
-        || a.bottom + clearance - PLACEMENT_EPSILON < b.top
-        || a.top - clearance + PLACEMENT_EPSILON > b.bottom)
+    crate::geometry::overlap_depth(a,b,clearance)>0.0
 }
 
 fn placements_box(problem: &PassiveIslandProblem, placements: &[CandidatePlacement]) -> Box2 {

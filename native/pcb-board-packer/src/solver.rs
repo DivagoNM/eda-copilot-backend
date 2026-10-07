@@ -1412,11 +1412,7 @@ fn primitive_hard_overlap(a: &WorkingPrimitive, b: &WorkingPrimitive, context: &
             }
         }
     }
-    let result = if max_overlap <= 1e-9 {
-        0.0
-    } else {
-        max_overlap
-    };
+    let result = max_overlap;
     cache_insert(&context.hard_overlap_cache, key, result);
     result
 }
@@ -1566,7 +1562,7 @@ fn polygon_board_outside_severity(box_: &Box2, bounds: &Box2, edge: f32, context
     for corner in box_corners(box_) {
         let inside = point_in_polygon(&corner, &context.problem.board_outline)
             && (edge <= 0.0
-                || point_to_polygon_distance(&corner, &context.problem.board_outline) + 1e-6
+                || point_to_polygon_distance(&corner, &context.problem.board_outline) + crate::geometry_policy::DISTANCE_EPSILON_MM
                     >= edge);
         if inside {
             continue;

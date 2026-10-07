@@ -23,27 +23,11 @@ pub fn orient(a: P, b: P, c: P) -> f32 {
 }
 #[cfg_attr(feature = "gpu", cube)]
 pub fn crosses(a: P, b: P, c: P, d: P) -> bool {
-    orient(a,b,c)*orient(a,b,d) < -1e-9 && orient(c,d,a)*orient(c,d,b) < -1e-9
+    crate::geometry_policy::crosses(a.x,a.y,b.x,b.y,c.x,c.y,d.x,d.y)
 }
 #[cfg_attr(feature = "gpu", cube)]
 pub fn hits(a: P, b: P, l: f32, r: f32, t: f32, bottom: f32) -> bool {
-    let mut lo = 0.0f32;
-    let mut hi = 1.0f32;
-    let mut valid = true;
-    for axis in 0..2u32 {
-        let mut start = a.x; let mut delta = b.x-a.x; let mut min = l; let mut max = r;
-        if axis == 1 { start = a.y; delta = b.y-a.y; min = t; max = bottom; }
-        if delta.abs() < 1e-9 {
-            if start < min || start > max { valid = false; }
-        } else {
-            let t1 = (min-start)/delta; let t2 = (max-start)/delta;
-            let low = if t1 < t2 { t1 } else { t2 };
-            let high = if t1 > t2 { t1 } else { t2 };
-            if low > lo { lo = low; } if high < hi { hi = high; }
-            if lo > hi { valid = false; }
-        }
-    }
-    valid
+    crate::geometry_policy::hits_box(a.x,a.y,b.x,b.y,l,r,t,bottom)
 }
 #[cfg_attr(feature = "gpu", cube)]
 pub fn obstacle(p: Path, l: f32, r: f32, t: f32, b: f32, clearance: f32, pad_factor: f32) -> f32 {

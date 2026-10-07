@@ -8,7 +8,7 @@ export const GEOMETRY_EPSILON = 1e-6;
 // Placement coordinates are rounded to the grid (typically 0.5 mm) and then to 3 decimals.
 // Use a slightly larger epsilon for overlap/clearance checks so that tiny floating-point
 // rounding differences do not create false positives when the gap equals the required clearance.
-export const PLACEMENT_EPSILON = 0.005;
+export const PLACEMENT_EPSILON = fp.PCB_PLACEMENT_EPSILON;
 
 export function getPadWorld(component: PcbComponent, placement: Placement, pin: string | number) {
     const pad = component.footprint.pads.find((pad) => String(pad.pin_number) === String(pin));
@@ -94,17 +94,17 @@ export function pointsBox(points: Point[]): Box {
 export function pointInBoard(board: CenteredRectBoard, point: Point, edgeClearance = 0) {
     const box = boardBox(board);
     if (
-        point.x < fp.sub(fp.add(box.left, edgeClearance), GEOMETRY_EPSILON)
-        || point.x > fp.add(fp.sub(box.right, edgeClearance), GEOMETRY_EPSILON)
-        || point.y < fp.sub(fp.add(box.top, edgeClearance), GEOMETRY_EPSILON)
-        || point.y > fp.add(fp.sub(box.bottom, edgeClearance), GEOMETRY_EPSILON)
+        point.x < fp.sub(fp.add(box.left, edgeClearance), PLACEMENT_EPSILON)
+        || point.x > fp.add(fp.sub(box.right, edgeClearance), PLACEMENT_EPSILON)
+        || point.y < fp.sub(fp.add(box.top, edgeClearance), PLACEMENT_EPSILON)
+        || point.y > fp.add(fp.sub(box.bottom, edgeClearance), PLACEMENT_EPSILON)
     ) {
         return false;
     }
 
     if (board.outline.type !== 'polygon') return true;
     if (!pointInPolygon(point, board.outline.points)) return false;
-    return edgeClearance <= 0 || fp.add(pointToPolygonDistance(point, board.outline.points), GEOMETRY_EPSILON) >= edgeClearance;
+    return edgeClearance <= 0 || fp.add(pointToPolygonDistance(point, board.outline.points), PLACEMENT_EPSILON) >= edgeClearance;
 }
 
 export function boxInsideBoard(board: CenteredRectBoard, box: Box, edgeClearance = 0) {
@@ -119,8 +119,11 @@ export function boxInsideBoard(board: CenteredRectBoard, box: Box, edgeClearance
 
     const boxEdges = corners.map((corner, index) => [corner, corners[(index + 1) % corners.length]] as const);
     const outline = board.outline.points;
+    if (outline.some(p => fp.sub(p.x,box.left)>PLACEMENT_EPSILON && fp.sub(box.right,p.x)>PLACEMENT_EPSILON
+        && fp.sub(p.y,box.top)>PLACEMENT_EPSILON && fp.sub(box.bottom,p.y)>PLACEMENT_EPSILON)) return false;
     return boxEdges.every(([a, b]) => outline.every((point, index) =>
-        segmentIntersection(a, b, point, outline[(index + 1) % outline.length]) === null));
+        placementSide(a,b,point) * placementSide(a,b,outline[(index + 1) % outline.length]) >= 0
+        || placementSide(point,outline[(index + 1) % outline.length],a) * placementSide(point,outline[(index + 1) % outline.length],b) >= 0));
 }
 
 export function pointInPolygon(point: Point, polygon: Point[]) {
@@ -229,7 +232,7 @@ export function rotatedSize(footprint: FootprintSpec, rotate: number) {
 }
 
 export function overlaps(a: Box, b: Box, clearance: number) {
-    return boxClearanceGap(a, b) <= fp.sub(clearance, PLACEMENT_EPSILON);
+    return fp.sub(clearance, boxClearanceGap(a, b)) > PLACEMENT_EPSILON;
 }
 
 export function boxGap(a: Box, b: Box) {
@@ -260,7 +263,7 @@ export function boardHoleKeepoutRadius(hole: BoardHole) {
 }
 
 export function overlapsBoardHole(box: Box, hole: BoardHole, clearance = 0) {
-    return fp.add(boxPointGap(box, hole), GEOMETRY_EPSILON) < fp.add(boardHoleKeepoutRadius(hole), clearance);
+    return fp.add(boxPointGap(box, hole), PLACEMENT_EPSILON) < fp.add(boardHoleKeepoutRadius(hole), clearance);
 }
 
 export function polar(radius: number, angle: number) {
@@ -268,12 +271,19 @@ export function polar(radius: number, angle: number) {
     return { x: fp.mul(cos, radius), y: fp.mul(sin, radius) };
 }
 
+/** Signed side with a millimetre band; the cross product itself is in mm². */
+function placementSide(a: Point, b: Point, p: Point): number {
+    const dx=fp.sub(b.x,a.x), dy=fp.sub(b.y,a.y);
+    const cross=fp.sub(fp.mul(dx,fp.sub(p.y,a.y)),fp.mul(dy,fp.sub(p.x,a.x)));
+    const band=fp.mul(PLACEMENT_EPSILON,fp.hypot(dx,dy));
+    return cross>band ? 1 : cross< -band ? -1 : 0;
+}
 function pointOnSegment(point: Point, a: Point, b: Point) {
-    return fp.abs(fp.sub(fp.mul((fp.sub(b.x, a.x)), (fp.sub(point.y, a.y))), fp.mul((fp.sub(b.y, a.y)), (fp.sub(point.x, a.x))))) < GEOMETRY_EPSILON
-        && point.x <= fp.add(fp.max(a.x, b.x), GEOMETRY_EPSILON)
-        && point.x >= fp.sub(fp.min(a.x, b.x), GEOMETRY_EPSILON)
-        && point.y <= fp.add(fp.max(a.y, b.y), GEOMETRY_EPSILON)
-        && point.y >= fp.sub(fp.min(a.y, b.y), GEOMETRY_EPSILON);
+    return placementSide(a,b,point)===0
+        && point.x <= fp.add(fp.max(a.x,b.x),PLACEMENT_EPSILON)
+        && point.x >= fp.sub(fp.min(a.x,b.x),PLACEMENT_EPSILON)
+        && point.y <= fp.add(fp.max(a.y,b.y),PLACEMENT_EPSILON)
+        && point.y >= fp.sub(fp.min(a.y,b.y),PLACEMENT_EPSILON);
 }
 
 function segmentIntersection(a: Point, b: Point, c: Point, d: Point): Point | null {

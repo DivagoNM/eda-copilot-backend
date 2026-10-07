@@ -116,7 +116,7 @@ pub fn cost(kind:u32,d:f32,a:u32,b:u32,weight:f32,minimum:f32)->f32 {
 }
 #[cfg_attr(feature="gpu", cube)]
 pub fn violation(kind:u32,d:f32,minimum:f32,maximum:f32)->f32 {
-    let mut result=0.0;if kind==0{result=(minimum-d).max(0.0);}if kind>=3{result=(d-maximum).max(0.0);}if result<=0.001{result=0.0;}result
+    let mut result=0.0;if kind==0{result=(minimum-d).max(0.0);}if kind>=3{result=(d-maximum).max(0.0);}crate::geometry_policy::violation(result)
 }
 #[derive(Default)] pub struct Evaluation {pub score:f32,pub hard:usize,pub severity:f32}
 pub fn evaluate(plan:&Plan,point:impl Fn(u32,usize)->Option<Point>)->Evaluation {

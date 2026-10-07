@@ -178,12 +178,9 @@ pub fn island(p:&IslandQuality)->f32 {
     score
 }
 
-fn orientation(a:Point,b:Point,c:Point)->f32 {
-    let value=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
-    if value.abs()<0.000001 {0.0}else{value.signum()}
-}
+
 fn segments_cross(a:Point,b:Point,c:Point,d:Point)->bool {
-    orientation(a,b,c)*orientation(a,b,d)<0.0 && orientation(c,d,a)*orientation(c,d,b)<0.0
+    crate::geometry_policy::crosses(a.x,a.y,b.x,b.y,c.x,c.y,d.x,d.y)
 }
 
 #[derive(Deserialize)]

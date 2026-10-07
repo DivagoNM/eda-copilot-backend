@@ -180,6 +180,7 @@ export interface NativeBoardPackerAddon {
     placementRelationProfile(request: { relation: string; priority: string; weight?: number; minDistance?: number; maxDistance?: number; path?: boolean; core?: boolean; hard?: boolean }): {weight: number; inverseTauSquared: number; topologyWeight: number; min?: number; max?: number};
     placementLayerPenalties(terms: Array<[number, boolean]>): number[];
     placementScoreContractVersion(): number;
+    placementGeometryEpsilon(): number;
     placementSpacingPolicy(measurements: [number, number]): {gap: number; compactnessScale: number; density: number};
     placementAlignmentPolicy(pairCount: number, normalize: boolean): {weight: number; tolerance: number; orientationWeight: number};
     placementBlockSimilarity(problem: {nodesA: Array<[string, number]>; nodesB: Array<[string, number]>; edgesA: Array<[string, number]>; edgesB: Array<[string, number]>; dimensions?: [number, number, number, number]}): number;

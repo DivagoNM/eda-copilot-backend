@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Share a 0.001 mm physical geometry tolerance across native CPU/CubeCL Block, Board, FastRoute and placement validation. Ignore only boundary noise; preserve full severity beyond the tolerance. Remove false fixed collision penalties reproduced by ESP32 digital_input_1, align PostPlace/report edge allowances, and keep score ties and exact ordering separate. Placement score contract v12 requires a native rebuild; evidence: `docs/experimental/pcb/geometry-tolerance/README.md`.
+
 - Evaluate the complete Board repair batch through the existing GPU rank API instead of requesting an oversized shortlist. Preserve all repair candidates and scores; avoid an unnecessary whole-call CPU fallback above 96 variants, reproduced by the ESP32 orientation-weight experiment.
 
 - Add optional native joint proposals for 2–16 repeated channels at a shared locked connector, using shared CPU/GPU geometry and full FastRoute selection. Generate the nearest pair and complete eligible group (capped at 16); keep independent placement available. Keep beam width unchanged, preserve fine-position score elites and reserve half the slots for geometric diversity. Enable a weak normalized orientation preference independently of generation (at most four total points). Score contract v11; evidence and limits: `docs/experimental/pcb/channel-search/README.md`.

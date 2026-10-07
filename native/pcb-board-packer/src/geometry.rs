@@ -181,17 +181,7 @@ pub fn union_boxes(boxes: &[Box2]) -> Box2 {
 
 #[inline(always)]
 pub fn overlap_depth(a: &Box2, b: &Box2, clearance: f32) -> f32 {
-    let x1 = a.right + clearance - b.left;
-    let x2 = b.right + clearance - a.left;
-    if x1 <= 0.0 || x2 <= 0.0 {
-        return 0.0;
-    }
-    let y1 = a.bottom + clearance - b.top;
-    let y2 = b.bottom + clearance - a.top;
-    if y1 <= 0.0 || y2 <= 0.0 {
-        return 0.0;
-    }
-    x1.min(x2).min(y1.min(y2))
+    crate::geometry_policy::overlap(a.left,a.right,a.top,a.bottom,b.left,b.right,b.top,b.bottom,clearance)
 }
 
 #[inline(always)]
@@ -207,10 +197,7 @@ pub fn boxes_overlap_depth(a_boxes: &[Box2], b_boxes: &[Box2], clearance: f32) -
 
 #[inline(always)]
 pub fn box_outside_bounds_severity(box_: &Box2, bounds: &Box2) -> f32 {
-    (bounds.left - box_.left).max(0.0)
-        + (box_.right - bounds.right).max(0.0)
-        + (bounds.top - box_.top).max(0.0)
-        + (box_.bottom - bounds.bottom).max(0.0)
+    crate::geometry_policy::outside(box_.left,box_.right,box_.top,box_.bottom,bounds.left,bounds.right,bounds.top,bounds.bottom)
 }
 
 #[inline(always)]
@@ -260,14 +247,17 @@ pub fn box_inside_polygon_board(
     edge_clearance: f32,
 ) -> bool {
     let corners = box_corners(box_);
+    if polygon.iter().any(|p| crate::geometry_policy::inside_box(p.x,p.y,box_.left,box_.right,box_.top,box_.bottom)) {
+        return false;
+    }
     for corner in &corners {
-        if corner.x < bounds.left + edge_clearance - GEOMETRY_EPSILON
-            || corner.x > bounds.right - edge_clearance + GEOMETRY_EPSILON
-            || corner.y < bounds.top + edge_clearance - GEOMETRY_EPSILON
-            || corner.y > bounds.bottom - edge_clearance + GEOMETRY_EPSILON
+        if corner.x < bounds.left + edge_clearance - crate::geometry_policy::DISTANCE_EPSILON_MM
+            || corner.x > bounds.right - edge_clearance + crate::geometry_policy::DISTANCE_EPSILON_MM
+            || corner.y < bounds.top + edge_clearance - crate::geometry_policy::DISTANCE_EPSILON_MM
+            || corner.y > bounds.bottom - edge_clearance + crate::geometry_policy::DISTANCE_EPSILON_MM
             || !point_in_polygon(corner, polygon)
             || (edge_clearance > 0.0
-                && point_to_polygon_distance(corner, polygon) + GEOMETRY_EPSILON < edge_clearance)
+                && point_to_polygon_distance(corner, polygon) + crate::geometry_policy::DISTANCE_EPSILON_MM < edge_clearance)
         {
             return false;
         }
@@ -328,11 +318,7 @@ pub fn box_corners(box_: &Box2) -> [Point; 4] {
 
 #[inline(always)]
 fn point_on_segment(point: &Point, a: &Point, b: &Point) -> bool {
-    ((b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)).abs() < GEOMETRY_EPSILON
-        && point.x <= a.x.max(b.x) + GEOMETRY_EPSILON
-        && point.x >= a.x.min(b.x) - GEOMETRY_EPSILON
-        && point.y <= a.y.max(b.y) + GEOMETRY_EPSILON
-        && point.y >= a.y.min(b.y) - GEOMETRY_EPSILON
+    crate::geometry_policy::on_segment(point.x,point.y,a.x,a.y,b.x,b.y)
 }
 
 #[inline(always)]
@@ -351,21 +337,10 @@ fn point_to_segment_distance(point: &Point, a: &Point, b: &Point) -> f32 {
 
 #[inline(always)]
 fn segment_intersection(a: &Point, b: &Point, c: &Point, d: &Point) -> Option<Point> {
-    let denominator = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
-    if denominator.abs() < GEOMETRY_EPSILON {
-        return None;
-    }
-    let t = ((a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x)) / denominator;
-    let u = -((a.x - b.x) * (a.y - c.y) - (a.y - b.y) * (a.x - c.x)) / denominator;
-    if !(-GEOMETRY_EPSILON..=1.0 + GEOMETRY_EPSILON).contains(&t)
-        || !(-GEOMETRY_EPSILON..=1.0 + GEOMETRY_EPSILON).contains(&u)
-    {
-        return None;
-    }
-    Some(Point {
-        x: a.x + t * (b.x - a.x),
-        y: a.y + t * (b.y - a.y),
-    })
+    if !crate::geometry_policy::crosses(a.x,a.y,b.x,b.y,c.x,c.y,d.x,d.y) {return None;}
+    let denominator=(a.x-b.x)*(c.y-d.y)-(a.y-b.y)*(c.x-d.x);
+    let t=((a.x-c.x)*(c.y-d.y)-(a.y-c.y)*(c.x-d.x))/denominator;
+    Some(Point{x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)})
 }
 
 #[cfg(test)]

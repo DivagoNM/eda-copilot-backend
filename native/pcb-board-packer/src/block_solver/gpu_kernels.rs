@@ -308,7 +308,7 @@ fn corner(b:B,i:usize)->P {P{x:choose(i==0 || i==3,b.l,b.r),y:choose(i<2,b.t,b.b
 fn outline_point(d:&Input,i:usize)->P {let f=d.fi[OUTLINE_F] as usize+i*2;P{x:d.sf[f],y:d.sf[f+1]}}
 #[cube]
 fn on_edge(p:P,a:P,b:P)->bool {
-    cross(a,b,p).abs()<0.000001 && p.x<=max(a.x,b.x)+0.000001 && p.x>=min(a.x,b.x)-0.000001 && p.y<=max(a.y,b.y)+0.000001 && p.y>=min(a.y,b.y)-0.000001
+    crate::geometry_policy::on_segment(p.x,p.y,a.x,a.y,b.x,b.y)
 }
 #[cube]
 fn polygon_contains(d:&Input,p:P)->bool {
@@ -326,26 +326,22 @@ fn polygon_distance(p:P,a:P,b:P)->f32 {
 }
 #[cube]
 fn edge_crosses(a:P,b:P,c:P,e:P)->bool {
-    let den=(a.x-b.x)*(c.y-e.y)-(a.y-b.y)*(c.x-e.x);let mut result=false;
-    if den.abs()>=0.000001 {
-        let t=((a.x-c.x)*(c.y-e.y)-(a.y-c.y)*(c.x-e.x))/den;
-        let u=-((a.x-b.x)*(a.y-c.y)-(a.y-b.y)*(a.x-c.x))/den;
-        result=t>=-0.000001 && t<=1.0+0.000001 && u>=-0.000001 && u<=1.0+0.000001;
-    }result
+    crate::geometry_policy::crosses(a.x,a.y,b.x,b.y,c.x,c.y,e.x,e.y)
 }
 #[cube]
 fn inside_world(d:&Input,b:B)->bool {
     let f=d.fi[WORLD_F] as usize;let bounds=static_box(d,f);let cl=d.sf[f+4];let mut valid=true;
     for i in 0usize..4usize {
         let p=corner(b,i);
-        if p.x<bounds.l+cl-0.000001 || p.x>bounds.r-cl+0.000001 || p.y<bounds.t+cl-0.000001 || p.y>bounds.b-cl+0.000001 || !polygon_contains(d,p) {valid=false;}
+        if p.x<bounds.l+cl-crate::geometry_policy::epsilon() || p.x>bounds.r-cl+crate::geometry_policy::epsilon() || p.y<bounds.t+cl-crate::geometry_policy::epsilon() || p.y>bounds.b-cl+crate::geometry_policy::epsilon() || !polygon_contains(d,p) {valid=false;}
         let mut dist=f32::from_bits(0x7f800000u32);
         for j in 0usize..d.fi[OUTLINE_COUNT] as usize {
             let a=outline_point(d,j);let next=outline_point(d,(j+1)%d.fi[OUTLINE_COUNT] as usize);
+            if crate::geometry_policy::inside_box(a.x,a.y,b.l,b.r,b.t,b.b) {valid=false;}
             dist=min(dist,polygon_distance(p,a,next));
             if edge_crosses(p,corner(b,(i+1)%4),a,next) {valid=false;}
         }
-        if cl>0.0 && dist+0.000001<cl {valid=false;}
+        if cl>0.0 && dist+crate::geometry_policy::epsilon()<cl {valid=false;}
     }valid
 }
 #[cube]
@@ -382,7 +378,7 @@ fn unary_hard(d:&Input,p:Prim,checkpoint:bool)->u32 {
     }
     if d.fi[BOUNDS_F]!=u32::MAX && !(checkpoint && d.fi[WORLD_F]!=u32::MAX && p.locked!=0) {
         let b=static_box(d,d.fi[BOUNDS_F] as usize);
-        if p.bbox.l<b.l || p.bbox.r>b.r || p.bbox.t<b.t || p.bbox.b>b.b {hard+=1;}
+        if crate::geometry_policy::outside(p.bbox.l,p.bbox.r,p.bbox.t,p.bbox.b,b.l,b.r,b.t,b.b)>0.0 {hard+=1;}
     }hard
 }
 
@@ -425,15 +421,7 @@ fn center(b: B) -> P {
 }
 #[cube]
 fn overlap(a: B, b: B, c: f32) -> f32 {
-    let x1 = a.r + c - b.l;
-    let x2 = b.r + c - a.l;
-    let y1 = a.b + c - b.t;
-    let y2 = b.b + c - a.t;
-    let mut value = min(min(x1, x2), min(y1, y2));
-    if x1 <= 0.0 || x2 <= 0.0 || y1 <= 0.0 || y2 <= 0.0 {
-        value = 0.0;
-    }
-    value
+    crate::geometry_policy::overlap(a.l,a.r,a.t,a.b,b.l,b.r,b.t,b.b,c)
 }
 #[cube]
 fn cross(a: P, b: P, c: P) -> f32 {
@@ -659,32 +647,7 @@ fn make_tree(d: &Input, ni: usize, candidate: usize, out: &mut Array<f32>, tags:
 }
 #[cube]
 fn hit(ax: f32, ay: f32, bx: f32, by: f32, p: B) -> bool {
-    let mut valid =
-        !(p.r < min(ax, bx) || p.l > max(ax, bx) || p.b < min(ay, by) || p.t > max(ay, by));
-    let mut lo = 0.0f32;
-    let mut hi = 1.0f32;
-    for axis in 0usize..2usize {
-        let start = choose(axis == 0, ax, ay);
-        let delta = choose(axis == 0, bx - ax, by - ay);
-        let lower = choose(axis == 0, p.l, p.t);
-        let upper = choose(axis == 0, p.r, p.b);
-        if valid {
-            if delta.abs() < 1e-9 {
-                if start < lower || start > upper {
-                    valid = false;
-                }
-            } else {
-                let t1 = (lower - start) / delta;
-                let t2 = (upper - start) / delta;
-                lo = max(lo, min(t1, t2));
-                hi = min(hi, max(t1, t2));
-                if lo > hi {
-                    valid = false;
-                }
-            }
-        }
-    }
-    valid
+    crate::geometry_policy::hits_box(ax,ay,bx,by,p.l,p.r,p.t,p.b)
 }
 #[cube]
 fn pad_at(d: &Input, p: Prim, j: usize) -> B {
@@ -1367,7 +1330,7 @@ pub fn cheap(
                 for bi in 0usize..p.box_count {let depth=overlap(geometry_box(d,p,p.boxes+bi),b,d.ff[0]);if depth>0.0 {ov+=10000000.0+depth*100000.0;}}
             }
             if d.fi[BOUNDS_F]!=u32::MAX {
-                let b=static_box(d,d.fi[BOUNDS_F] as usize);let overflow=max(b.l-p.bbox.l,0.0)+max(p.bbox.r-b.r,0.0)+max(b.t-p.bbox.t,0.0)+max(p.bbox.b-b.b,0.0);
+                let b=static_box(d,d.fi[BOUNDS_F] as usize);let overflow=crate::geometry_policy::outside(p.bbox.l,p.bbox.r,p.bbox.t,p.bbox.b,b.l,b.r,b.t,b.b);
                 if overflow>0.0 {bound_penalty+=10000000.0+overflow*500000.0;}
             }
         }

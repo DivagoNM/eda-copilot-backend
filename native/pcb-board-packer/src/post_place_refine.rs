@@ -19,7 +19,8 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-const EPS: f32 = 0.001;
+const EPS: f32 = 0.001; // Score improvement/tie threshold, independent of physical distance.
+const GEOMETRY_EPS: f32 = crate::geometry_policy::DISTANCE_EPSILON_MM;
 #[cfg(feature = "gpu")]
 #[path = "post_place/cubecl.rs"]
 mod gpu;
@@ -581,7 +582,7 @@ impl RefineProblem {
                         order: port.order,
                         reference: port.reference.clone(),
                         role: port.role.clone(),
-                        normal: if len > EPS {
+                        normal: if len > GEOMETRY_EPS {
                             Point {
                                 x: dx / len,
                                 y: dy / len,
@@ -643,7 +644,7 @@ impl RefineProblem {
                     &b,
                     &self.board,
                     &self.polygon,
-                    (self.edge_clearance - 0.010001).max(0.0),
+                    self.edge_clearance,
                 )
             } else {
                 b.left
@@ -651,31 +652,31 @@ impl RefineProblem {
                         self.board.left - o.left
                     } else {
                         self.board.left + self.edge_clearance
-                    }) - 0.010001
+                    }) - GEOMETRY_EPS
                     || b.right
                         > (if o.right > 0.0 {
                             self.board.right + o.right
                         } else {
                             self.board.right - self.edge_clearance
-                        }) + 0.010001
+                        }) + GEOMETRY_EPS
                     || b.top
                         < (if o.top > 0.0 {
                             self.board.top - o.top
                         } else {
                             self.board.top + self.edge_clearance
-                        }) - 0.010001
+                        }) - GEOMETRY_EPS
                     || b.bottom
                         > (if o.bottom > 0.0 {
                             self.board.bottom + o.bottom
                         } else {
                             self.board.bottom - self.edge_clearance
-                        }) + 0.010001
+                        }) + GEOMETRY_EPS
             });
             if outside {
                 keys.insert(format!("{prefix}:outside-board"));
             }
             for (j, h) in self.holes.iter().enumerate() {
-                if point_gap(Point { x: h.x, y: h.y }, b) + EPS < h.radius {
+                if point_gap(Point { x: h.x, y: h.y }, b) + GEOMETRY_EPS < h.radius {
                     keys.insert(format!("{prefix}:board-hole:{j}"));
                 }
             }
@@ -684,8 +685,8 @@ impl RefineProblem {
                     && std::iter::once((&w.bodies[i], p.layer.as_ref()))
                         .chain(w.opposite[i].iter().map(|b| (b, if p.layer.as_ref() == "top" { "bottom" } else { "top" })))
                         .any(|(b, layer)| r.layers.iter().any(|l| l.as_ref() == layer)
-                            && b.left < r.box_.right - EPS && b.right > r.box_.left + EPS
-                            && b.top < r.box_.bottom - EPS && b.bottom > r.box_.top + EPS)
+                            && b.left < r.box_.right - GEOMETRY_EPS && b.right > r.box_.left + GEOMETRY_EPS
+                            && b.top < r.box_.bottom - GEOMETRY_EPS && b.bottom > r.box_.top + GEOMETRY_EPS)
                 {
                     keys.insert(format!("{prefix}:region:{}:{j}", r.name));
                 }
@@ -702,16 +703,16 @@ impl RefineProblem {
                 }
                 let required = self.pair_clearances[a][b];
                 let collision = if same {
-                    gap(w.bodies[a], w.bodies[b]) + EPS < required
+                    gap(w.bodies[a], w.bodies[b]) + GEOMETRY_EPS < required
                         || w.opposite[a].iter().any(|aa| w.opposite[b].iter()
-                            .any(|bb| gap(*aa, *bb) + EPS < required))
+                            .any(|bb| gap(*aa, *bb) + GEOMETRY_EPS < required))
                 } else {
                     w.opposite[b]
                         .iter()
-                        .any(|bb| gap(w.bodies[a], *bb) + EPS < required)
+                        .any(|bb| gap(w.bodies[a], *bb) + GEOMETRY_EPS < required)
                         || w.opposite[a]
                             .iter()
-                            .any(|aa| gap(*aa, w.bodies[b]) + EPS < required)
+                            .any(|aa| gap(*aa, w.bodies[b]) + GEOMETRY_EPS < required)
                 };
                 if collision {
                     keys.insert(format!(
@@ -735,10 +736,10 @@ impl RefineProblem {
                         self.target_point(&h.target, w),
                     ) {
                         let d = crate::numerics::hypot(a.x - b.x,a.y - b.y);
-                        if h.min.is_some_and(|min| d + EPS < min) {
+                        if h.min.is_some_and(|min| d + GEOMETRY_EPS < min) {
                             keys.insert(format!("{prefix}:min"));
                         }
-                        if h.max.is_some_and(|max| d > max + EPS) {
+                        if h.max.is_some_and(|max| d > max + GEOMETRY_EPS) {
                             keys.insert(format!("{prefix}:max"));
                         }
                     } else {
@@ -749,7 +750,7 @@ impl RefineProblem {
                     if let Some(source) = self.target_box(&h.source, w) {
                         if let Some(min) = h.min {
                             for (key, target) in self.clearance_targets(h, w) {
-                                if gap(source, target) + EPS < min {
+                                if gap(source, target) + GEOMETRY_EPS < min {
                                     keys.insert(format!("{prefix}:clearance:{key}"));
                                 }
                             }
@@ -761,10 +762,10 @@ impl RefineProblem {
                 "edge" => {
                     if let (Some(source), Some(edge)) = (self.target_box(&h.source, w), &h.edge) {
                         let d = self.edge_gap(source, edge);
-                        if h.min.is_some_and(|min| d + EPS < min) {
+                        if h.min.is_some_and(|min| d + GEOMETRY_EPS < min) {
                             keys.insert(format!("{prefix}:min"));
                         }
-                        if h.max.is_some_and(|max| d > max + EPS) {
+                        if h.max.is_some_and(|max| d > max + GEOMETRY_EPS) {
                             keys.insert(format!("{prefix}:max"));
                         }
                     } else {
@@ -776,8 +777,8 @@ impl RefineProblem {
         }
         for h in &self.hierarchy {
             if let Some(b) = self.target_box(&h.source, w) {
-                if h.max_width.is_some_and(|v| b.right - b.left > v + EPS)
-                    || h.max_height.is_some_and(|v| b.bottom - b.top > v + EPS)
+                if h.max_width.is_some_and(|v| b.right - b.left > v + GEOMETRY_EPS)
+                    || h.max_height.is_some_and(|v| b.bottom - b.top > v + GEOMETRY_EPS)
                 {
                     keys.insert(h.key.clone());
                 }
@@ -787,7 +788,7 @@ impl RefineProblem {
                         x: p.x + offset.x,
                         y: p.y + offset.y,
                     });
-                    if p.is_none_or(|p| point_gap(p, b) > h.max_gap.unwrap_or(0.0) + EPS) {
+                    if p.is_none_or(|p| point_gap(p, b) > h.max_gap.unwrap_or(0.0) + GEOMETRY_EPS) {
                         keys.insert(h.key.clone());
                     }
                 }
