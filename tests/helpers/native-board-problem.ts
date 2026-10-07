@@ -65,3 +65,20 @@ export function minimalPrimitive(): PlacementPrimitive {
     };
 }
 
+/** Synthetic bus exercises unequal distances, multiple pads, power and the cap. */
+export function addOrdinaryBus(problem: Pick<NativeBoardPackProblemV7, 'primitives' | 'relations'>) {
+    for (let n = 0; n < 7; n++) {
+        const net = `BUS${n}`;
+        problem.relations.push({ id: `__ordinary_net__:${net}`, kind: 'net',
+            from: `__ordinary_net__:${net}`, to: `__ordinary_net__:${net}`,
+            weight: n === 6 ? .1 : 1, hard: false, effect: 'score_only', satelliteAnchor: false });
+        problem.primitives.forEach((p, i) => {
+            const pose = p.placements[0];
+            p.connectionPoints.push({ ref: `${pose.designator}.bus${n}`, net,
+                x: pose.x + (n % 2 ? i * 45 : -i * 17) + n, y: pose.y + n * .25 });
+            if (n === 0) p.connectionPoints.push({ ref: `${pose.designator}.bus${n}extra`, net,
+                x: pose.x + i * 30, y: pose.y + 2 });
+        });
+    }
+}
+

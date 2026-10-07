@@ -10,6 +10,7 @@ use std::time::Instant;
 use std::sync::atomic::{AtomicU64,Ordering};
 use std::collections::BTreeMap;
 use super::gpu_kernels as k;
+use crate::ordinary_net::PairPlan as OrdinaryPair;
 
 const REQUIREMENTS: Requirements = Requirements { f32: true, u64: false };
 const CHUNK: usize = 4096;
@@ -32,10 +33,6 @@ pub(super) struct Engine {
     net_points: BTreeMap<Arc<str>,Vec<Vec<usize>>>,
     ordinary_plans: FxHashMap<Vec<u32>,Arc<Vec<OrdinaryPair>>>,
     stages:BTreeMap<&'static str,Timings>,phase:&'static str,fail_batch:Option<usize>,legality_candidates:usize,rank_candidates:usize,
-}
-#[derive(Default)]
-struct OrdinaryPair {
-    a:usize,b:usize,affinity:f32,nets:Vec<(Vec<usize>,Vec<usize>)>,
 }
 pub(super) struct Evaluated {pub index:usize,pub rank:Rank}
 #[derive(Clone,Copy)]
@@ -222,11 +219,8 @@ impl Engine {
             si[path_start+i*4..path_start+i*4+4].copy_from_slice(&[group_start,u(groups.len())?,f,u32::from(meta.is_some_and(|m|m.prefer_facing_pads))]);
         }
         floats(&sf)?;
-        let markers:BTreeMap<Arc<str>,f32>=p.relations.iter().filter_map(|r| {
-            let net=r.from.strip_prefix(crate::ordinary_net::MARKER_PREFIX)?;
-            if r.from!=r.to {return None;}let weight=r.weight.unwrap_or(1.0);
-            (weight.is_finite() && weight>0.0).then(||(Arc::from(net),weight))
-        }).collect();
+        let markers:BTreeMap<Arc<str>,f32>=crate::ordinary_net::markers(&p.relations)
+            .into_iter().map(|(net,weight)|(Arc::from(net),weight)).collect();
         let mut net_points=BTreeMap::new();
         for net in markers.keys() {
             let mut members=vec![Vec::new();np];
@@ -326,24 +320,15 @@ impl Engine {
     }
     fn ordinary_plan(&mut self,ids:Vec<u32>)->Arc<Vec<OrdinaryPair>> {
         if let Some(plan)=self.ordinary_plans.get(&ids) {return plan.clone();}
-        let mut pairs=FxHashMap::<(usize,usize),OrdinaryPair>::default();
-        for (net,&weight) in &self.markers {
+        let plan=crate::ordinary_net::pair_plan(self.markers.iter().map(|(net,&weight)| {
             let members:Vec<_>=ids.iter().enumerate().filter_map(|(i,&id)| {
-                let points=&self.net_points[net][id as usize];(!points.is_empty()).then_some((i,points))
+                let points=&self.net_points[net][id as usize];(!points.is_empty()).then(||(i,points.clone()))
             }).collect();
-            let count=members.len();if !(2..=8).contains(&count) {continue;}
-            let contribution=weight/(count as f32-1.0);
-            for a in 0..count {for b in a+1..count {
-                let entry=pairs.entry((members[a].0,members[b].0)).or_insert_with(||OrdinaryPair {
-                    a:members[a].0,b:members[b].0,..Default::default()
-                });
-                entry.affinity=(entry.affinity+contribution).min(4.0);
-                entry.nets.push((members[a].1.clone(),members[b].1.clone()));
-            }}
-        }
+            (weight,members)
+        }));
         // Same FxHashMap key type, insertion sequence and hasher as the CPU
         // reference: values() summation order is part of the numerical contract.
-        let plan:Arc<Vec<OrdinaryPair>>=Arc::new(pairs.into_values().collect());
+        let plan:Arc<Vec<OrdinaryPair>>=Arc::new(plan);
         if self.ordinary_plans.len()>=512 {self.ordinary_plans.clear();}
         self.ordinary_plans.insert(ids,plan.clone());plan
     }
@@ -411,12 +396,14 @@ impl Engine {
             frame[3]=u(frame.len())?;
             let pairs_offset=frame.len();frame.resize(frame.len()+ordinary.len()*5,0);
             for (i,pair) in ordinary.iter().enumerate() {
-                let affinity=u(pf.len())?;pf.push(pair.affinity);
-                let nets=u(frame.len())?;frame.resize(frame.len()+pair.nets.len()*4,0);
-                for (j,(a,b)) in pair.nets.iter().enumerate() {
+                let affinity=u(pf.len())?;pf.push(pair.weight);
+                let nets=u(frame.len())?;frame.resize(frame.len()+pair.nets.len()*5,0);
+                for (j,net) in pair.nets.iter().enumerate() {
+                    let (a,b)=(&net.a_points,&net.b_points);
                     let ap=u(frame.len())?;for &point in a {frame.push(u(point)?);}
                     let bp=u(frame.len())?;for &point in b {frame.push(u(point)?);}
-                    frame[nets as usize+j*4..nets as usize+j*4+4].copy_from_slice(&[ap,u(a.len())?,bp,u(b.len())?]);
+                    let weight=u(pf.len())?;pf.push(net.weight);
+                    frame[nets as usize+j*5..nets as usize+j*5+5].copy_from_slice(&[ap,u(a.len())?,bp,u(b.len())?,weight]);
                 }
                 frame[pairs_offset+i*5..pairs_offset+i*5+5].copy_from_slice(&[u(pair.a)?,u(pair.b)?,affinity,nets,u(pair.nets.len())?]);
             }

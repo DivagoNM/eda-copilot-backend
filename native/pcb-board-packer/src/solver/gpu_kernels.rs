@@ -319,18 +319,18 @@ fn ordinary_term(g:&Input,c:usize,i:usize)->f32 {
     {
         let pair=g.frame[3] as usize+i*5;
         let a=pose(g,c,g.frame[pair] as usize);let b=pose(g,c,g.frame[pair+1] as usize);
-        let mut distance=f32::from_bits(0x7f800000u32);
+        let mut weighted_distance=0.0;
         for net in 0..g.frame[pair+4] as usize {
-            let q=g.frame[pair+3] as usize+net*4;
+            let q=g.frame[pair+3] as usize+net*5;
             let mut shortest=f32::from_bits(0x7f800000u32);
             for x in 0..g.frame[q+1] as usize {for y in 0..g.frame[q+3] as usize {
                 let left=cp(g,a,g.frame[g.frame[q] as usize+x] as usize);
                 let right=cp(g,b,g.frame[g.frame[q+2] as usize+y] as usize);
                 let dx=left.x-right.x;let dy=left.y-right.y;
                 shortest=min(shortest,(dx*dx+dy*dy).sqrt());
-            }}distance=min(distance,shortest);
+            }}weighted_distance+=crate::ordinary_net::distance_cost(shortest)*g.pf[g.frame[q+4] as usize];
         }
-        score+=min(distance,30.0)*g.pf[g.frame[pair+2] as usize]*0.5;
+        score+=crate::ordinary_net::pair_cost(weighted_distance,g.pf[g.frame[pair+2] as usize]);
     }score
 }
 

@@ -674,29 +674,22 @@ impl Engine {
             for (&order,(_,p,j)) in ports {fi.extend([*p as u32,*j as u32,order as u32]);}
             fi[start+i*3..start+i*3+3].copy_from_slice(&[refs,ports.len() as u32,f]);
         }
-        let markers:std::collections::BTreeMap<&str,f32>=context.problem.relations.iter().filter_map(|r|{
-            let net=r.from.strip_prefix(crate::ordinary_net::MARKER_PREFIX)?;let weight=r.weight.unwrap_or(1.0);
-            (r.from==r.to && weight.is_finite() && weight>0.0).then_some((net,weight))
-        }).collect();
-        let mut pairs=FxHashMap::<(usize,usize),(f32,Vec<[u32;4]>)>::default();
-        for (net,weight) in markers {
-            let members:Vec<_>=current.iter().enumerate().filter_map(|(i,p)|{
-                let points:Vec<_>=p.primitive.connection_points.iter().enumerate().filter_map(|(j,c)|(c.net.as_deref()==Some(net)).then_some(j)).collect();
-                (!points.is_empty()).then_some((i,points))
-            }).collect();
-            if !(2..=8).contains(&members.len()) {continue;}
-            let contribution=weight/(members.len() as f32-1.0);
-            for a in 0..members.len() {for b in a+1..members.len() {
-                let pair=pairs.entry((members[a].0,members[b].0)).or_default();pair.0=(pair.0+contribution).min(4.0);
-                for &ai in &members[a].1 {for &bi in &members[b].1 {pair.1.push([members[a].0 as u32,ai as u32,members[b].0 as u32,bi as u32]);}}
-            }}
-        }
+        let primitives:Vec<_>=current.iter().map(|p|&p.primitive).collect();
+        let pairs=crate::ordinary_net::plan(&primitives,&context.problem.relations);
         fi[k::ORDINARY_I]=fi.len() as u32;fi[k::ORDINARY_COUNT]=pairs.len() as u32;
         let start=fi.len();fi.resize(start+pairs.len()*3,0);
-        for (i,(affinity,refs)) in pairs.into_values().enumerate() {
-            let f=ff.len() as u32;ff.push(affinity);let r=fi.len() as u32;let count=refs.len() as u32;
-            for pair in refs {fi.extend(pair);}
-            fi[start+i*3..start+i*3+3].copy_from_slice(&[r,count,f]);
+        for (i,pair) in pairs.into_iter().enumerate() {
+            let f=ff.len() as u32;ff.push(pair.weight);
+            let nets=fi.len();fi.resize(nets+pair.nets.len()*3,0);
+            for (j,net) in pair.nets.iter().enumerate() {
+                let weight=ff.len() as u32;ff.push(net.weight);
+                let refs=fi.len() as u32;
+                for &a in &net.a_points {for &b in &net.b_points {
+                    fi.extend([pair.a as u32,a as u32,pair.b as u32,b as u32]);
+                }}
+                fi[nets+j*3..nets+j*3+3].copy_from_slice(&[refs,(net.a_points.len()*net.b_points.len()) as u32,weight]);
+            }
+            fi[start+i*3..start+i*3+3].copy_from_slice(&[nets as u32,pair.nets.len() as u32,f]);
         }
     }
     fn evaluate(&mut self,current:&[WorkingPrimitive],moving:usize,poses:&[Pose],diverse:bool,origin:Point,context:&Context,force_no_prune:bool)->Result<Vec<Row>,String> {

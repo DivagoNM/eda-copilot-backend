@@ -1,27 +1,53 @@
-use crate::geometry::Point;
 use crate::model::{Primitive, Relation};
 use std::collections::{BTreeMap};
 use rustc_hash::{FxHashMap}; 
+#[cfg(feature = "gpu")]
+use cubecl::prelude::*;
 
 pub const MARKER_PREFIX: &str = "__ordinary_net__:";
 pub const ORDINARY_NET_SCALE: f32 = 0.5;
 pub const ORDINARY_PAIR_AFFINITY_CAP: f32 = 4.0;
-pub const ORDINARY_DISTANCE_CAP_MM: f32 = 30.0;
+pub const ORDINARY_DISTANCE_KNEE_MM: f32 = 40.0;
+pub const ORDINARY_DISTANCE_TAIL_SLOPE: f32 = 0.25;
 pub const ORDINARY_MAX_FANOUT: usize = 8;
 
-#[derive(Clone, Copy, Default)]
-struct PairScore {
-    affinity: f32,
-    min_distance: f32,
+#[derive(Default)]
+pub struct PairPlan {
+    pub a: usize,
+    pub b: usize,
+    pub weight: f32,
+    pub nets: Vec<NetLink>,
 }
 
-/// Weak board-level electrical affinity. Marker relations are produced by the
-/// TypeScript board adapter after GND/ignored/high-fanout filtering and carry
-/// the normal (1.0) or power (0.1) net weight. They intentionally have
-/// unresolvable endpoints so the ordinary relation scorer never treats them as
-/// explicit placement constraints.
-pub fn penalty(primitives: &[&Primitive], relations: &[Relation]) -> f32 {
-    let markers: BTreeMap<&str, f32> = relations
+pub struct NetLink {
+    pub a_points: Vec<usize>,
+    pub b_points: Vec<usize>,
+    pub weight: f32,
+}
+
+/// The distance never saturates. Keep the curve in shared CPU/CubeCL arithmetic.
+#[cfg_attr(feature = "gpu", cube)]
+pub fn distance_cost(distance: f32) -> f32 {
+    let mut cost = distance;
+    if distance > ORDINARY_DISTANCE_KNEE_MM {
+        cost = ORDINARY_DISTANCE_KNEE_MM
+            + (distance - ORDINARY_DISTANCE_KNEE_MM) * ORDINARY_DISTANCE_TAIL_SLOPE;
+    }
+    cost
+}
+
+/// Every net contributes; the total pulling strength of a bus remains bounded.
+#[cfg_attr(feature = "gpu", cube)]
+pub fn pair_cost(weighted_distance: f32, weight: f32) -> f32 {
+    let mut scale = 1.0;
+    if weight > ORDINARY_PAIR_AFFINITY_CAP {
+        scale = ORDINARY_PAIR_AFFINITY_CAP / weight;
+    }
+    weighted_distance * scale * ORDINARY_NET_SCALE
+}
+
+pub fn markers(relations: &[Relation]) -> BTreeMap<&str, f32> {
+    relations
         .iter()
         .filter_map(|relation| {
             let net = relation.from.strip_prefix(MARKER_PREFIX)?;
@@ -31,25 +57,13 @@ pub fn penalty(primitives: &[&Primitive], relations: &[Relation]) -> f32 {
             let weight = relation.weight.unwrap_or(1.0);
             (weight.is_finite() && weight > 0.0).then_some((net, weight))
         })
-        .collect();
-    if markers.is_empty() {
-        return 0.0;
-    }
+        .collect()
+}
 
-    let mut pairs: FxHashMap<(usize, usize), PairScore> = FxHashMap::default();
-    for (net, net_weight) in markers {
-        let mut by_primitive: Vec<(usize, Vec<Point>)> = Vec::new();
-        for (primitive_index, primitive) in primitives.iter().enumerate() {
-            let points: Vec<_> = primitive
-                .connection_points
-                .iter()
-                .filter(|point| point.net.as_deref() == Some(net))
-                .map(|point| Point { x: point.x, y: point.y })
-                .collect();
-            if !points.is_empty() {
-                by_primitive.push((primitive_index, points));
-            }
-        }
+/// CPU and both GPU encoders share eligibility, fanout normalization and order.
+pub fn pair_plan(nets: impl IntoIterator<Item = (f32, Vec<(usize, Vec<usize>)>)>) -> Vec<PairPlan> {
+    let mut pairs: FxHashMap<(usize, usize), PairPlan> = FxHashMap::default();
+    for (net_weight, by_primitive) in nets {
         let count = by_primitive.len();
         if count < 2 || count > ORDINARY_MAX_FANOUT {
             continue;
@@ -58,32 +72,49 @@ pub fn penalty(primitives: &[&Primitive], relations: &[Relation]) -> f32 {
         for a in 0..count {
             for b in (a + 1)..count {
                 let key = (by_primitive[a].0, by_primitive[b].0);
-                let distance = shortest_point_distance(&by_primitive[a].1, &by_primitive[b].1);
-                let entry = pairs.entry(key).or_insert(PairScore {
-                    affinity: 0.0,
-                    min_distance: f32::INFINITY,
+                let entry = pairs.entry(key).or_insert_with(|| PairPlan {
+                    a: key.0, b: key.1, ..Default::default()
                 });
-                entry.affinity = (entry.affinity + contribution).min(ORDINARY_PAIR_AFFINITY_CAP);
-                entry.min_distance = entry.min_distance.min(distance);
+                entry.weight += contribution;
+                entry.nets.push(NetLink {
+                    a_points: by_primitive[a].1.clone(),
+                    b_points: by_primitive[b].1.clone(),
+                    weight: contribution,
+                });
             }
         }
     }
 
-    pairs
-        .values()
-        .filter(|pair| pair.affinity > 0.0 && pair.min_distance.is_finite())
-        .map(|pair| pair.min_distance.min(ORDINARY_DISTANCE_CAP_MM) * pair.affinity * ORDINARY_NET_SCALE)
-        .sum()
+    // Deterministic FxHashMap iteration is shared with GPU ordered reductions.
+    pairs.into_values().collect()
 }
 
-fn shortest_point_distance(a: &[Point], b: &[Point]) -> f32 {
-    let mut best = f32::INFINITY;
-    for left in a {
-        for right in b {
-            best = best.min(crate::numerics::hypot(left.x - right.x,left.y - right.y));
+pub fn plan(primitives: &[&Primitive], relations: &[Relation]) -> Vec<PairPlan> {
+    pair_plan(markers(relations).into_iter().map(|(net, weight)| {
+        let members = primitives.iter().enumerate().filter_map(|(i, p)| {
+            let points: Vec<_> = p.connection_points.iter().enumerate()
+                .filter_map(|(j, point)| (point.net.as_deref() == Some(net)).then_some(j)).collect();
+            (!points.is_empty()).then_some((i, points))
+        }).collect();
+        (weight, members)
+    }))
+}
+
+/// Weak connectivity, separate from authored placement constraints and routing.
+pub fn penalty(primitives: &[&Primitive], relations: &[Relation]) -> f32 {
+    plan(primitives, relations).iter().map(|pair| {
+        let mut weighted_distance = 0.0;
+        for net in &pair.nets {
+            let mut shortest = f32::INFINITY;
+            for &a in &net.a_points { for &b in &net.b_points {
+                let left = &primitives[pair.a].connection_points[a];
+                let right = &primitives[pair.b].connection_points[b];
+                shortest = shortest.min(crate::numerics::hypot(left.x - right.x, left.y - right.y));
+            }}
+            weighted_distance += distance_cost(shortest) * net.weight;
         }
-    }
-    best
+        pair_cost(weighted_distance, pair.weight)
+    }).sum()
 }
 
 #[cfg(test)]
@@ -153,6 +184,52 @@ mod tests {
         let far_b = primitive("B", 10.0, &["SIG"]);
         let relation = marker("SIG", 1.0);
         assert!(penalty(&[&near_a, &near_b], &[relation.clone()]) < penalty(&[&near_a, &far_b], &[relation]));
+    }
+
+    #[test]
+    fn short_net_cannot_hide_long_net_and_pad_order_does_not_matter() {
+        let a = primitive("A", 0.0, &["SHORT", "LONG"]);
+        let mut b = primitive("B", 2.0, &["SHORT", "LONG"]);
+        let relations = [marker("SHORT", 1.0), marker("LONG", 1.0)];
+        Arc::make_mut(&mut b.connection_points)[1].x = 20.0;
+        assert_eq!(penalty(&[&a, &b], &relations), 11.0);
+        Arc::make_mut(&mut b.connection_points)[1].x = 30.0;
+        assert_eq!(penalty(&[&a, &b], &relations), 16.0);
+        Arc::make_mut(&mut b.connection_points).reverse();
+        assert_eq!(penalty(&[&a, &b], &relations), 16.0);
+    }
+
+    #[test]
+    fn power_and_fanout_weights_apply_to_each_net_before_pair_cap() {
+        let a = primitive("A", 0.0, &["SIG", "3V3"]);
+        let mut b = primitive("B", 2.0, &["SIG", "3V3"]);
+        Arc::make_mut(&mut b.connection_points)[1].x = 20.0;
+        assert_eq!(penalty(&[&a, &b], &[marker("SIG", 1.0), marker("3V3", 0.1)]), 2.0);
+        let c = primitive("C", 10.0, &["SIG"]);
+        // Fanout three: each of the three pair distances gets weight 1/2.
+        assert_eq!(penalty(&[&a, &b, &c], &[marker("SIG", 1.0)]), 5.0);
+    }
+
+    #[test]
+    fn every_net_still_contributes_after_bus_strength_cap() {
+        let nets = ["N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8"];
+        let a = primitive("A", 0.0, &nets);
+        let mut b = primitive("B", 10.0, &nets);
+        let relations: Vec<_> = nets.iter().map(|net| marker(net, 1.0)).collect();
+        assert_eq!(penalty(&[&a, &b], &relations), 20.0);
+        Arc::make_mut(&mut b.connection_points)[7].x = 30.0;
+        assert_eq!(penalty(&[&a, &b], &relations), 25.0);
+    }
+
+    #[test]
+    fn distance_keeps_growing_past_thirty_and_forty() {
+        let a = primitive("A", 0.0, &["SIG"]);
+        let score = |d| penalty(&[&a, &primitive("B", d, &["SIG"])], &[marker("SIG", 1.0)]);
+        assert_eq!(score(30.0), 15.0);
+        assert_eq!(score(40.0), 20.0);
+        assert_eq!(score(80.0), 20.0 + 20.0 * ORDINARY_DISTANCE_TAIL_SLOPE);
+        assert!(score(81.0) > score(80.0));
+        assert!(score(40.01) > score(40.0));
     }
 
     #[test]

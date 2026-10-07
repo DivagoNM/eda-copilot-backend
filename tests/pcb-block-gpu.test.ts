@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { minimalProblem } from './helpers/native-board-problem.ts';
+import { addOrdinaryBus, minimalProblem } from './helpers/native-board-problem.ts';
 import type { NativeBlockSolveProblemV4, NativeBlockSolveSolutionV4 } from '../src/pcb-layout/pcb-auto-place-v2/native/contract.ts';
 
 const require = createRequire(import.meta.url);
@@ -136,6 +136,16 @@ function checkGeometry(p: NativeBlockSolveProblemV4, s: NativeBlockSolveSolution
         }
     }
 }
+
+test('ordinary bus preserves every net and long distances on block CPU/GPU', { skip: !gpuEnabled }, () => {
+    const p = problem();
+    addOrdinaryBus(p);
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_BLOCK_GPU_VERIFY: '1' });
+    assert.match(gpu.log, /"backend":"cubecl"/);
+    assert.doesNotMatch(gpu.log, /block-gpu-fallback|validation failed/);
+    assert.deepEqual(gpu.solution, cpu.solution);
+});
 
 test('block GPU unavailable preserves the complete CPU result for a composite block', () => {
     const p = problem();

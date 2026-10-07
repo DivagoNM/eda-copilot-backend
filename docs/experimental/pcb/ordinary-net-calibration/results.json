@@ -1,0 +1,4842 @@
+{
+  "selected": "tail",
+  "baselineRevision": "3fa3a77",
+  "sameNormalizedInputs": true,
+  "linearTailIdenticalPoses": {
+    "ESP32_C3_MAN": true,
+    "ESpower": true,
+    "STM32G0_CAN_RS485": true
+  },
+  "rows": [
+    {
+      "profile": "baseline",
+      "fixture": "ESP32_C3_MAN",
+      "run": "debugging/pcb-layout/runs/ESP32_C3_MAN/2026-10-07T14-37-28-089Z",
+      "status": "failed",
+      "exitCode": 1,
+      "wallMs": 354361.64269999997,
+      "nativeSha256": "35abe979f577c9d30e4a8c797239f06db068d7002f2da1391b23af3caebae351",
+      "inputSha256": "a6170e422a7847b20e455b8ac3220281c22bf9bb1b999e015e0e60f7da3855f3",
+      "sourceFiles": {
+        "ESP32_C3_MAN.js": "415616b95ebc4f965daf96101b5d94761d998ad63731ae889ce3a2bf5d2c2def",
+        "ESP32_C3_MAN.json": "8b72b9130ca97882ef17f10a0d9c73f17105d80d9c599dff2b817a731a5c64a0",
+        "ESP32_C3_MAN.ts": "dcc39a76daca810c0a7fe83d422834a67e474dea336944daeea196d375d0a863",
+        "source-pcb-overview.json": "9f327df155841713247267675bc0ec4372a7b193a65fb1051a4cab61333c6e12"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 42.880s, threads=6, hard=6, joint candidates=0",
+        "local_improve 24.154s",
+        "repair 0.189s, total 67.223s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 73,
+        "post-place-backend:cpu": 31,
+        "block-backend:cpu": 5,
+        "block-gpu-fallback:cpu": 5,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.43560000000000004,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 9360.796699999999
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.39849999999999997,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 18784.289699999998
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.15760000000000002,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 4153.7502
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.217,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 10125.3771
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1125,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 57.7851
+        }
+      ],
+      "diagnostics": [
+        "- critical_pair D13.1<->J4.4: distance 18.085mm expected -..6mm",
+        "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 1978.28,
+          "explicitLength": 526.2208071752066,
+          "explicitCrossings": 20,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI2_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 119,
+          "foreignPadHits": 128,
+          "pairMax": 70.94,
+          "pairSum": 642.64,
+          "inspected": [
+            {
+              "designator": "U3",
+              "x": -6,
+              "y": 38.5,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": -31.974000930786133,
+              "y": 36,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": -51,
+              "y": -12,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": -20.42099952697754,
+              "y": 7.824999809265137,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": -20.42099952697754,
+              "y": 18.174999237060547,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 1978.28,
+          "explicitLength": 526.2208071752066,
+          "explicitCrossings": 20,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI2_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 119,
+          "foreignPadHits": 128,
+          "pairMax": 70.94,
+          "pairSum": 642.64,
+          "inspected": [
+            {
+              "designator": "U3",
+              "x": -6,
+              "y": 38.5,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": -31.974000930786133,
+              "y": 36,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": -51,
+              "y": -12,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": -20.42099952697754,
+              "y": 7.824999809265137,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": -20.42099952697754,
+              "y": 18.174999237060547,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 1959.12,
+          "explicitLength": 520.9745019848956,
+          "explicitCrossings": 19,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 116,
+          "foreignPadHits": 126,
+          "pairMax": 70.94,
+          "pairSum": 642.54,
+          "inspected": [
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -6,
+              "y": 38.5
+            },
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -31.974000930786133,
+              "y": 36
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -51,
+              "y": -12
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 7.824999809265137
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 18.174999237060547
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 1958.52,
+          "explicitLength": 520.8177170098318,
+          "explicitCrossings": 19,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 116,
+          "foreignPadHits": 126,
+          "pairMax": 70.94,
+          "pairSum": 642.5,
+          "inspected": [
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -6,
+              "y": 38.5
+            },
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -31.974000930786133,
+              "y": 36
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -51,
+              "y": -12
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 7.824999809265137
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 18.174999237060547
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "linear",
+      "fixture": "ESP32_C3_MAN",
+      "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\ESP32_C3_MAN\\2026-10-07T14-53-40-636Z",
+      "status": "failed",
+      "exitCode": 1,
+      "wallMs": 339525.2216,
+      "nativeSha256": "cc0ddc7e99368b1b3da6cf9eb006c43f6df6cdf5e54cde24e1af3cf489edf666",
+      "inputSha256": "a6170e422a7847b20e455b8ac3220281c22bf9bb1b999e015e0e60f7da3855f3",
+      "sourceFiles": {
+        "ESP32_C3_MAN.js": "415616b95ebc4f965daf96101b5d94761d998ad63731ae889ce3a2bf5d2c2def",
+        "ESP32_C3_MAN.json": "8b72b9130ca97882ef17f10a0d9c73f17105d80d9c599dff2b817a731a5c64a0",
+        "ESP32_C3_MAN.ts": "dcc39a76daca810c0a7fe83d422834a67e474dea336944daeea196d375d0a863",
+        "source-pcb-overview.json": "9f327df155841713247267675bc0ec4372a7b193a65fb1051a4cab61333c6e12"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 42.490s, threads=6, hard=6, joint candidates=0",
+        "local_improve 24.318s",
+        "repair 0.197s, total 67.005s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 73,
+        "post-place-backend:cpu": 31,
+        "block-backend:cpu": 5,
+        "block-gpu-fallback:cpu": 5,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.2762,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 8937.4827
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.2121,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 17931.5727
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1466,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 3485.103
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1449,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 9726.3772
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1439,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 48.903099999999995
+        }
+      ],
+      "diagnostics": [
+        "- critical_pair D13.1<->J4.4: distance 18.085mm expected -..6mm",
+        "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 1979.5,
+          "explicitLength": 527.5302868634312,
+          "explicitCrossings": 20,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI2_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 119,
+          "foreignPadHits": 126,
+          "pairMax": 70.94,
+          "pairSum": 643.95,
+          "inspected": [
+            {
+              "designator": "U3",
+              "x": -6,
+              "y": 38.5,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": -31.974000930786133,
+              "y": 36,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": -51,
+              "y": -12,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": -20.42099952697754,
+              "y": 7.824999809265137,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": -20.42099952697754,
+              "y": 18.174999237060547,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 1979.5,
+          "explicitLength": 527.5302868634312,
+          "explicitCrossings": 20,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI2_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 119,
+          "foreignPadHits": 126,
+          "pairMax": 70.94,
+          "pairSum": 643.95,
+          "inspected": [
+            {
+              "designator": "U3",
+              "x": -6,
+              "y": 38.5,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": -31.974000930786133,
+              "y": 36,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": -51,
+              "y": -12,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": -20.42099952697754,
+              "y": 7.824999809265137,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": -20.42099952697754,
+              "y": 18.174999237060547,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 1960.21,
+          "explicitLength": 522.2839816731204,
+          "explicitCrossings": 19,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 117,
+          "foreignPadHits": 124,
+          "pairMax": 70.94,
+          "pairSum": 643.85,
+          "inspected": [
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -6,
+              "y": 38.5
+            },
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -31.974000930786133,
+              "y": 36
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -51,
+              "y": -12
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 7.824999809265137
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 18.174999237060547
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 1959.62,
+          "explicitLength": 522.1319142898101,
+          "explicitCrossings": 19,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 117,
+          "foreignPadHits": 124,
+          "pairMax": 70.94,
+          "pairSum": 643.81,
+          "inspected": [
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -6,
+              "y": 38.5
+            },
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -31.974000930786133,
+              "y": 36
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -51,
+              "y": -12
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 7.824999809265137
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 18.174999237060547
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "tail",
+      "fixture": "ESP32_C3_MAN",
+      "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\ESP32_C3_MAN\\2026-10-07T15-10-16-174Z",
+      "status": "failed",
+      "exitCode": 1,
+      "wallMs": 312356.73949999997,
+      "nativeSha256": "70b7f72fec72021d4d09380b42ce887ad37a5e10151bcd4b8992d2faf9349988",
+      "inputSha256": "a6170e422a7847b20e455b8ac3220281c22bf9bb1b999e015e0e60f7da3855f3",
+      "sourceFiles": {
+        "ESP32_C3_MAN.js": "415616b95ebc4f965daf96101b5d94761d998ad63731ae889ce3a2bf5d2c2def",
+        "ESP32_C3_MAN.json": "8b72b9130ca97882ef17f10a0d9c73f17105d80d9c599dff2b817a731a5c64a0",
+        "ESP32_C3_MAN.ts": "dcc39a76daca810c0a7fe83d422834a67e474dea336944daeea196d375d0a863",
+        "source-pcb-overview.json": "9f327df155841713247267675bc0ec4372a7b193a65fb1051a4cab61333c6e12"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 41.404s, threads=6, hard=6, joint candidates=0",
+        "local_improve 22.896s",
+        "repair 0.195s, total 64.495s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 73,
+        "post-place-backend:cpu": 31,
+        "block-backend:cpu": 5,
+        "block-gpu-fallback:cpu": 5,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.32420000000000004,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 8571.0236
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.2589,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 17197.007299999997
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1295,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 3568.2827
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1794,
+          "precision": "f32",
+          "reason": "unsupported block features for complete GPU scoring",
+          "requested": "auto",
+          "totalMs": 8846.0814
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1296,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 47.7978
+        }
+      ],
+      "diagnostics": [
+        "- critical_pair D13.1<->J4.4: distance 18.085mm expected -..6mm",
+        "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 1979.5,
+          "explicitLength": 527.5302868634312,
+          "explicitCrossings": 20,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI2_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 119,
+          "foreignPadHits": 126,
+          "pairMax": 70.94,
+          "pairSum": 643.95,
+          "inspected": [
+            {
+              "designator": "U3",
+              "x": -6,
+              "y": 38.5,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": -31.974000930786133,
+              "y": 36,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": -51,
+              "y": -12,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": -20.42099952697754,
+              "y": 7.824999809265137,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": -20.42099952697754,
+              "y": 18.174999237060547,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 1979.5,
+          "explicitLength": 527.5302868634312,
+          "explicitCrossings": 20,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI2_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 119,
+          "foreignPadHits": 126,
+          "pairMax": 70.94,
+          "pairSum": 643.95,
+          "inspected": [
+            {
+              "designator": "U3",
+              "x": -6,
+              "y": 38.5,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": -31.974000930786133,
+              "y": 36,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": -51,
+              "y": -12,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": -20.42099952697754,
+              "y": 7.824999809265137,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": -20.42099952697754,
+              "y": 18.174999237060547,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 1960.21,
+          "explicitLength": 522.2839816731204,
+          "explicitCrossings": 19,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 117,
+          "foreignPadHits": 124,
+          "pairMax": 70.94,
+          "pairSum": 643.85,
+          "inspected": [
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -6,
+              "y": 38.5
+            },
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -31.974000930786133,
+              "y": 36
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -51,
+              "y": -12
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 7.824999809265137
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 18.174999237060547
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 1959.62,
+          "explicitLength": 522.1319142898101,
+          "explicitCrossings": 19,
+          "crossingPairs": [
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_BOOT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "BUCK_SW",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_L",
+                "CAN_H"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "critical_pair"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI4_FIELD",
+                "DI3_FIELD"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "USB_DM_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DP_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SDA_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "USB_DM_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_PROT",
+                "I2C_SCL_PROT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "I2C_SDA_EXT",
+                "I2C_SCL_EXT"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DI3_FIELD",
+                "DI4_FIELD"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "DO1_DRV",
+                "DO2_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "OUT3",
+                "DO4_DRV"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 117,
+          "foreignPadHits": 124,
+          "pairMax": 70.94,
+          "pairSum": 643.81,
+          "inspected": [
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -6,
+              "y": 38.5
+            },
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -31.974000930786133,
+              "y": 36
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -51,
+              "y": -12
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 7.824999809265137
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": -20.42099952697754,
+              "y": 18.174999237060547
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "baseline",
+      "fixture": "ESpower",
+      "run": "debugging/pcb-layout/runs/ESpower/2026-10-07T10-07-32-144Z",
+      "status": "completed",
+      "exitCode": 0,
+      "wallMs": 56170.897600000004,
+      "nativeSha256": "35abe979f577c9d30e4a8c797239f06db068d7002f2da1391b23af3caebae351",
+      "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 4.234s, threads=6, hard=3, joint candidates=0",
+        "local_improve 0.388s",
+        "repair 0.002s, total 4.625s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 39,
+        "block-backend:cpu": 1,
+        "block-gpu-fallback:cpu": 1,
+        "post-place-backend:cpu": 21,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 3462.0642999999995,
+          "precision": "f32",
+          "reason": "assertion failed: c.problem.bounds.is_none()",
+          "requested": "auto",
+          "totalMs": 7350.4015
+        }
+      ],
+      "diagnostics": [],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "linear",
+      "fixture": "ESpower",
+      "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\ESPower\\2026-10-07T14-52-25-516Z",
+      "status": "completed",
+      "exitCode": 0,
+      "wallMs": 73353.2813,
+      "nativeSha256": "cc0ddc7e99368b1b3da6cf9eb006c43f6df6cdf5e54cde24e1af3cf489edf666",
+      "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 4.837s, threads=6, hard=4, joint candidates=0",
+        "local_improve 0.443s",
+        "repair 0.002s, total 5.283s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 37,
+        "block-backend:cpu": 3,
+        "block-gpu-fallback:cpu": 3,
+        "post-place-backend:cpu": 21,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 3418.1644,
+          "precision": "f32",
+          "reason": "assertion failed: c.problem.bounds.is_none()",
+          "requested": "auto",
+          "totalMs": 7413.1169
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.08839999999999999,
+          "precision": "f32",
+          "reason": "GPU initialization or state update pending",
+          "requested": "auto",
+          "totalMs": 10.5585
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.2529,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 12605.5242
+        }
+      ],
+      "diagnostics": [],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 360.96,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 59,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 360.96,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 59,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 358.22,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 57,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 358.22,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 57,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "tail",
+      "fixture": "ESpower",
+      "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\ESPower\\2026-10-07T15-09-15-212Z",
+      "status": "completed",
+      "exitCode": 0,
+      "wallMs": 59416.000100000005,
+      "nativeSha256": "70b7f72fec72021d4d09380b42ce887ad37a5e10151bcd4b8992d2faf9349988",
+      "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 4.426s, threads=6, hard=3, joint candidates=0",
+        "local_improve 0.388s",
+        "repair 0.002s, total 4.816s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 38,
+        "block-backend:cpu": 2,
+        "block-gpu-fallback:cpu": 2,
+        "post-place-backend:cpu": 21,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 3317.4853,
+          "precision": "f32",
+          "reason": "assertion failed: c.problem.bounds.is_none()",
+          "requested": "auto",
+          "totalMs": 7186.8255
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.25579999999999997,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 11703.8962
+        }
+      ],
+      "diagnostics": [],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 360.96,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 59,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 360.96,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 59,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 358.22,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 57,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 358.22,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 57,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "baseline",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "debugging/pcb-layout/runs/STM32G0_CAN_RS485/2026-10-07T10-05-45-659Z",
+      "status": "completed",
+      "exitCode": 0,
+      "wallMs": 94017.9817,
+      "nativeSha256": "35abe979f577c9d30e4a8c797239f06db068d7002f2da1391b23af3caebae351",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 8.627s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.200s",
+        "repair 0.004s, total 10.832s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 43,
+        "post-place-backend:cpu": 28,
+        "block-backend:cpu": 2,
+        "block-gpu-fallback:cpu": 2,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.3469,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 3932.5269
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.1802,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 5767.683800000001
+        }
+      ],
+      "diagnostics": [
+        "- critical_pair D5.1<->J5.1: distance 7.538mm expected -..5mm",
+        "- critical_pair D4.1<->J4.1: distance 7.052mm expected -..5mm",
+        "- critical_pair D5.2<->J5.2: distance 7.023mm expected -..5mm",
+        "- critical_pair D4.2<->J4.2: distance 6.83mm expected -..5mm",
+        "- critical_pair U1.6<->D3.1: distance 4.537mm expected -..4mm"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 683.65,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 46,
+          "foreignPadHits": 90,
+          "pairMax": 28.17,
+          "pairSum": 194.51,
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 683.65,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 46,
+          "foreignPadHits": 90,
+          "pairMax": 28.17,
+          "pairSum": 194.51,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 682.02,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 90,
+          "pairMax": 28.17,
+          "pairSum": 194.51,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.932999610900879,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 19.94099998474121,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 682.45,
+          "explicitLength": 88.6185118536264,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 91,
+          "pairMax": 28.17,
+          "pairSum": 194.79,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.187000274658203,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 20.19499969482422,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "linear",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\STM32G0_CAN_RS485\\2026-10-07T14-50-49-093Z",
+      "status": "completed",
+      "exitCode": 0,
+      "wallMs": 94829.3198,
+      "nativeSha256": "cc0ddc7e99368b1b3da6cf9eb006c43f6df6cdf5e54cde24e1af3cf489edf666",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 9.510s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.232s",
+        "repair 0.004s, total 11.749s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 42,
+        "post-place-backend:cpu": 28,
+        "block-backend:cpu": 3,
+        "block-gpu-fallback:cpu": 3,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.3456,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 3715.4901000000004
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.211,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 10015.625699999999
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.2428,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 5586.5624
+        }
+      ],
+      "diagnostics": [
+        "- critical_pair D5.1<->J5.1: distance 7.538mm expected -..5mm",
+        "- critical_pair D4.1<->J4.1: distance 7.052mm expected -..5mm",
+        "- critical_pair D5.2<->J5.2: distance 7.023mm expected -..5mm",
+        "- critical_pair D4.2<->J4.2: distance 6.83mm expected -..5mm",
+        "- critical_pair U1.6<->D3.1: distance 4.537mm expected -..4mm"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 684.19,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 92,
+          "pairMax": 28.17,
+          "pairSum": 195.04,
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 684.19,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 92,
+          "pairMax": 28.17,
+          "pairSum": 195.04,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 682.55,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 48,
+          "foreignPadHits": 92,
+          "pairMax": 28.17,
+          "pairSum": 195.04,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.932999610900879,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 19.94099998474121,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 682.95,
+          "explicitLength": 88.6185118536264,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 48,
+          "foreignPadHits": 93,
+          "pairMax": 28.17,
+          "pairSum": 195.29,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.187000274658203,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 20.19499969482422,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "tail",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\STM32G0_CAN_RS485\\2026-10-07T15-07-49-349Z",
+      "status": "completed",
+      "exitCode": 0,
+      "wallMs": 84283.5811,
+      "nativeSha256": "70b7f72fec72021d4d09380b42ce887ad37a5e10151bcd4b8992d2faf9349988",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 9.463s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.124s",
+        "repair 0.004s, total 11.591s"
+      ],
+      "backendCounts": {
+        "block-backend:cubecl": 43,
+        "post-place-backend:cpu": 28,
+        "block-backend:cpu": 2,
+        "block-gpu-fallback:cpu": 2,
+        "board-backend:cubecl": 1,
+        "post-place-backend:cubecl": 1
+      },
+      "gpuRecovery": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.3355,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 3907.6659999999997
+        },
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.19090000000000001,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 5209.8191
+        }
+      ],
+      "diagnostics": [
+        "- critical_pair D5.1<->J5.1: distance 7.538mm expected -..5mm",
+        "- critical_pair D4.1<->J4.1: distance 7.052mm expected -..5mm",
+        "- critical_pair D5.2<->J5.2: distance 7.023mm expected -..5mm",
+        "- critical_pair D4.2<->J4.2: distance 6.83mm expected -..5mm",
+        "- critical_pair U1.6<->D3.1: distance 4.537mm expected -..4mm"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 684.19,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 92,
+          "pairMax": 28.17,
+          "pairSum": 195.04,
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 684.19,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 92,
+          "pairMax": 28.17,
+          "pairSum": 195.04,
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 682.55,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 48,
+          "foreignPadHits": 92,
+          "pairMax": 28.17,
+          "pairSum": 195.04,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.932999610900879,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 19.94099998474121,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 682.95,
+          "explicitLength": 88.6185118536264,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 48,
+          "foreignPadHits": 93,
+          "pairMax": 28.17,
+          "pairSum": 195.29,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.187000274658203,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 20.19499969482422,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

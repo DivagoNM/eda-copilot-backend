@@ -282,14 +282,19 @@ fn topology(d:&Input,candidate:usize)->f32 {
     }
     let mut ordinary=0.0f32;
     for pair in 0usize..d.fi[ORDINARY_COUNT] as usize {
-        let info=d.fi[ORDINARY_I] as usize+pair*3;let refs=d.fi[info] as usize;let count=d.fi[info+1] as usize;
-        let mut best=f32::from_bits(0x7f800000u32);
-        for j in 0usize..count {
-            let t=refs+j*4;let a=cp_at(d,load_prim(d,d.fi[t] as usize,candidate),d.fi[t+1] as usize);
-            let b=cp_at(d,load_prim(d,d.fi[t+2] as usize,candidate),d.fi[t+3] as usize);
-            best=min(best,distance(P{x:a.x,y:a.y},P{x:b.x,y:b.y}));
+        let info=d.fi[ORDINARY_I] as usize+pair*3;
+        let mut weighted_distance=0.0;
+        for net in 0usize..d.fi[info+1] as usize {
+            let q=d.fi[info] as usize+net*3;
+            let mut best=f32::from_bits(0x7f800000u32);
+            for j in 0usize..d.fi[q+1] as usize {
+                let t=d.fi[q] as usize+j*4;let a=cp_at(d,load_prim(d,d.fi[t] as usize,candidate),d.fi[t+1] as usize);
+                let b=cp_at(d,load_prim(d,d.fi[t+2] as usize,candidate),d.fi[t+3] as usize);
+                best=min(best,distance(P{x:a.x,y:a.y},P{x:b.x,y:b.y}));
+            }
+            weighted_distance+=crate::ordinary_net::distance_cost(best)*d.ff[d.fi[q+2] as usize];
         }
-        if count>0 {ordinary+=min(best,30.0)*d.ff[d.fi[info+2] as usize]*0.5;}
+        ordinary+=crate::ordinary_net::pair_cost(weighted_distance,d.ff[d.fi[info+2] as usize]);
     }
     total+ordinary*choose(d.fi[HIGH]!=0,2.5,4.0)
 }

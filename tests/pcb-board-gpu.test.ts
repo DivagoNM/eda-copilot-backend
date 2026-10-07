@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { availableParallelism } from 'node:os';
 import { blockPolicy } from '../src/pcb-layout/pcb-auto-place-v2/block-policy.ts';
-import { minimalProblem } from './helpers/native-board-problem.ts';
+import { addOrdinaryBus, minimalProblem } from './helpers/native-board-problem.ts';
 import type { NativeBoardPackProblemV7 } from '../src/pcb-layout/pcb-auto-place-v2/native/contract.ts';
 
 const require = createRequire(import.meta.url);
@@ -214,6 +214,26 @@ test('GPU preserves endpoint, topology, ordinary-net and alignment terms togethe
     p.softAlignment = { weight: 24, tolerance: .15, orientationWeight: 120,
         pairs: [{ a: p.primitives[1].id, b: p.primitives[2].id, similarity: .95, anchorA: 'U1', anchorB: 'U2',
             orientation: { a: 'U1', b: 'U2', offset: 90 } }] };
+    for (const compactness of ['normal', 'high'] as const) {
+        p.compactness = compactness;
+        const cpu = run(p, 'cpu');
+        const gpu = run(p, 'cubecl', { PCB_BOARD_GPU_VERIFY: '1', PCB_BOARD_GPU_VERIFY_SHORTLIST: '1' });
+        assert.match(gpu.log, /"backend":"cubecl"/);
+        assert.doesNotMatch(gpu.log, /board-gpu-fallback|validation failed/);
+        assert.deepEqual(gpu.solution, cpu.solution);
+    }
+});
+
+test('ordinary bus preserves every net and long distances on board CPU/GPU', { skip: !gpuEnabled }, () => {
+    const p = minimalProblem();
+    p.searchWidth = 4;
+    const second = structuredClone(p.primitives[0]);
+    second.id = 'primitive:second'; second.placements[0].designator = 'U2';
+    second.connectionPoints[0].ref = 'U2.1';
+    p.primitives.push(second);
+    p.components.push({ ...structuredClone(p.components[0]), primitiveId: second.id, designator: 'U2' });
+    p.componentConflict = [0, 1, 1, 0]; p.componentPairClearance = [0, .2, .2, 0];
+    addOrdinaryBus(p);
     for (const compactness of ['normal', 'high'] as const) {
         p.compactness = compactness;
         const cpu = run(p, 'cpu');
