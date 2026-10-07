@@ -118,7 +118,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 10 }
+pub fn placement_score_contract_version() -> u32 { 11 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {
@@ -145,7 +145,7 @@ pub fn placement_spacing_policy(measurements: Value) -> Result<Value> {
 #[napi]
 pub fn placement_alignment_policy(pair_count: u32, normalize: bool) -> Value {
     let _float_env = float_env::Guard::enter();
-    serde_json::json!({"weight":if normalize {1.0/pair_count.max(1) as f32}else{1.0},"tolerance":0.15f32,"orientationWeight":0.0})
+    serde_json::json!({"weight":if normalize {1.0/pair_count.max(1) as f32}else{1.0},"tolerance":0.15f32,"orientationWeight":if normalize {4.0/pair_count.max(1) as f32}else{4.0}})
 }
 
 #[napi]

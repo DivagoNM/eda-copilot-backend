@@ -14,6 +14,34 @@ const addonPath = resolve(process.env.PCB_BOARD_PACKER_NATIVE_PATH
     ?? resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename()));
 const gpuEnabled = process.env.PCB_BOARD_GPU_TESTS === '1';
 
+for (const count of [4, 16]) test(`${count} repeated channels use joint CPU/GPU search even with zero orientation weight`, { skip: !gpuEnabled }, () => {
+    const p = minimalProblem();
+    const extent = Math.max(12, count * 2);
+    const channels = Array.from({ length: count }, (_, i) => i);
+    p.bounds = p.fullBoardBounds = { left: -extent, right: extent, top: -12, bottom: 12 };
+    p.boardOutline = [{ x: -extent, y: -12 }, { x: extent, y: -12 }, { x: extent, y: 12 }, { x: -extent, y: 12 }];
+    const template = p.primitives[0];
+    p.primitives = [...channels, count].map(i => ({ ...structuredClone(template), id: `P${i}`, locked: i === count,
+        placements: [{ ...template.placements[0], designator: `U${i}` }], connectionPoints: [],
+        pathPorts: i < count
+            ? [{ pathId: `ch${i}`, order: 1, ref: `U${i}.1`, role: 'target', x: 0, y: 0, normal: { x: 0, y: -1 } }]
+            : channels.map(j => ({ pathId: `ch${j}`, order: 0, ref: `J1.${j + 1}`, role: 'source', x: (j - (count - 1) / 2) * 3, y: 0, normal: { x: 0, y: 1 } })),
+    }));
+    p.components = p.primitives.map((primitive, i) => ({ ...structuredClone(p.components[0]), primitiveId: primitive.id, designator: `U${i}` }));
+    p.componentConflict = Array.from({ length: (count + 1) ** 2 }, (_, i) => Number(Math.floor(i / (count + 1)) !== i % (count + 1)));
+    p.componentPairClearance = p.componentConflict.map(v => v * .2);
+    p.softAlignment = { weight: 1, tolerance: .15, orientationWeight: 0, pairs: [
+        ...channels.slice(1).map(i => ({ a: 'P0', b: `P${i}`, anchorA: 'U0', anchorB: `U${i}`, similarity: 1, orientation: { a: 'U0', b: `U${i}`, offset: 0 } })),
+    ] };
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_BOARD_GPU_VERIFY: '1', PCB_BOARD_GPU_VERIFY_SHORTLIST: '1' });
+    assert.match(cpu.log, /joint candidates=[1-9]/);
+    assert.match(gpu.log, /joint candidates=[1-9]/);
+    assert.doesNotMatch(gpu.log, /fallback|validation failed/);
+    assert.deepEqual(gpu.solution, cpu.solution);
+    assert.equal(cpu.solution.rank.hardCount, 0);
+});
+
 for (const kind of ['block', 'module']) test(`folded ${kind} relations reuse moving pad endpoints on CPU and GPU`, () => {
     const p = minimalProblem();
     p.components[0].blockName = 'folded';

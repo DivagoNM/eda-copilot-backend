@@ -219,6 +219,6 @@ test('default board alignment is a weak positional preference normalized by pair
     const {input,roots}=telemetry();
     const policy=boardAlignmentPolicy(input,roots);
     assert.ok(policy.pairs.length>0);
-    assert.equal(policy.orientationWeight,0);
+    assert.ok(Math.abs(policy.orientationWeight*policy.pairs.length-4)<1e-6);
     assert.ok(Math.abs(policy.weight*policy.pairs.length-1)<1e-6);
 });

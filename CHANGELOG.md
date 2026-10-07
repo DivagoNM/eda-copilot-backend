@@ -8,6 +8,10 @@
 
 ### PCB layout
 
+- Evaluate the complete Board repair batch through the existing GPU rank API instead of requesting an oversized shortlist. Preserve all repair candidates and scores; avoid an unnecessary whole-call CPU fallback above 96 variants, reproduced by the ESP32 orientation-weight experiment.
+
+- Add optional native joint proposals for 2–16 repeated channels at a shared locked connector, using shared CPU/GPU geometry and full FastRoute selection. Generate the nearest pair and complete eligible group (capped at 16); keep independent placement available. Keep beam width unchanged, preserve fine-position score elites and reserve half the slots for geometric diversity. Enable a weak normalized orientation preference independently of generation (at most four total points). Score contract v11; evidence and limits: `docs/experimental/pcb/channel-search/README.md`.
+
 - Preserve placement hint semantics across native Block/Board and PostPlace: away_from/clearance use bbox gaps and authored minima, layer hints support groups without distance attraction, selected board edges retain their meaning, and clearance(group, all) excludes source members. Share CPU/CubeCL arithmetic and relation encoding; pass ignored nets into Board FastRoute. Keep existing PostPlace weights and physical constraints. Placement score contract v10 requires a native rebuild; evidence and legacy edge-orientation limitation: `docs/experimental/pcb/condition-semantics/README.md`.
 
 - Preserve every ordinary net's distance in Board connectivity using a weighted sum with capped total pair strength. Share pair planning and distance arithmetic across native CPU, Board GPU and Block GPU; replace the 30 mm saturation with linear growth up to 40 mm and a 0.25 slope beyond it. Placement score contract v9 requires a native rebuild. Experiment evidence: `docs/experimental/pcb/ordinary-net-calibration/README.md`.

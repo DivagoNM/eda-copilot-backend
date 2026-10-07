@@ -642,6 +642,9 @@ impl Control {
     pub fn shortlist(&self,fixed:&[WorkingPrimitive],states:&[Vec<WorkingPrimitive>],flags:&[bool],ordinary:usize,aligned:usize,context:&Context)->Vec<Evaluated> {
         self.evaluate_mode(fixed,states,context,false,Some(Selection{flags,ordinary,aligned}))
     }
+    pub fn ranks(&self,fixed:&[WorkingPrimitive],states:&[Vec<WorkingPrimitive>],context:&Context)->Vec<Evaluated> {
+        self.evaluate_mode(fixed,states,context,false,None)
+    }
     fn evaluate_mode(&self,fixed:&[WorkingPrimitive],states:&[Vec<WorkingPrimitive>],context:&Context,legality_only:bool,selection:Option<Selection<'_>>)->Vec<Evaluated> {
         if self.failure().is_some() {std::panic::panic_any(Abort);}
         let waiting=Instant::now();

@@ -1,3 +1,4 @@
+mod channels;
 mod profile;
 #[cfg(feature = "gpu")]
 mod compact;
@@ -335,8 +336,8 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
         }).collect();
 
     while states.iter().any(|state| !state.remaining.is_empty()) {
-        // Atomic pairs advance two components. Compare equal-depth states only;
-        // otherwise their extra area/wires would unfairly lose against singles.
+        // Atomic groups advance several blocks. Defer them until independent
+        // expansions reach the same depth and can compete on the same inventory.
         let depth = states.iter().map(|s| s.remaining.len()).max().unwrap_or(0);
         let (active, deferred): (Vec<_>, Vec<_>) = states.into_iter()
             .partition(|s| s.remaining.len() == depth);
@@ -373,9 +374,22 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
             }
         }
         states = dedupe_states(expanded);
-        states.sort_by(|a,b| b.remaining.len().cmp(&a.remaining.len()).then_with(|| compare_states(a,b)));
-        let mut counts = FxHashMap::<usize,usize>::default();
-        states.retain(|s| { let count=counts.entry(s.remaining.len()).or_default(); *count+=1; *count<=search_width });
+        // Different placement sets have different partial objectives. Rank only
+        // within an identical remaining inventory; share the per-depth budget
+        // deterministically between inventories instead of comparing their scores.
+        let mut inventories = std::collections::BTreeMap::<Vec<u32>, Vec<SearchState>>::new();
+        for state in states {
+            let mut ids: Vec<_> = state.remaining.iter().map(|p|p.id).collect(); ids.sort();
+            inventories.entry(ids).or_default().push(state);
+        }
+        let mut levels = std::collections::BTreeMap::<usize, Vec<Vec<SearchState>>>::new();
+        for (ids, candidates) in inventories {
+            levels.entry(ids.len()).or_default().push(candidates);
+        }
+        states = Vec::new();
+        for (_, groups) in levels.into_iter().rev() {
+            states.extend(channels::select_level(groups,search_width,&context));
+        }
         if states.is_empty() {
             break;
         }
@@ -477,11 +491,7 @@ fn expand_states(states: &[SearchState], search_width: usize, context: &Context)
         let candidates = ranked_candidates(next, &state.placed, state.route_penalty, Some(limit), context);
         // Additional transitions; the original single-component expansion below
         // is always generated, even when an aligned pair is possible.
-        // Atomic pair search is reserved for explicit orientation policies. The
-        // production weak positional preference uses ordinary alignment slots.
-        if context.problem.soft_alignment.as_ref().is_some_and(|p| p.orientation_weight > 0.0) {
-            expanded.extend(joint_pair_states(state, next_index, context));
-        }
+        expanded.extend(joint_channel_states(state, next_index, context));
         let any_legal = candidates.iter().any(|candidate| candidate.rank.hard_count == state.rank.hard_count);
         for candidate in candidates.into_iter()
             .filter(|candidate| !any_legal || candidate.rank.hard_count == state.rank.hard_count)
@@ -510,89 +520,61 @@ fn ranked_candidates(
     rerank_candidates(candidates, primitive, placed, parent_route_penalty, limit, context)
 }
 
-// Place a structural peer together with the next block before unrelated blocks
-// occupy the adjoining space. Never merge ownership or relax either geometry.
-fn joint_pair_states(state: &SearchState, next_index: usize, context: &Context) -> Vec<SearchState> {
-    let Some(policy)=&context.problem.soft_alignment else {return Vec::new();};
-    let next=&state.remaining[next_index];
-    let mut peers: Vec<_>=policy.pairs.iter().filter_map(|pair| {
-        if pair.similarity < 0.85 {return None;}
-        let other=if pair.a==next.primitive.id {&pair.b} else if pair.b==next.primitive.id {&pair.a} else {return None;};
-        state.remaining.iter().position(|p| &p.primitive.id==other).map(|index|(pair,index))
+fn joint_channel_states(state: &SearchState, next_index: usize, context: &Context) -> Vec<SearchState> {
+    rank_joint_moves(state,channels::proposals(state,next_index,context),context)
+}
+
+fn rank_joint_moves(state: &SearchState, moves: Vec<Vec<WorkingPrimitive>>, context: &Context) -> Vec<SearchState> {
+    let mut seen=FxHashSet::default();
+    let moves: Vec<_>=moves.into_iter().filter(|ps| {
+        let mut keys:Vec<_>=ps.iter().map(primitive_key).collect();keys.sort();seen.insert(keys)
     }).collect();
-    peers.sort_by(|(a,i),(b,j)| compare_f32(b.similarity,a.similarity).then(i.cmp(j)));
-    let Some((pair,peer_index))=peers.first().copied() else {return Vec::new();};
-    let peer=&state.remaining[peer_index];
-    let _profile=context.profile.span(13);
-    let mut anchors=cheap_candidates(next,&state.placed,state.route_penalty,context);
-    // Keep one location per rotation as well as the best few overall locations.
-    let mut rotations=FxHashSet::default();
-    let mut extra=0;
-    anchors.retain(|c| if rotations.insert(c.primitive.rotation) {true} else {extra+=1;extra<=4});
+    if moves.is_empty() {return vec![];}
+    // Each batch has one inventory. Route is non-negative, so lazy top-k can
+    // safely discard a lower bound only after it loses to a fully scored result.
+    let mut inventories=std::collections::BTreeMap::<Vec<u32>,Vec<Vec<WorkingPrimitive>>>::new();
+    for mut ps in moves {
+        // A second connector/path may order the same members differently.
+        // GPU frames require identical identity order throughout one batch.
+        ps.sort_by_key(|p|p.id);
+        let ids:Vec<_>=ps.iter().map(|p|p.id).collect();
+        inventories.entry(ids).or_default().push(ps);
+    }
     let mut result=Vec::new();
-    #[cfg(feature = "gpu")]
-    let mut pair_moves=Vec::new();
-    for first in anchors {
-        for variant in orientation_variants(peer) {
-            let (a,b)=if pair.a==next.primitive.id {(&pair.anchor_a,&pair.anchor_b)} else {(&pair.anchor_b,&pair.anchor_a)};
-            let ca=alignment_center(&first.primitive,a); let cb=alignment_center(&variant,b);
-            let ab=packing_box(&first.primitive); let bb=packing_box(&variant);
-            let comfort=context.problem.soft_spacing.as_ref().map_or(0.0,|s|s.gap);
-            for gap in [context.problem.clearance,context.problem.clearance+comfort,context.problem.clearance+2.0] {
-                for (dx,dy) in [(ca.x-cb.x,ab.top-gap-bb.bottom),(ca.x-cb.x,ab.bottom+gap-bb.top),
-                    (ab.left-gap-bb.right,ca.y-cb.y),(ab.right+gap-bb.left,ca.y-cb.y)] {
-                    let mut a=first.primitive.clone(); let mut b=variant.clone();
-                    translate_primitive(&mut b,dx,dy);
-                    // Shift the pair together when its first anchor is near an
-                    // edge. Individual clamping would silently destroy alignment.
-                    let bounds=union_boxes(&[a.primitive.bbox,b.primitive.bbox]);
-                    let board=context.problem.bounds;
-                    let dx=(board.left-bounds.left).max(0.0)-(bounds.right-board.right).max(0.0);
-                    let dy=(board.top-bounds.top).max(0.0)-(bounds.bottom-board.bottom).max(0.0);
-                    translate_primitive(&mut a,dx,dy); translate_primitive(&mut b,dx,dy);
-                    #[cfg(feature = "gpu")]
-                    if context.gpu.is_some() {pair_moves.push(vec![a,b]);continue;}
-                    if candidate_hard_count(&a,&state.placed,context)>0 {continue;}
-                    let mut placed=state.placed.clone(); placed.push(a);
-                    if candidate_hard_count(&b,&placed,context)>0 {continue;}
-                    placed.push(b);
-                    let mut remaining=state.remaining.clone();
-                    remaining.remove(next_index.max(peer_index)); remaining.remove(next_index.min(peer_index));
-                    result.push(SearchState{rank:state_rank(&placed,context),placed,remaining,route_penalty:state.route_penalty,ordinal:0});
-                }
-            }
-        }
-    }
-    #[cfg(feature = "gpu")]
-    if let Some(gpu)=&context.gpu {
+    for (ids, moves) in inventories {
         let baseline=hard_count(&state.placed,context);
-        let legality=gpu.legality(&state.placed,&pair_moves,context);
-        let mut seen=FxHashSet::default();
-        let survivors=pair_moves.into_iter().zip(legality).filter_map(|(moves,rank)| {
-            if rank.hard_count!=baseline {return None;}
-            let mut keys=moves.iter().map(primitive_key).collect::<Vec<_>>();keys.sort();
-            seen.insert(keys).then_some(moves)
-        }).collect::<Vec<_>>();
-        let rows=gpu.shortlist(&state.placed,&survivors,&vec![false;survivors.len()],16,0,context);
-        for row in rows {
-            let rank=row.rank;
-            let mut placed=state.placed.clone();placed.extend(survivors[row.index].iter().cloned());
-            let mut remaining=state.remaining.clone();
-            remaining.remove(next_index.max(peer_index));remaining.remove(next_index.min(peer_index));
-            result.push(SearchState{rank,placed,remaining,route_penalty:state.route_penalty,ordinal:0});
-        }
+        #[cfg(feature="gpu")]
+        let ranked=if let Some(gpu)=&context.gpu {
+            let legality=gpu.legality(&state.placed,&moves,context);
+            let survivors:Vec<_>=moves.into_iter().zip(legality).filter_map(|(ps,r)|(r.hard_count==baseline).then_some(ps)).collect();
+            let rows=gpu.ranks(&state.placed,&survivors,context);
+            rows.into_iter().map(|r|(survivors[r.index].clone(),r.rank)).collect::<Vec<_>>()
+        } else {rank_joint_cpu(state,moves,context)};
+        #[cfg(not(feature="gpu"))]
+        let ranked=rank_joint_cpu(state,moves,context);
+        let _=baseline;
+        let remaining:Vec<_>=state.remaining.iter().filter(|p|!ids.contains(&p.id)).cloned().collect();
+        let candidates=ranked.into_iter().enumerate().map(|(ordinal,(ps,rank))| {
+            let mut placed=state.placed.clone();placed.extend(ps);
+            SearchState{placed,remaining:remaining.clone(),rank,route_penalty:0.0,ordinal:ordinal+1}
+        }).collect();
+        let mut winners=crate::lazy_rank::top_k(candidates,4,|a,_,b,_|compare_states(a,b),|s| {
+            s.route_penalty=board_layout_route(&s.placed.iter().collect::<Vec<_>>(),context);
+            s.rank.score+=s.route_penalty;
+        });
+        for winner in &mut winners {winner.ordinal=0;}
+        result.extend(winners);
     }
-    result=dedupe_states(result); result.sort_by(compare_states);
-    // FastRoute costs are non-negative. Evaluate a bounded shortlist,
-    // then compare exact costs, just as for the ordinary beam transitions.
-    result.truncate(16);
-    for s in &mut result {
-        s.route_penalty=board_layout_route(&s.placed.iter().collect::<Vec<_>>(),context);
-        s.rank.score+=s.route_penalty;
-    }
-    result.sort_by(compare_states); result.truncate(4);
     context.joint_candidates.fetch_add(result.len(),AtomicOrdering::Relaxed);
     result
+}
+
+fn rank_joint_cpu(state: &SearchState, moves: Vec<Vec<WorkingPrimitive>>, context: &Context) -> Vec<(Vec<WorkingPrimitive>,Rank)> {
+    moves.into_iter().filter_map(|ps| {
+        let mut placed=state.placed.clone();
+        for p in &ps {if candidate_hard_count(p,&placed,context)>0 {return None;}placed.push(p.clone());}
+        Some((ps,state_rank(&placed,context)))
+    }).collect()
 }
 
 fn cheap_candidates(
@@ -1075,7 +1057,7 @@ fn repair_hard_violations(
         let variants = hard_repair_variants(&current, context);
         #[cfg(feature = "gpu")]
         let (variants,gpu_ranks)=if let Some(gpu)=&context.gpu {
-            let flags=vec![false;variants.len()];let winners=gpu.shortlist(&[],&variants,&flags,variants.len().max(1),0,context);
+            let winners=gpu.ranks(&[],&variants,context);
             let selected=winners.iter().map(|row|variants[row.index].clone()).collect();
             (selected,Some(winners.into_iter().map(|row|row.rank).collect::<Vec<_>>()))
         }else{(variants,None)};
@@ -3247,20 +3229,67 @@ mod alignment_search_tests {
         (context,state)
     }
 
+    fn channel_fixture() -> (Context,SearchState) {
+        let (mut context,mut state)=fixture();
+        for (i,p) in state.remaining.iter_mut().enumerate() {
+            let ports=if i<2 {vec![json!({"pathId":format!("ch{i}"),"order":1,"ref":format!("U{}.1",i+1),"role":"target","x":0,"y":0,"normal":{"x":0,"y":-1}})]}
+                else {(0..2).map(|j|json!({"pathId":format!("ch{j}"),"order":0,"ref":format!("J1.{}",j+1),"role":"source","x":if j==0 {-3}else{3},"y":0,"normal":{"x":0,"y":1}})).collect()};
+            p.primitive.path_ports=Arc::new(ports.into_iter().map(|p|serde_json::from_value(p).unwrap()).collect());
+        }
+        let mut connector=state.remaining.pop().unwrap();connector.primitive.locked=true;
+        state.placed.push(connector);
+        let problem=Arc::make_mut(&mut context.problem);
+        for p in state.remaining.iter().chain(state.placed.iter()) {problem.primitives[p.source_index]=p.primitive.clone();}
+        problem.soft_alignment.as_mut().unwrap().orientation_weight=0.0;
+        state.rank=full_state_rank(&state.placed,&context);
+        (context,state)
+    }
+
+    #[test]
+    fn channels_require_shared_connector_and_preserve_target_order() {
+        let (context,mut state)=channel_fixture();
+        let proposals=channels::proposals(&state,0,&context);
+        assert!(!proposals.is_empty());
+        for ps in proposals {assert_eq!(ps.len(),2);assert!(ps[0].primitive.path_ports[0].x<ps[1].primitive.path_ports[0].x);}
+        Arc::make_mut(&mut state.placed[0].primitive.path_ports)[1].reference="J2.1".into();
+        assert!(channels::proposals(&state,0,&context).is_empty(),"different connectors in one locked owner must not create a row");
+    }
+
+    #[test]
+    fn diversity_retains_fine_elites_and_other_orientations_without_extra_hard_errors() {
+        let (context,mut state)=fixture();
+        state.placed.push(state.remaining.remove(0));
+        let mut states=Vec::new();
+        for i in 0..40 {let mut s=state.clone();translate_primitive(&mut s.placed[0],i as f32*0.002,0.0);s.rank.score=i as f32;s.ordinal=i;states.push(s);}
+        let mut rotated=state.clone();rotate_primitive(&mut rotated.placed[0],90);rotated.rank.score=100.0;states.push(rotated);
+        let mut shifted=state.clone();translate_primitive(&mut shifted.placed[0],1.0,0.0);shifted.rank.score=101.0;states.push(shifted);
+        let mut illegal=state.clone();rotate_primitive(&mut illegal.placed[0],180);illegal.rank.hard_count=1;illegal.rank.score=0.0;states.push(illegal);
+        let winners=channels::diverse(states,32,&context);
+        assert_eq!(winners.len(),32);
+        assert!(winners.iter().take(16).enumerate().all(|(i,s)|s.ordinal==i));
+        assert!(winners.iter().any(|s|s.placed[0].rotation==90));
+        assert!(winners.iter().any(|s|box_center(&s.placed[0].primitive.bbox).x==1.0));
+        assert!(winners.iter().all(|s|s.rank.hard_count==0));
+        let mixed=channels::select_level(vec![winners.clone(),winners],32,&context);
+        assert_eq!(mixed.len(),32);
+        assert_eq!(mixed.iter().filter(|s|s.placed[0].rotation==90).count(),2,
+            "each inventory must preserve diversity inside its actual 16-slot quota");
+    }
+
     #[test]
     fn atomic_pair_adds_transitions_without_removing_single_placements() {
-        let (context,state)=fixture();
-        let pairs=joint_pair_states(&state,0,&context);
+        let (context,state)=channel_fixture();
+        let pairs=joint_channel_states(&state,0,&context);
         assert!(!pairs.is_empty());
         for s in &pairs {
-            assert_eq!(s.remaining.len(),1);assert_eq!(s.remaining[0].primitive.id.as_ref(),"U3");
+            assert!(s.remaining.is_empty());
             assert_eq!(s.rank.hard_count,0);
-            let a=&s.placed[0].primitive.placements[0];let b=&s.placed[1].primitive.placements[0];
+            let a=&s.placed[1].primitive.placements[0];let b=&s.placed[2].primitive.placements[0];
             assert!((a.x-b.x).abs().min((a.y-b.y).abs())<0.001);
         }
         let expanded=expand_states(&[state],32,&context);
-        assert!(expanded.iter().any(|s|s.remaining.len()==2));
         assert!(expanded.iter().any(|s|s.remaining.len()==1));
+        assert!(expanded.iter().any(|s|s.remaining.is_empty()));
     }
 
     #[test]
@@ -3317,9 +3346,9 @@ mod alignment_search_tests {
 
     #[test]
     fn atomic_pair_respects_keepouts_and_disappears_without_disabling_singles() {
-        let (mut context,state)=fixture();
+        let (mut context,state)=channel_fixture();
         Arc::make_mut(&mut context.problem).obstacles=vec![Box2{left:-12.0,right:12.0,top:-12.0,bottom:12.0}];
-        assert!(joint_pair_states(&state,0,&context).is_empty());
+        assert!(joint_channel_states(&state,0,&context).is_empty());
         assert!(!position_candidates(&state.remaining[0],&[],&context,false,false).is_empty());
     }
 }
