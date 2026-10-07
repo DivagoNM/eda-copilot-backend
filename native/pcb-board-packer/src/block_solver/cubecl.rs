@@ -400,7 +400,7 @@ impl Engine {
                     pad_dx: 0.,
                     pad_dy: 0.,
                     cp,
-                    nc: p.primitive.connection_points.len() as u32,
+                    nc: crate::conditions::connection_count(&p.primitive) as u32,
                     pad,
                     np: engine.pads.len() as u32 - pad,
                     component: *ci as u32,
@@ -519,6 +519,7 @@ fn prepare(
     let mut relations = Vec::new();
     for r in &context.relations {
         let rel = &r.relation;
+        if crate::conditions::applies(rel) { continue; }
         if rel.kind.as_ref() == "net" || rel.effect.as_ref() == "lock" {
             continue;
         }
@@ -801,6 +802,7 @@ impl Engine {
         fi[k::EP_I] = fi.len() as u32;
         fi.extend(eprefs);
         self.pack_topology(current,context,&mut ff,&mut fi);
+        pack_conditions(current,context,&mut fi,&mut ff);
         // Archived proposals are relative to the current moving primitive.
         // GPU templates are resident in the original coordinate frame.
         let source = box_center(&context.problem.primitives[current[moving].source_index].bbox);
@@ -1068,7 +1070,7 @@ impl Engine {
                 if index >= c.ncandidate
                     || !seen.insert(index)
                     || !base.is_finite()
-                    || hard as usize > current.len()*current.len()+context.problem.components.len()*(1+context.problem.world.as_ref().map_or(0,|w|w.obstacles.len()))+current.len()*(context.problem.obstacles.len()+1)
+                    || hard as usize > current.len()*current.len()+context.problem.components.len()*(1+context.problem.world.as_ref().map_or(0,|w|w.obstacles.len()))+current.len()*(context.problem.obstacles.len()+1)+context.conditions.len()
                 {
                     return Err("invalid GPU winner".into());
                 }
@@ -1329,4 +1331,15 @@ pub(super) fn checkpoint(context: &Context, stage: &str) {
             fail(format!("injected GPU failure after {stage}"));
         }
     }
+}
+
+fn pack_conditions(fixed:&[WorkingPrimitive],context:&Context,fi:&mut Vec<u32>,ff:&mut Vec<f32>) {
+    let mut conditions=context.conditions.clone();
+    for term in &mut conditions {for target in [&mut term.a,&mut term.b] {for point in &mut target.points {
+        if let crate::conditions::Ref::Moving(owner,_) = point {
+            *owner=fixed.iter().position(|p|p.id==*owner).map(|i|i as u32).unwrap_or_else(||
+                0x80000000 | context.gpu_sources.iter().find(|p|p.id==*owner).unwrap().source_index as u32);
+        }
+    }}}
+    fi[k::CONDITIONS]=crate::conditions::pack(&conditions,fi,ff);
 }

@@ -593,3 +593,20 @@ test('module membership spanning rigid owners is rejected instead of picking the
         hard:false, effect:'move_from', satelliteAnchor:false}];
     assert.throws(() => require(addonPath).evaluateBoardQuality(p), /spans multiple rigid primitives/);
 });
+
+
+test('semantic clearance, layer and edge hints keep CPU/GPU candidate ranks and legality', {skip:!gpuEnabled},()=>{
+    const p=minimalProblem();p.searchWidth=4;
+    const source=structuredClone(p.primitives[0]);
+    p.primitives=[0,1,2].map(i=>({...structuredClone(source),id:`P${i}`,
+        placements:[{...source.placements[0],designator:`U${i}`,layer:i===1?'bottom':'top'}],
+        connectionPoints:[{ref:`U${i}.1`,net:'SIG',x:.8,y:0}],connectionPointLayers:[i===1?'bottom':'top']}));
+    p.components=p.primitives.map((q,i)=>({...structuredClone(p.components[0]),primitiveId:q.id,designator:`U${i}`,blockName:i<2?'pair':'other',layer:i===1?'bottom':'top'}));
+    p.componentConflict=Array.from({length:9},(_,i)=>Number(Math.floor(i/3)!==i%3));p.componentPairClearance=p.componentConflict.map(v=>v*.2);
+    const relation=(name:string,from:string,to:string,condition={},hard=false)=>({id:name,kind:'hint',relation:name,from,to,condition,hard,effect:'move_from',priority:'normal',weight:70,minDistance:1,satelliteAnchor:false});
+    p.relations=[relation('clearance','block:pair','component:U2',{},true),relation('away_from','component:U0','component:U1'),
+        relation('same_side','block:pair','component:U2'),relation('prefer_layer','component:U0','board',{layer:'bottom'}),
+        relation('edge','component:U2','board',{edge:'right',orientation:'any'})];
+    const cpu=run(p,'cpu');const gpu=run(p,'cubecl',{PCB_BOARD_GPU_VERIFY:'1',PCB_BOARD_GPU_VERIFY_SHORTLIST:'1'});
+    assert.doesNotMatch(gpu.log,/fallback/);assert.match(gpu.log,/"backend":"cubecl"/);assert.deepEqual(gpu.solution,cpu.solution);
+});

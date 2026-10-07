@@ -114,6 +114,7 @@ impl Drop for ProfileSpan<'_> {
     }
 }
 struct Context {
+    conditions: crate::conditions::Plan,
     #[cfg(feature = "gpu")]
     gpu_sources: Vec<WorkingPrimitive>,
     #[cfg(feature = "gpu")]
@@ -245,7 +246,10 @@ pub fn solve_block(mut problem: BlockSolveProblem) -> Result<crate::model::Block
 }
 pub(crate) fn attach_group_relation_points(problem: &mut BlockSolveProblem) -> Result<(), String> {
     crate::group_endpoints::attach(&mut problem.primitives, &problem.relations, &Default::default(),
-        &problem.components.iter().map(|c| (&c.designator, &c.primitive_id, &c.block_name, c.body_box)).collect::<Vec<_>>())
+        &problem.components.iter().map(|c| (&c.designator, &c.primitive_id, &c.block_name, c.body_box)).collect::<Vec<_>>())?;
+    crate::conditions::attach(&mut problem.primitives, &problem.relations,
+        &problem.components.iter().map(|c| (&c.designator,&c.primitive_id,&c.block_name,&c.layer,c.hint_box.unwrap_or(c.body_box))).collect::<Vec<_>>());
+    Ok(())
 }
 
 fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<WorkingPrimitive>, Context) {
@@ -335,6 +339,9 @@ fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<Worki
     for (net, id) in &net_ids { net_weights[*id as usize] = if is_power(net) { 0.25 } else { 1.0 }; }
     for (net, id) in &net_ids { net_signal[*id as usize] = !(is_ground(net) || is_power(net) || is_switching_power(net)); }
     let context = Context {
+        conditions: crate::conditions::plan(&problem.primitives,&problem.relations,&Default::default(),
+            &problem.components.iter().map(|c|(&c.designator,&c.primitive_id,&c.block_name,&c.layer,c.hint_box.unwrap_or(c.body_box))).collect::<Vec<_>>(),
+            problem.world.as_ref().map(|w|w.bounds),problem.world.as_ref().map_or(0.0,|w|w.edge_clearance)),
         #[cfg(feature = "gpu")]
         gpu_sources: if _gpu_enabled {primitives.clone()} else {vec![]},
         #[cfg(feature = "gpu")]
@@ -1936,7 +1943,7 @@ fn hard_geometry_violation_count(primitives: &[WorkingPrimitive], context: &Cont
             }
         }
     }
-    count
+    count + condition_evaluation(primitives,context).hard
 }
 
 fn candidate_hard_violation_count(
@@ -1978,6 +1985,10 @@ fn candidate_hard_violation_count(
         if primitive_outside_bounds(candidate, &bounds) {
             count += 1;
         }
+    }
+    if !context.conditions.is_empty() {
+        let mut all=placed.to_vec();all.push(candidate.clone());
+        count += condition_evaluation(&all,context).hard.saturating_sub(condition_evaluation(placed,context).hard);
     }
     count
 }
@@ -2557,7 +2568,7 @@ fn scoped_relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -
     let mut penalty = 0.0;
     for compiled in &context.relations {
         let relation = &compiled.relation;
-        if relation.effect.as_ref() == "lock" || relation.kind.as_ref() == "net" {
+        if relation.effect.as_ref() == "lock" || relation.kind.as_ref() == "net" || crate::conditions::applies(relation) {
             continue;
         }
         let Some(from) = endpoint_point(primitives, &compiled.from) else {
@@ -2577,7 +2588,7 @@ fn scoped_relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -
         penalty += crate::relation_score::distance_cost(value,weight,profile.min.unwrap_or(-1.0),profile.max.unwrap_or(-1.0),profile.inverse_tau_squared)
             + relation_side_penalty(relation, from.point, to.point, weight);
     }
-    penalty
+    penalty + condition_evaluation(primitives,context).score
 }
 
 fn external_port_exposure_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
@@ -2601,7 +2612,7 @@ fn external_port_exposure_penalty(primitives: &[WorkingPrimitive], context: &Con
             let external = |e: &CompiledEndpoint| matches!(e, CompiledEndpoint::Missing | CompiledEndpoint::Anchor(None));
             if external(&compiled.from) == external(&compiled.to) { continue; }
         }
-        if relation.effect.as_ref() == "lock"
+        if crate::conditions::applies(relation) || relation.effect.as_ref() == "lock"
             || relation.kind.as_ref() == "net"
             || relation.effect.as_ref() == "score_only"
         {
@@ -2704,7 +2715,7 @@ fn port_facing_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f3
     let mut penalty = 0.0;
     for compiled in &context.relations {
         let relation = &compiled.relation;
-        if relation.effect.as_ref() == "lock"
+        if crate::conditions::applies(relation) || relation.effect.as_ref() == "lock"
             || relation.kind.as_ref() == "net"
             || relation.effect.as_ref() == "score_only"
         {
@@ -3017,7 +3028,7 @@ struct PowerYieldFrame<'a> {
 impl<'a> PowerYieldFrame<'a> {
     fn new(placed: &'a [WorkingPrimitive], context: &Context) -> Option<Self> {
         let _span = context.detail.span("power_frame_build");
-        let connection_count: usize = placed.iter().map(|p| p.primitive.connection_points.len()).sum();
+        let connection_count: usize = placed.iter().map(|p| crate::conditions::connection_count(&p.primitive)).sum();
         // The full scorer changes policy at these sizes; preserve that boundary.
         if placed.len() < 3 || placed.len() >= 36 || connection_count > 240 { return None; }
         let power: Vec<_> = placed.iter().filter(|p| power_affinity(p) >= 0.55 && !p.primitive.locked).collect();
@@ -3037,7 +3048,7 @@ impl<'a> PowerYieldFrame<'a> {
 
     fn with_candidate(&self, candidate: &WorkingPrimitive, context: &Context) -> f32 {
         let _span = context.detail.span("power_frame_append");
-        if self.connection_count + candidate.primitive.connection_points.len() > 240 { return 0.0; }
+        if self.connection_count + crate::conditions::connection_count(&candidate.primitive) > 240 { return 0.0; }
         let mut score = self.baseline;
         let affinity = power_affinity(candidate);
         if affinity >= 0.55 && !candidate.primitive.locked {
@@ -3103,7 +3114,7 @@ fn power_yield_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f3
     }
     let connection_count: usize = primitives
         .iter()
-        .map(|primitive| primitive.primitive.connection_points.len())
+        .map(|primitive| crate::conditions::connection_count(&primitive.primitive))
         .sum();
     if connection_count > 240 {
         return 0.0;
@@ -3789,7 +3800,7 @@ mod candidate_tests {
         };
         let resistor = make("R36");
         let ic = make("U11");
-        let context = Context { trace: false, trace_phase: RefCell::new("test"), problem, relations: vec![], net_ground: vec![],
+        let context = Context { conditions: vec![], trace: false, trace_phase: RefCell::new("test"), problem, relations: vec![], net_ground: vec![],
             #[cfg(feature = "gpu")] gpu_sources:vec![],
             #[cfg(feature = "gpu")] gpu_engine:Default::default(),
             corridor_cache: Default::default(), escape_cache: Default::default(),
@@ -3978,4 +3989,10 @@ mod candidate_tests {
         context.problem.experiments.local_access = true;
         assert_eq!(external_port_exposure_penalty(&[ic], &context), 0.0);
     }
+}
+
+fn condition_evaluation(primitives:&[WorkingPrimitive],context:&Context)->crate::conditions::Evaluation {
+    crate::conditions::evaluate(&context.conditions,|owner,index| {
+        let p=primitives.iter().find(|p|p.id==owner)?;let q=p.primitive.connection_points.get(index)?;Some(Point{x:q.x,y:q.y})
+    })
 }

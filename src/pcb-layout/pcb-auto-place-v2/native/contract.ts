@@ -70,6 +70,7 @@ export interface NativePrimitive {
 }
 
 export interface NativeRelation {
+    condition?: { all?: boolean; edge?: BoardEdge; layer?: Layer; orientation?: string };
     core?: boolean;
     id: string;
     kind: PlacementRelationKind;
@@ -93,6 +94,7 @@ export interface NativeRelation {
 export interface NativeAccessRow { box: Box; weight: number }
 
 export interface NativeComponentGeometry {
+    hintBox?: Box;
     accessRows?: NativeAccessRow[];
     designator: string;
     primitiveId: string;
@@ -115,6 +117,7 @@ export interface NativeConstraintRegion {
 }
 
 export interface NativeBoardPackProblemV7 {
+    ignoredNets?: string[];
     relationGroups?: Record<string, string[]>;
     routingObstacles?: NativeRoutingObstacle[];
     softAlignment?: import('../board-alignment.ts').BoardSoftAlignment;

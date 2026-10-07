@@ -1,8 +1,9 @@
+import { encodeRelation } from './encode-relation.ts';
 import {componentAccessRows} from './pad-access.ts';
 import { placementNetClass } from './net-class.ts';
 import * as fp from '../../f32.ts';
 import type { PcbComponent, Placement } from '#types/pcb/layout-model.ts';
-import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
+import { getBox, boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { createFixedPlacement } from '../../pcb-auto-place/fixed.ts';
 import { placementsCanConflict } from '../../pcb-auto-place/utils.ts';
 import type { BlockSolveParams } from '../block-solver.ts';
@@ -11,7 +12,6 @@ import {
     NATIVE_BLOCK_SOLVE_CONTRACT_VERSION,
     type NativeBlockSolveProblemV4,
     type NativePrimitive,
-    type NativeRelation,
 } from './contract.ts';
 
 type ComponentEntry = { component: PcbComponent; placement: Placement; primitiveId: string };
@@ -64,6 +64,7 @@ export function encodeNativeBlockSolveProblem(params: BlockSolveParams): NativeB
             blockName: component.block_name,
             layer: placement.layer,
             bodyBox: componentBodyBox(component, placement),
+            hintBox: getBox(component, placement),
             accessRows: componentAccessRows(component, placement),
             throughHoleBoxes: componentCollisionBoxes(component, placement, placement.layer === 'top' ? 'bottom' : 'top'),
             pinCount: component.pins.length,
@@ -140,32 +141,6 @@ function collectSourceNodeIds(primitive: PlacementPrimitive) {
     };
     visit(primitive);
     return [...result];
-}
-
-function encodeRelation(relation: BlockSolveParams['relations'][number]): NativeRelation {
-    const number = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-    const offset = relation.data?.anchorOffset as { x?: unknown; y?: unknown } | undefined;
-    const side = relation.data?.sidePreference;
-    return {
-        id: relation.id,
-        kind: relation.kind,
-        from: relation.from,
-        to: relation.to,
-        relation: relation.relation,
-        priority: relation.priority,
-        hard: relation.hard === true,
-        weight: relation.weight,
-        effect: relation.effect,
-        maxDistance: number(relation.data?.maxDistance),
-        minDistance: number(relation.data?.minDistance),
-        satelliteAnchor: relation.data?.satelliteAnchor === true,
-        anchorOffset: typeof offset?.x === 'number' && typeof offset.y === 'number' ? { x: offset.x, y: offset.y } : undefined,
-        sidePreference: side === 'left' || side === 'right' || side === 'top' || side === 'bottom' ? side : undefined,
-        core: relation.data?.core === true,
-        pathId: typeof relation.data?.pathId === 'string' ? relation.data.pathId : undefined,
-        pathShape: relation.data?.pathShape === 'straight' ? 'straight' : relation.data?.pathShape === 'flexible' ? 'flexible' : undefined,
-        preferFacingPads: relation.data?.preferFacingPads === true,
-    };
 }
 
 function isPowerComponent(component: PcbComponent, params: BlockSolveParams) {

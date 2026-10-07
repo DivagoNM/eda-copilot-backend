@@ -6,7 +6,7 @@ import { normalizeRotation } from '#utils/math.ts';
 import { samePartUuid } from '#types/lcsc.ts';
 import { isConnectedSignalName } from '#utils/signals.ts';
 import { boardBox, boardAnchorPoint, boardHoleKeepoutRadius, getBox, componentBodyBox, componentCollisionBoxes, getLocalPointWorld, componentPadBox, isThroughHolePad } from '../../pcb-auto-place/geometry.ts';
-import { componentPairClearance, familyBlockDesignators, canonicalModuleDesignators, blockBboxLimit, familyBboxLimit, moduleBboxLimit } from '../../pcb-auto-place/report-helpers.ts';
+import { targetDesignators, componentPairClearance, familyBlockDesignators, canonicalModuleDesignators, blockBboxLimit, familyBboxLimit, moduleBboxLimit } from '../../pcb-auto-place/report-helpers.ts';
 import { expandHints, pathRelationWeight } from '../../pcb-auto-place/hints.ts';
 import { createPostPlaceRouteScoreContext, routeLayoutProblem } from '../post-place-route-score.ts';
 import { postPlaceBudget } from '../post-place-budget.ts';
@@ -24,7 +24,7 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
     const target = (ref?: TargetRef | 'all'): RefineTarget => {
         if (!ref || ref === 'all') return { kind: 'missing' };
         if (ref.type === 'board_anchor') return { kind: 'point', point: boardAnchorPoint(input.board, ref.anchor) };
-        if (ref.type === 'block') return { kind: 'group', members: members(input.blocks.find(b => b.name === ref.block_name)?.component_designators ?? []) };
+        if (ref.type === 'block') return { kind: 'group', members: members(targetDesignators(input, ref)) };
         const component = componentsByName.get(ref.designator);
         if (component === undefined) return { kind: 'missing' };
         if (ref.type === 'component') return { kind: 'component', component };

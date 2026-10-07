@@ -102,13 +102,13 @@ pub fn terms(g:&Input,out:&mut Array<f32>){
  if c<g.bi[0] as usize {let mut a=0.0;let mut b=0.0;let mut d=0.0;
   if i<nt {let t=g.si[8] as usize+i*5;let kind=g.si[t];let src=g.si[t+1] as usize;let dst=g.si[t+2] as usize;let f=g.si[t+3] as usize;let flags=g.si[t+4];let w=g.sf[f];
    if kind==0 {let dist=distance(target_point(g,c,src),target_point(g,c,dst));let mut minimum=g.sf[f+1];if flags&2==0 {minimum=-1.0;}let mut maximum=g.sf[f+2];if flags&1==0 {maximum=-1.0;}a=crate::relation_score::distance_cost(dist,w,minimum,maximum,g.sf[f+3]);}
-   if kind==1 {let x=target_box(g,c,src);let y=target_box(g,c,dst);let gap=max(max(y.l-x.r,x.l-y.r),max(y.t-x.b,x.t-y.b));if gap<g.sf[f+1] {let z=g.sf[f+1]-gap;a=z*z*w*20.0;}}
-   if kind==2 {let x=g.geometry[geometry_offset(g,c,src)+2] as u32;let mut y=flags;if dst!=0xffffffffusize {y=g.geometry[geometry_offset(g,c,dst)+2] as u32;}if x!=y {a=w;}}
+   if kind==1 {let x=target_box(g,c,src);let y=target_box(g,c,dst);let gap=crate::conditions::clearance_gap(x.l,x.r,x.t,x.b,y.l,y.r,y.t,y.b);a=crate::conditions::clearance_cost(gap,g.sf[f+1],w);}
+   if kind==2 {let x=target_layers(g,c,src);let mut y=flags;if dst!=0xffffffffusize {y=target_layers(g,c,dst);}a=crate::conditions::layer_cost(x,y,w,dst!=0xffffffffusize);}
    if kind==4 {let source=target_point(g,c,src);let mut nearest=f32::from_bits(0x7f800000u32);
     for j in 0..flags as usize {nearest=min(nearest,distance(source,target_point(g,c,g.si[dst+j] as usize)));}
     a=crate::local_stretch::penalty(nearest,w);
    }
-   if kind==3 {let x=target_box(g,c,src);let board=g.si[14] as usize;let mut distance=(g.sf[board+3]-x.b).abs();if flags==0 {distance=(x.l-g.sf[board]).abs();}if flags==1 {distance=(g.sf[board+1]-x.r).abs();}if flags==2 {distance=(x.t-g.sf[board+2]).abs();}a=distance*w;}
+   if kind==3 {let x=target_box(g,c,src);let board=g.si[14] as usize;a=crate::conditions::measure(flags+3,x.l,x.r,x.t,x.b,g.sf[board],g.sf[board+1],g.sf[board+2],g.sf[board+3])*w;}
   }else{a=path_cost(g,c,i-nt);}
   out[job*3]=a;out[job*3+1]=b;out[job*3+2]=d;
  }
@@ -134,4 +134,12 @@ pub fn geometry_score(g:&Input,out:&mut Array<f32>) {
   }
   out[c*3]=0.0;out[c*3+1]=0.0;out[c*3+2]=access;
  }
+}
+
+#[cube]
+fn target_layers(g:&Input,c:usize,t:usize)->u32 {
+    let kind=g.si[t];let id=g.si[t+1] as usize;let mut mask=0u32;
+    if kind==1 || kind==2 {mask=g.geometry[geometry_offset(g,c,id)+2] as u32;}
+    if kind==4 {for j in 0..g.si[t+2] as usize {mask|=g.geometry[geometry_offset(g,c,g.si[id+j] as usize)+2] as u32;}}
+    mask
 }

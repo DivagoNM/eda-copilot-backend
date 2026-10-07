@@ -7,6 +7,7 @@ import { isConnectedSignalName } from '#utils/signals.ts';
 import { boardBox, getBox, getPadWorld, componentPadBox, isThroughHolePad, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { expandHints, pathRelationWeight } from '../../pcb-auto-place/hints.ts';
 import {
+    targetDesignators,
     resolveTargetBox,
     resolveTargetPoint,
 } from '../../pcb-auto-place/report-helpers.ts';
@@ -100,7 +101,7 @@ export function encodeNativePostPlaceScoreProblem(
             if (!source) continue;
             if (rule.target === 'all') {
                 for (const component of input.components) {
-                    if (targetContainsDesignator(rule.source, component.designator)) continue;
+                    if (targetDesignators(input, rule.source).includes(component.designator)) continue;
                     const placement = placementByDesignator.get(component.designator);
                     if (placement) result.clearances.push({ source, target: getBox(component, placement), minimum: rule.min, weight });
                 }
@@ -109,15 +110,16 @@ export function encodeNativePostPlaceScoreProblem(
                 if (target) result.clearances.push({ source, target, minimum: rule.min, weight });
             }
         }
-        if (rule.kind === 'same_side' && rule.target && rule.target !== 'all'
-            && rule.source.type === 'component' && rule.target.type === 'component') {
-            const source = placementByDesignator.get(rule.source.designator);
-            const target = placementByDesignator.get(rule.target.designator);
-            if (source && target && source.layer !== target.layer) layerTerms.push([weight, true]);
+        const layers = (target: Parameters<typeof targetDesignators>[1]) => new Set(targetDesignators(input, target).flatMap(name => {
+            const placement = placementByDesignator.get(name); return placement ? [placement.layer] : [];
+        }));
+        if (rule.kind === 'same_side' && rule.target && rule.target !== 'all') {
+            const a = layers(rule.source), b = layers(rule.target);
+            if (a.size && b.size && (new Set([...a, ...b]).size !== 1)) layerTerms.push([weight, true]);
         }
-        if (rule.kind === 'prefer_layer' && rule.source.type === 'component' && rule.layer) {
-            const placement = placementByDesignator.get(rule.source.designator);
-            if (placement && placement.layer !== rule.layer) layerTerms.push([weight, false]);
+        if (rule.kind === 'prefer_layer' && rule.layer) {
+            const source = layers(rule.source);
+            if (source.size && (source.size !== 1 || !source.has(rule.layer))) layerTerms.push([weight, false]);
         }
         if (rule.kind === 'edge' && rule.edge) {
             const source = resolveTargetBox(input, rule.source, placementByDesignator, componentByDesignator);
@@ -169,10 +171,6 @@ function pathPort(
         role,
         normal: length > EPSILON ? { x: fp.div(vector.x, length), y: fp.div(vector.y, length) } : { x: 0, y: 0 },
     };
-}
-
-function targetContainsDesignator(target: { type: string; designator?: string }, designator: string) {
-    return (target.type === 'component' || target.type === 'pin') && target.designator === designator;
 }
 
 /** Preserve block/family ownership; shared supply nets must not link unrelated ICs. */

@@ -125,6 +125,7 @@ struct CompiledRelation {
 }
 
 struct Context {
+    conditions: crate::conditions::Plan,
     problem: Arc<BoardPackProblem>,
     relations: Arc<Vec<CompiledRelation>>,
     hard_overlap_cache: RefCell<FxHashMap<PosePairKey, f32>>,
@@ -196,6 +197,9 @@ fn prepare_context(problem: BoardPackProblem,
     }));
     let relations = compile_relations(&problem, &primitive_ids, &designator_ids);
     let context = Context {
+        conditions: crate::conditions::plan(&problem.primitives,&problem.relations,&problem.relation_groups,
+            &problem.components.iter().map(|c|(&c.designator,&c.primitive_id,&c.block_name,&c.layer,c.hint_box.unwrap_or(c.body_box))).collect::<Vec<_>>(),
+            Some(problem.full_board_bounds),problem.edge_clearance),
         problem: Arc::new(problem),
         relations: Arc::new(relations),
         hard_overlap_cache: RefCell::new(FxHashMap::default()),
@@ -318,6 +322,7 @@ fn solve_inner(problem: BoardPackProblem, threads: usize,
     let cpu_budget=crate::compute::cpu::Budget::new(threads);
     let mut lanes: Vec<Context> = (0..lane_count.min(search_width).min(states[0].remaining.len().max(1)))
         .map(|_| Context {
+            conditions: context.conditions.clone(),
             problem: context.problem.clone(),
             relations: context.relations.clone(),
             hard_overlap_cache: RefCell::new(FxHashMap::default()),
@@ -791,7 +796,7 @@ fn board_layout_route(all: &[&WorkingPrimitive], context: &Context) -> f32 {
         box_: *b, layer: None, reference: None, net: None, primitive_id: None,
     }));
     let plan = crate::fast_route::layout_plan(&all.iter().map(|p| &p.primitive).collect::<Vec<_>>(), &obstacles,
-        &[], &[], context.problem.clearance, context.problem.bounds, &context.problem.relations);
+        &[], &context.problem.ignored_nets, context.problem.clearance, context.problem.bounds, &context.problem.relations);
     #[cfg(feature="gpu")]
     if let Some(gpu)=&context.gpu { return gpu.route(&plan); }
     plan.cpu()
@@ -1325,7 +1330,7 @@ fn hard_count(primitives: &[WorkingPrimitive], context: &Context) -> usize {
         }
         count += constraint_violation_count(primitive, context);
     }
-    count
+    count + condition_evaluation(primitives,context).hard
 }
 
 fn hard_severity(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
@@ -1348,7 +1353,7 @@ fn hard_severity(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
         }
         severity += constraint_violation_severity(primitive, context);
     }
-    severity
+    severity + condition_evaluation(primitives,context).severity
 }
 
 fn candidate_hard_count(
@@ -1375,6 +1380,10 @@ fn candidate_hard_count(
             ) > 0.0
         })
         .count();
+    if !context.conditions.is_empty() {
+        let mut all=placed.to_vec();all.push(candidate.clone());
+        count += condition_evaluation(&all,context).hard.saturating_sub(condition_evaluation(placed,context).hard);
+    }
     count + constraint_violation_count(candidate, context)
 }
 
@@ -1685,7 +1694,7 @@ fn relation_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
             }
         }
     }
-    penalty
+    penalty + condition_evaluation(primitives,context).score
 }
 
 /// Diagnostic enclosure for the relation expression on bit-identical
@@ -1735,7 +1744,7 @@ fn relation_penalty_enclosure(primitives: &[WorkingPrimitive], context: &Context
             }
         }
     }
-    total
+    total.add(I::exact(condition_evaluation(primitives,context).score))
 }
 
 fn edge_bias_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f32 {
@@ -2445,7 +2454,7 @@ fn compile_relations(
         .map(|relation| CompiledRelation {
             from: compile_endpoint(&relation.from, problem, primitive_ids, designator_ids),
             to: compile_endpoint(&relation.to, problem, primitive_ids, designator_ids),
-            skip: relation.effect.as_ref() == "lock" || relation.kind.as_ref() == "net",
+            skip: relation.effect.as_ref() == "lock" || relation.kind.as_ref() == "net" || crate::conditions::applies(relation),
             hard: relation.hard,
             weight: relation_weight(relation),
             inverse_tau_squared: crate::relation_score::for_relation(relation).inverse_tau_squared,
@@ -2463,7 +2472,10 @@ fn compile_relations(
 /// existing CPU/GPU point transforms rather than the parent's packing center.
 fn attach_block_relation_points(problem: &mut BoardPackProblem) -> Result<(), String> {
     crate::group_endpoints::attach(&mut problem.primitives, &problem.relations, &problem.relation_groups,
-        &problem.components.iter().map(|c| (&c.designator, &c.primitive_id, &c.block_name, c.body_box)).collect::<Vec<_>>())
+        &problem.components.iter().map(|c| (&c.designator, &c.primitive_id, &c.block_name, c.body_box)).collect::<Vec<_>>())?;
+    crate::conditions::attach(&mut problem.primitives, &problem.relations,
+        &problem.components.iter().map(|c| (&c.designator,&c.primitive_id,&c.block_name,&c.layer,c.hint_box.unwrap_or(c.body_box))).collect::<Vec<_>>());
+    Ok(())
 }
 
 fn compile_endpoint(
@@ -3106,7 +3118,7 @@ mod alignment_search_tests {
         let mut display = state.remaining[0].clone();
         display.primitive.bbox = display_box;
         display.primitive.collision_boxes = Arc::new(vec![display_box, pad_box]);
-        display.components = Arc::new(vec![(0, ComponentGeometry {access_rows:vec![],
+        display.components = Arc::new(vec![(0, ComponentGeometry { hint_box: None,access_rows:vec![],
             designator: Arc::from("U6"), primitive_id: Arc::from("U6"), block_name: Arc::from("display"),
             layer: Arc::from("top"), body_box: display_box, through_hole_boxes: Arc::new(vec![pad_box]),
             board_overflow: Default::default(), edge_clearance: 0.0,
@@ -3114,7 +3126,7 @@ mod alignment_search_tests {
         let mut candidate = state.remaining[1].clone();
         candidate.primitive.bbox = bottom_box;
         candidate.primitive.collision_boxes = Arc::new(vec![bottom_box]);
-        candidate.components = Arc::new(vec![(1, ComponentGeometry {access_rows:vec![],
+        candidate.components = Arc::new(vec![(1, ComponentGeometry { hint_box: None,access_rows:vec![],
             designator: Arc::from("R1"), primitive_id: Arc::from("R1"), block_name: Arc::from("bottom"),
             layer: Arc::from("bottom"), body_box: bottom_box, through_hole_boxes: Arc::new(vec![]),
             board_overflow: Default::default(), edge_clearance: 0.0,
@@ -3157,7 +3169,7 @@ mod alignment_search_tests {
             p.primitive.bbox = bodies[i];
             p.primitive.collision_boxes = Arc::new(std::iter::once(bodies[i]).chain(holes.iter().copied()).collect());
             p.primitive.locked = i != 0;
-            p.components = Arc::new(vec![(i, ComponentGeometry {access_rows:vec![],
+            p.components = Arc::new(vec![(i, ComponentGeometry { hint_box: None,access_rows:vec![],
                 designator: p.primitive.id.clone(), primitive_id: p.primitive.id.clone(), block_name: p.primitive.id.clone(),
                 layer: Arc::from(if i == 0 { "bottom" } else { "top" }), body_box: bodies[i],
                 through_hole_boxes: Arc::new(holes), board_overflow: Default::default(), edge_clearance: 0.0,
@@ -3223,7 +3235,7 @@ mod alignment_search_tests {
             "pairs":[{"a":"U1","b":"U2","anchorA":"U1","anchorB":"U2","similarity":1,"orientation":{"a":"U1","b":"U2","offset":0}}]}})).unwrap();
         let mut problem=problem;
         problem.primitives=primitives.clone();
-        let context=Context{
+        let context=Context{conditions:vec![],
             problem:Arc::new(problem),relations:Arc::new(vec![]),hard_overlap_cache:RefCell::new(FxHashMap::default()),
             outside_cache:RefCell::new(FxHashMap::default()),outside_severity_cache:RefCell::new(FxHashMap::default()),
             joint_candidates:Arc::new(AtomicUsize::new(0)),profile:profile::Profile::new(),
@@ -3255,7 +3267,7 @@ mod alignment_search_tests {
     fn folded_block_endpoint_follows_member_geometry_without_tree_identity() {
         let (context, _) = fixture();
         let mut problem = (*context.problem).clone();
-        problem.components = vec![ComponentGeometry {
+        problem.components = vec![ComponentGeometry { hint_box: None,
             designator: "U1".into(), primitive_id: "U1".into(), block_name: "divider".into(),
             layer: "top".into(), body_box: Box2 {left: 5., right: 7., top: -1., bottom: 1.},
             access_rows: vec![], through_hole_boxes: Arc::new(vec![]),
@@ -3310,4 +3322,10 @@ mod alignment_search_tests {
         assert!(joint_pair_states(&state,0,&context).is_empty());
         assert!(!position_candidates(&state.remaining[0],&[],&context,false,false).is_empty());
     }
+}
+
+fn condition_evaluation(primitives:&[WorkingPrimitive],context:&Context)->crate::conditions::Evaluation {
+    crate::conditions::evaluate(&context.conditions,|owner,index| {
+        let p=primitives.iter().find(|p|p.id==owner)?;let q=p.primitive.connection_points.get(index)?;Some(Point{x:q.x,y:q.y})
+    })
 }

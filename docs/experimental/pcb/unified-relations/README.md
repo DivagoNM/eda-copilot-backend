@@ -161,3 +161,10 @@ native capture полноценным прогоном новой семанти
 - Exact outputs and rebuilt addon hash: [drift-parity.json](drift-parity.json).
   Previous parity.json describes the earlier build, not this one.
 - No full-board quality claim and no commit. STM32/ESPower acceptance remains pending.
+
+### 2026-10-07: отдельные условия размещения
+
+Подтверждённые расхождения away/clearance/layer/выбора края и исключений FastRoute
+исправлены следующей итерацией: [condition-semantics](../condition-semantics/README.md).
+Там отдельно указаны область оценки локального Block и оставшийся legacy
+orientation у edge. Это не утверждение о совпадении всех полных objective.

@@ -19,6 +19,7 @@ mod passive_island_solver;
 mod post_place;
 mod local_stretch;
 mod relation_score;
+mod conditions;
 mod pad_access;
 mod placement_quality;
 mod signal_path;
@@ -117,7 +118,7 @@ pub fn placement_layer_penalties(terms: Value) -> Result<Vec<f32>> {
 }
 
 #[napi]
-pub fn placement_score_contract_version() -> u32 { 9 }
+pub fn placement_score_contract_version() -> u32 { 10 }
 
 #[napi]
 pub fn placement_priority_weight(priority: String) -> f64 {
@@ -270,7 +271,7 @@ pub fn score_fast_route_layout(mut problem: Value) -> Result<f32> {
     problem.validate(CONTRACT_VERSION).map_err(invalid_problem)?;
     let mut obstacles=problem.routing_obstacles.clone();
     obstacles.extend(problem.obstacles.iter().map(|b| model::RouteObstacle {box_:*b,layer:None,reference:None,net:None,primitive_id:None}));
-    Ok(fast_route::layout_plan(&problem.primitives.iter().collect::<Vec<_>>(), &obstacles, &[], &[], problem.clearance, problem.bounds, &problem.relations).cpu())
+    Ok(fast_route::layout_plan(&problem.primitives.iter().collect::<Vec<_>>(), &obstacles, &[], &problem.ignored_nets, problem.clearance, problem.bounds, &problem.relations).cpu())
 }
 
 #[napi]

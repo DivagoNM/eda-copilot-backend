@@ -5,7 +5,7 @@ use crate::signal_path;
 const EPSILON: f32 = 0.001;
 
 pub(crate) fn layer_penalty(weight: f32, same_side: bool) -> f32 {
-    weight * if same_side {20.0} else {10.0}
+    crate::conditions::layer_cost(1,2,weight,same_side)
 }
 
 #[derive(Clone, Copy)]
@@ -42,17 +42,14 @@ pub fn score(problem: &PostPlaceScoreProblem) -> Result<f32, String> {
     for term in &problem.clearances {
         let gap = box_clearance_gap(&term.source, &term.target);
         if gap < term.minimum {
-            score += (term.minimum - gap).powi(2) * term.weight * 20.0;
+            score += crate::conditions::clearance_cost(gap,term.minimum,term.weight);
         }
     }
     score += problem.fixed_penalties.iter().sum::<f32>();
     for term in &problem.edges {
-        let distance = match term.edge.as_ref() {
-            "left" => (term.source.left - term.board.left).abs(),
-            "right" => (term.board.right - term.source.right).abs(),
-            "top" => (term.source.top - term.board.top).abs(),
-            _ => (term.board.bottom - term.source.bottom).abs(),
-        };
+        let kind=match term.edge.as_ref(){"left"=>3,"right"=>4,"top"=>5,_=>6};
+        let a=term.source;let b=term.board;
+        let distance=crate::conditions::measure(kind,a.left,a.right,a.top,a.bottom,b.left,b.right,b.top,b.bottom);
         score += distance * term.weight;
     }
     for net in &problem.nets {
@@ -143,9 +140,7 @@ fn distance(a: Point, b: Point) -> f32 {
 }
 
 fn box_clearance_gap(a: &crate::geometry::Box2, b: &crate::geometry::Box2) -> f32 {
-    let x_separation = (b.left - a.right).max(a.left - b.right);
-    let y_separation = (b.top - a.bottom).max(a.top - b.bottom);
-    x_separation.max(y_separation)
+    crate::conditions::clearance_gap(a.left,a.right,a.top,a.bottom,b.left,b.right,b.top,b.bottom)
 }
 
 fn validate(problem: &PostPlaceScoreProblem) -> Result<(), String> {

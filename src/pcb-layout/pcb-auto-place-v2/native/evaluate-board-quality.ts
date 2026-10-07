@@ -33,6 +33,7 @@ export function encodeBoardQualityProblem(input: PlacementInput, primitives: Pla
             clearanceResolver: createClearanceResolver(input), board: input.board,
             bounds: { left: -input.board.outline.width / 2, right: input.board.outline.width / 2,
                 top: -input.board.outline.height / 2, bottom: input.board.outline.height / 2 },
+            ignoredNets: input.solverOptions.ignoredRatsnestSignals,
             edgeClearance: input.board.clearances.edge, constraintRegions: input.constraintRegions,
             softAlignment: alignment,
             softSpacing: { ...spacing, gap: gap ?? spacing.gap, exemptPairs: boardSpacingExemptPairs(input, primitives) },

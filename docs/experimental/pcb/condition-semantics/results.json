@@ -1,0 +1,326 @@
+{
+  "rows": [
+    {
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "debugging/pcb-layout/runs/STM32G0_CAN_RS485/2026-10-07T16-04-12-253Z",
+      "nativeSha256": "109fbf40f38e005b3137eeab84ed76aef1b1296098431d4d66c12568b2aa7ef9",
+      "wallMs": 95317.0183,
+      "boardSeconds": 12.421,
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "sameSourceAsPrevious": true,
+      "metrics": {
+        "wireLength": 654.44,
+        "explicitLength": 92.82865111081027,
+        "explicitCrossings": 2,
+        "crossingPairs": [
+          {
+            "nets": [
+              "RS485_A",
+              "RS485_B"
+            ],
+            "kinds": [
+              "critical_pair",
+              "signal_path"
+            ]
+          },
+          {
+            "nets": [
+              "RS485_A",
+              "RS485_B"
+            ],
+            "kinds": [
+              "signal_path",
+              "signal_path"
+            ]
+          }
+        ],
+        "foreignPadHits": 104,
+        "inspected": [
+          {
+            "designator": "U4",
+            "layer": "top",
+            "rotate": 270,
+            "score": 0,
+            "x": 14.222999572753906,
+            "y": 7.004000186920166
+          },
+          {
+            "designator": "U5",
+            "layer": "top",
+            "rotate": 270,
+            "score": 0,
+            "x": 14.51200008392334,
+            "y": -4.951000213623047
+          },
+          {
+            "designator": "D4",
+            "layer": "top",
+            "rotate": 0,
+            "score": 0,
+            "x": 20.231000900268555,
+            "y": 6.689000129699707
+          },
+          {
+            "designator": "D5",
+            "layer": "top",
+            "rotate": 90,
+            "score": 0,
+            "x": 20.219999313354492,
+            "y": -3.4839999675750732
+          },
+          {
+            "designator": "U3",
+            "layer": "top",
+            "rotate": 180,
+            "score": 0,
+            "x": -1.4019999504089355,
+            "y": 3.756999969482422
+          }
+        ]
+      },
+      "ignoredNets": [
+        "GND"
+      ],
+      "previous": {
+        "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\STM32G0_CAN_RS485\\2026-10-07T15-07-49-349Z",
+        "wallMs": 84283.5811,
+        "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+        "boardStages": [
+          "beam 9.463s, threads=6, hard=0, joint candidates=0",
+          "local_improve 2.124s",
+          "repair 0.004s, total 11.591s"
+        ],
+        "final": {
+          "name": "04-v2-final",
+          "mstLength": 682.95,
+          "explicitLength": 88.6185118536264,
+          "explicitCrossings": 2,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "ordinaryMstCrossings": 48,
+          "foreignPadHits": 93,
+          "pairMax": 28.17,
+          "pairSum": 195.29,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.187000274658203,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 20.19499969482422,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        }
+      },
+      "backendCounts": [
+        {
+          "source": "post-place-backend",
+          "backend": "cpu",
+          "count": 28
+        },
+        {
+          "source": "block-gpu-fallback",
+          "backend": "cpu",
+          "count": 1
+        },
+        {
+          "source": "board-backend",
+          "backend": "cubecl",
+          "count": 1
+        },
+        {
+          "source": "post-place-backend",
+          "backend": "cubecl",
+          "count": 1
+        }
+      ],
+      "recoveries": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 0.4387,
+          "precision": "f32",
+          "reason": "GPU admission pending in this process",
+          "requested": "auto",
+          "totalMs": 5821.2259
+        }
+      ]
+    },
+    {
+      "fixture": "ESpower",
+      "run": "debugging/pcb-layout/runs/ESpower/2026-10-07T16-05-48-666Z",
+      "nativeSha256": "109fbf40f38e005b3137eeab84ed76aef1b1296098431d4d66c12568b2aa7ef9",
+      "wallMs": 67846.69829999999,
+      "boardSeconds": 6.109,
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "sameSourceAsPrevious": true,
+      "metrics": {
+        "wireLength": 358.22,
+        "explicitLength": 37.52835815157743,
+        "explicitCrossings": 0,
+        "crossingPairs": [],
+        "foreignPadHits": 57,
+        "inspected": [
+          {
+            "designator": "U4",
+            "layer": "top",
+            "rotate": 0,
+            "score": 0,
+            "x": -17,
+            "y": 13.699999809265137
+          },
+          {
+            "designator": "U5",
+            "layer": "top",
+            "rotate": 0,
+            "score": 0,
+            "x": 10,
+            "y": -13.699999809265137
+          }
+        ]
+      },
+      "ignoredNets": [
+        "GND"
+      ],
+      "previous": {
+        "run": "D:\\MyProject\\NN\\projects\\Agents\\easyeda-copilot\\eda-copilot-backend\\debugging\\pcb-layout\\runs\\ESPower\\2026-10-07T15-09-15-212Z",
+        "wallMs": 59416.000100000005,
+        "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+        "boardStages": [
+          "beam 4.426s, threads=6, hard=3, joint candidates=0",
+          "local_improve 0.388s",
+          "repair 0.002s, total 4.816s"
+        ],
+        "final": {
+          "name": "04-v2-final",
+          "mstLength": 358.22,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "crossingPairs": [],
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 57,
+          "pairMax": 42.33,
+          "pairSum": 79.95,
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      },
+      "backendCounts": [
+        {
+          "source": "block-gpu-fallback",
+          "backend": "cpu",
+          "count": 1
+        },
+        {
+          "source": "post-place-backend",
+          "backend": "cpu",
+          "count": 21
+        },
+        {
+          "source": "board-backend",
+          "backend": "cubecl",
+          "count": 1
+        },
+        {
+          "source": "post-place-backend",
+          "backend": "cubecl",
+          "count": 1
+        }
+      ],
+      "recoveries": [
+        {
+          "source": "block-gpu-fallback",
+          "actual": "cpu",
+          "gpuAttemptMs": 11295.1477,
+          "precision": "f32",
+          "reason": "assertion failed: c.problem.bounds.is_none()",
+          "requested": "auto",
+          "totalMs": 15353.1598
+        }
+      ]
+    }
+  ]
+}

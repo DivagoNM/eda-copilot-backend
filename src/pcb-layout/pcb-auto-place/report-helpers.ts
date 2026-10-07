@@ -365,3 +365,10 @@ function minDefined(...values: Array<number | null | undefined>) {
     const defined = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0);
     return defined.length > 0 ? fp.min(...defined) : null;
 }
+
+/** Authored target membership, shared by score/refine encoders and exclusions. */
+export function targetDesignators(input: PlacementInput, target: TargetRef): string[] {
+    if (target.type === 'component' || target.type === 'pin') return [target.designator];
+    if (target.type === 'block') return input.blocks.find(b => b.name === target.block_name)?.component_designators ?? [];
+    return [];
+}

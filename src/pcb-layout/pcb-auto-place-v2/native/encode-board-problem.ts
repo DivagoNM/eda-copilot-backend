@@ -1,7 +1,8 @@
+import { encodeRelation } from './encode-relation.ts';
 import {componentAccessRows} from './pad-access.ts';
 import * as fp from '../../f32.ts';
 import type { BoardEdge, Box, Layer, PcbComponent, Placement, PlacementTreeNode } from '#types/pcb/layout-model.ts';
-import { boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
+import { getBox, boardOutlinePolygon, componentBodyBox, componentCollisionBoxes, componentPadBox, padPlacementLayer } from '../../pcb-auto-place/geometry.ts';
 import { placementsCanConflict } from '../../pcb-auto-place/utils.ts';
 import type { BoardPackParams } from '../board-packer.ts';
 import type { PlacementPrimitive } from '../primitives.ts';
@@ -10,7 +11,6 @@ import {
     type NativeBoardPackProblemV7,
     type NativeEdgePlaceIntent,
     type NativePrimitive,
-    type NativeRelation,
 } from './contract.ts';
 
 type ComponentEntry = { component: PcbComponent; placement: Placement; primitiveId: string };
@@ -39,6 +39,7 @@ export function encodeNativeBoardPackProblem(params: BoardPackParams): NativeBoa
 
     return assertFiniteProblem({
         relationGroups: moduleRelationGroups(params.node),
+        ignoredNets: [...(params.options.ignoredNets ?? [])],
         routingObstacles: components.flatMap(({component, placement, primitiveId}) => component.footprint.pads.map(pad => ({
             box: componentPadBox(placement, pad), primitiveId, ref: `${component.designator}.${pad.pin_number}`,
             net: component.pins.find(p => String(p.pin_number) === String(pad.pin_number))?.signal_name || undefined,
@@ -70,6 +71,7 @@ export function encodeNativeBoardPackProblem(params: BoardPackParams): NativeBoa
             blockName: component.block_name,
             layer: placement.layer,
             bodyBox: componentBodyBox(component, placement),
+            hintBox: getBox(component, placement),
             accessRows: componentAccessRows(component, placement),
             throughHoleBoxes: componentCollisionBoxes(
                 component,
@@ -179,29 +181,6 @@ function primitiveEdgePlaceIntent(
     return edges.size > 0 ? { edges: [...edges], inset, align, x, y, offset } : null;
 }
 
-function encodeRelation(relation: BoardPackParams['relations'][number]): NativeRelation {
-    return {
-        id: relation.id,
-        kind: relation.kind,
-        from: relation.from,
-        to: relation.to,
-        relation: relation.relation,
-        priority: relation.priority,
-        hard: relation.hard === true,
-        weight: relation.weight,
-        effect: relation.effect,
-        maxDistance: finiteOptional(relation.data?.maxDistance),
-        minDistance: finiteOptional(relation.data?.minDistance),
-        satelliteAnchor: relation.data?.satelliteAnchor === true,
-        anchorOffset: pointOptional(relation.data?.anchorOffset),
-        sidePreference: boardEdgeOptional(relation.data?.sidePreference),
-        core: relation.data?.core === true,
-        pathId: stringOptional(relation.data?.pathId),
-        pathShape: relation.data?.pathShape === 'straight' ? 'straight' : relation.data?.pathShape === 'flexible' ? 'flexible' : undefined,
-        preferFacingPads: relation.data?.preferFacingPads === true,
-    };
-}
-
 function centeredBoardBounds(width: number, height: number): Box {
     return { left: fp.div(-width, 2), right: fp.div(width, 2), top: fp.div(-height, 2), bottom: fp.div(height, 2) };
 }
@@ -217,27 +196,6 @@ function boxPolygon(box: Box) {
 
 function cloneBox(box: Box): Box {
     return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
-}
-
-function finiteOptional(value: unknown) {
-    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function pointOptional(value: unknown) {
-    if (!value || typeof value !== 'object') return undefined;
-    const point = value as { x?: unknown; y?: unknown };
-    return typeof point.x === 'number' && Number.isFinite(point.x)
-        && typeof point.y === 'number' && Number.isFinite(point.y)
-        ? { x: point.x, y: point.y }
-        : undefined;
-}
-
-function boardEdgeOptional(value: unknown): BoardEdge | undefined {
-    return value === 'left' || value === 'right' || value === 'top' || value === 'bottom' ? value : undefined;
-}
-
-function stringOptional(value: unknown) {
-    return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 function assertFiniteProblem(problem: NativeBoardPackProblemV7) {

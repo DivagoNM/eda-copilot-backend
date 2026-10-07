@@ -8,7 +8,7 @@ pub fn attach(
     primitives: &mut [Primitive], relations: &[Relation], groups: &Groups,
     components: &[(&Arc<str>, &Arc<str>, &Arc<str>, Box2)],
 ) -> Result<(), String> {
-    let endpoints: BTreeSet<_> = relations.iter().flat_map(|r| [&r.from, &r.to])
+    let endpoints: BTreeSet<_> = relations.iter().filter(|r| !crate::conditions::applies(r)).flat_map(|r| [&r.from, &r.to])
         .filter(|e| e.starts_with("block:") || e.starts_with("module:")).cloned().collect();
     for endpoint in endpoints {
         let members: Vec<_> = components.iter().filter(|(designator, _, block, _)| {

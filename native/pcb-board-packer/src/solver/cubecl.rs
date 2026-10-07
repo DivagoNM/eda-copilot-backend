@@ -123,7 +123,7 @@ pub(super) fn supported(p: &BoardPackProblem) -> Result<(), String> {
 impl Engine {
     pub fn new(p:&BoardPackProblem)->Result<Self,Error> {
         supported(p).map_err(|s|Error::new(ErrorKind::InvalidInput,s))?;
-        let mut sf=Vec::new();let mut si=vec![0;21];
+        let mut sf=Vec::new();let mut si=vec![0;22];
         put_box(&mut sf,p.bounds);put_box(&mut sf,p.full_board_bounds);
         sf.extend([p.clearance,p.grid,p.soft_spacing.as_ref().map_or(1.0,|s|s.compactness_scale),
             p.soft_spacing.as_ref().map_or(0.0,|s|s.gap)]);
@@ -229,6 +229,9 @@ impl Engine {
             net_points.insert(net.clone(),members);
         }
         if sf.len()*4+si.len()*4>64*1024*1024 {return Err(Error::new(ErrorKind::InvalidInput,"board GPU resident capacity guard"));}
+        let conditions=crate::conditions::plan(&p.primitives,&p.relations,&p.relation_groups,
+            &p.components.iter().map(|c|(&c.designator,&c.primitive_id,&c.block_name,&c.layer,c.hint_box.unwrap_or(c.body_box))).collect::<Vec<_>>(),Some(p.full_board_bounds),p.edge_clearance);
+        si[21]=crate::conditions::pack(&conditions,&mut si,&mut sf);
         let base_sf=sf.len();let base_si=si.len();
         Ok(Self {frames:FxHashMap::default(),frame_hits:0,frame_misses:0,sf,si,templates:FxHashMap::default(),template_pointers:FxHashMap::default(),base_sf,base_si,handles:None,batches:0,candidates:0,markers,net_points,ordinary_plans:FxHashMap::default(),stages:BTreeMap::new(),phase:"beam",legality_candidates:0,rank_candidates:0,fail_batch:std::env::var("PCB_BOARD_GPU_FAIL_BATCH").ok().and_then(|v|v.parse().ok())})
     }

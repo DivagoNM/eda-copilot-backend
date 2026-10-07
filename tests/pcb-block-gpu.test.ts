@@ -254,3 +254,17 @@ for (const backend of ['cpu', 'cubecl']) test(`group points survive deferred pai
     assert.equal(child.status,0,child.stderr || String(child.error));
     assert.doesNotMatch(child.stderr,/block-gpu-fallback/);
 });
+
+
+test('semantic groups and clearance minima keep CPU/GPU block ranks including pair resume', {skip:!gpuEnabled},()=>{
+    const p=problem();p.components[0].role='main_ic';p.components[0].blockName='pair';p.components[1].blockName='pair';
+    const relation=(name:string,from:string,to:string,condition={},hard=false)=>({id:name,kind:'hint',relation:name,from,to,condition,hard,effect:'move_from',priority:'normal',weight:70,minDistance:1,satelliteAnchor:false});
+    p.relations.push(relation('clearance','block:pair','component:C2',{},true),relation('away_from','component:C0','component:C1'),
+        relation('same_side','block:pair','component:C2'),relation('prefer_layer','block:pair','board',{layer:'bottom'}));
+    const cpu=run(p,'cpu'),gpu=run(p,'cubecl',{PCB_BLOCK_GPU_VERIFY:'1',PCB_BLOCK_GPU_VERIFY_PRUNE:'1',PCB_BLOCK_GPU_VERIFY_FRONTIER:'1'});
+    assert.doesNotMatch(gpu.log,/fallback/);assert.match(gpu.log,/\[block-gpu/);assert.deepEqual(gpu.solution,cpu.solution);
+    const deferred=run({...p,deferPairs:true},'cubecl',{PCB_BLOCK_GPU_VERIFY:'1'});
+    assert.ok(deferred.solution.pairSeed?.length);
+    const resumed={...p,pairSeed:deferred.solution.pairSeed};
+    assert.deepEqual(run(resumed,'cubecl',{PCB_BLOCK_GPU_VERIFY:'1'}).solution,run(resumed,'cpu').solution);
+});

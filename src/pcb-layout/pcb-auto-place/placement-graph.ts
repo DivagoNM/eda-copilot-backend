@@ -644,6 +644,13 @@ function hintRelationWeight(hint: PlacementHint) {
 
 function hintRelationData(hint: PlacementHint, index: number): Record<string, unknown> {
     const data: Record<string, unknown> = { hintIndex: index };
+    if (hint.relation === 'clearance' || hint.relation === 'away_from') {
+        data.minDistance = hint.relation === 'clearance' ? hint.min : (hint.priority === 'high' || hint.priority === 'critical' ? 12 : 8);
+        data.condition = { all: hint.target === 'all' };
+    }
+    if (hint.relation === 'same_side') data.condition = {};
+    if (hint.relation === 'prefer_layer') data.condition = { layer: hint.layer };
+    if (hint.relation === 'edge') data.condition = { edge: hint.edge, orientation: hint.orientation ?? 'any' };
     if (hint.relation === 'critical_pair') {
         data.core = hint.core === true;
         data.maxDistance = hint.maxDistance ?? null;
@@ -1266,6 +1273,7 @@ function addDiagnostic(
 }
 
 function isHardHint(hint: PlacementHint) {
+    if (['away_from', 'same_side', 'prefer_layer'].includes(hint.relation)) return false;
     if (hint.relation === 'critical_pair') return hint.hard ?? (hint.path ? false : hint.priority === 'critical');
     return hint.priority === 'critical';
 }

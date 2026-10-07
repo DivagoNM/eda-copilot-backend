@@ -46,6 +46,7 @@ fn frame_data(
     // This kernel uses NET_I for per-source candidate ranges, not score nets.
     fi[k::NET_I] = fi.len() as u32;
     fi.extend(&frame.ranges);
+    pack_conditions(placed,context,&mut fi,&mut ff);
     (ff, fi)
 }
 

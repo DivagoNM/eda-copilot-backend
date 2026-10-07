@@ -46,7 +46,8 @@ pub const OUTLINE_F:usize=38;
 pub const OUTLINE_COUNT:usize=39;
 pub const WORLD_OBSTACLE_I:usize=40;
 pub const WORLD_OBSTACLE_COUNT:usize=41;
-pub const HEADER: usize = 43;
+pub const CONDITIONS: usize = 43;
+pub const HEADER: usize = 44;
 
 #[derive(CubeLaunch, CubeType)]
 pub struct Input {
@@ -1455,6 +1456,7 @@ pub fn cheap(
                 exposure += blocked * weight * (choose(placed_components < 5, 1.25, 5.0));
             }
         }
+        let hints=hint_cost(d,candidate,false);relation+=hints.score;hard+=hints.hard;
         score += relation;
         score += exposure * (choose(high, 0.35, 1.0));
         score += facing*choose(high,0.55,1.0);
@@ -1579,7 +1581,7 @@ pub fn scarcity_probe(d: &Input, scores: &mut Array<f32>, tags: &mut Array<u32>)
     let candidate = ABSOLUTE_POS as usize;
     if candidate < d.fi[COUNT] as usize {
         let p = load_prim(d, d.fi[MOVING] as usize, candidate);
-        let mut hard = unary_hard(d,p,false);
+        let mut hard = unary_hard(d,p,false)+hint_cost(d,candidate,false).hard-hint_cost(d,candidate,true).hard;
         for i in 0usize..d.fi[MOVING] as usize {
             let core = load_prim(d, i, candidate);
             let mut depth=component_overlap(d,p,core);if (d.fi[FLAGS]&2)!=0 {depth=primitive_overlap(d,p,core);}
@@ -1665,7 +1667,7 @@ pub fn scarcity_legal(d: &Input, nearby: &Array<u32>, legal: &mut Array<u32>) {
         legal[candidate] = 0;
         if nearby[candidate] != 0 {
             let p = load_prim(d, d.fi[MOVING] as usize, candidate);
-            let mut valid = unary_hard(d,p,false)==0;
+            let mut valid = unary_hard(d,p,false)==0 && hint_cost(d,candidate,false).hard==hint_cost(d,candidate,true).hard;
             for i in 0usize..d.fi[MOVING] as usize {
                 let q = load_prim(d, i, candidate);
                 let mut depth=component_overlap(d,p,q);if (d.fi[FLAGS]&2)!=0 {depth=primitive_overlap(d,p,q);}
@@ -1711,4 +1713,32 @@ let nprim=d.fi[N] as usize;
         }}}
 
 dense
+}
+
+#[derive(Clone, Copy, CubeType)]
+struct HintBox { l:f32,r:f32,t:f32,b:f32,valid:bool }
+#[derive(Clone, Copy, CubeType)]
+struct HintCost { score:f32,hard:u32,severity:f32 }
+#[cube]
+fn hint_box(g:&Input,c:usize,t:usize,skip_moving:bool)->HintBox {
+    let mut l=f32::from_bits(0x7f800000u32);let mut r=-f32::from_bits(0x7f800000u32);
+    let mut top=f32::from_bits(0x7f800000u32);let mut bottom=-f32::from_bits(0x7f800000u32);
+    let count=g.fi[t+1] as usize;let mut valid=count>0;
+    for j in 0..count {let owner=g.fi[t+2+j*2];let index=g.fi[t+3+j*2] as usize;let mut x=0.0;let mut y=0.0;
+        if owner==0xffffffffu32 {x=g.ff[index];y=g.ff[index+1];}else{let mut slot=owner;
+            if (owner&0x80000000u32)!=0 {slot=0xffffffffu32;if (owner&0x7fffffffu32)==g.ids[c*2]/4 {slot=g.fi[MOVING];}}
+            if slot>=g.fi[N] || (skip_moving && slot==g.fi[MOVING]) {valid=false;}else{let q=cp_at(g,load_prim(g,slot as usize,c),index);x=q.x;y=q.y;}}
+        l=min(l,x);r=max(r,x);top=min(top,y);bottom=max(bottom,y);
+    }HintBox{l:l,r:r,t:top,b:bottom,valid:valid}
+}
+#[cube]
+fn hint_cost(g:&Input,c:usize,skip_moving:bool)->HintCost {
+    let root=g.fi[CONDITIONS] as usize;let mut score=0.0;let mut hard=0u32;let mut severity=0.0;
+    for j in 0..g.fi[root] as usize {let t=root+1+j*5;let kind=g.fi[t];let ai=g.fi[t+1] as usize;let bi=g.fi[t+2] as usize;let f=g.fi[t+3] as usize;
+        let a=hint_box(g,c,ai,skip_moving);let b=hint_box(g,c,bi,skip_moving);
+        if a.valid && b.valid {let d=crate::conditions::measure(kind,a.l,a.r,a.t,a.b,b.l,b.r,b.t,b.b);
+            score+=crate::conditions::cost(kind,d,g.fi[ai],g.fi[bi],g.ff[f],g.ff[f+1]);
+            if g.fi[t+4]!=0 {let v=crate::conditions::violation(kind,d,g.ff[f+1],g.ff[f+2]);if v>0.0{hard+=1;}severity+=v;}
+        }
+    }HintCost{score:score,hard:hard,severity:severity}
 }

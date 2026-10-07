@@ -60,6 +60,7 @@ export function routeLayoutProblem(input: PlacementInput, placements: Placement[
             // component collision matrices are unused by this native API; avoid
             // rebuilding their O(n²) entries for every trial move.
             board: input.board,
+            ignoredNets: input.solverOptions.ignoredRatsnestSignals,
             edgeClearance: input.board.clearances.edge,
             bounds: boardBox(input.board),
             obstacles: boardHoleBoxes(input),

@@ -64,6 +64,7 @@ export function solveBoardPrimitives(params: BoardSolveParams) {
             componentByDesignator: params.componentByDesignator,
             clearanceResolver: params.clearanceResolver,
             board: params.input.board,
+            ignoredNets: params.input.solverOptions.ignoredRatsnestSignals,
             edgeClearance: params.input.board.clearances.edge,
             bounds: boardBounds(params.input),
             obstacles: boardHoleBoxes(params.input),

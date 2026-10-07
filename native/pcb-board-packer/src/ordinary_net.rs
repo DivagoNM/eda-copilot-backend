@@ -155,7 +155,7 @@ mod tests {
     }
 
     fn marker(net: &str, weight: f32) -> Relation {
-        Relation {
+        Relation { condition: None,
             core: false,
             id: Arc::from(format!("{MARKER_PREFIX}{net}")),
             kind: Arc::from("net"),

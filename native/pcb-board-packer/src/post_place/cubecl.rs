@@ -55,10 +55,10 @@ impl Engine {
   for h in &p.hints {match h.kind.as_str(){
    "distance" if !h.all=>{if let(Some(a),Some(b))=(d.target(&h.source),d.target(&h.target)){let f=d.floats(&[h.weight,h.min.unwrap_or(0.0),h.max.unwrap_or(0.0),h.inverse_tau_squared]);buckets[0].extend([0,a,b,f,u32::from(h.max.is_some())|u32::from(h.min.is_some())*2]);}},
    "clearance"=>{if let(Some(a),Some(minimum))=(d.target(&h.source),h.min){let f=d.floats(&[h.weight,minimum]);if h.all {
-    for i in 0..n {if !(matches!(h.source.kind.as_str(),"component"|"pin")&&h.source.component==Some(i)){let b=d.ints(&[1,i as u32,0]);buckets[1].extend([1,a,b,f,0]);}}
+    for i in 0..n {if !h.source.contains(i){let b=d.ints(&[1,i as u32,0]);buckets[1].extend([1,a,b,f,0]);}}
    }else if let Some(b)=d.target(&h.target){buckets[1].extend([1,a,b,f,0]);}}},
-   "same_side" if h.source.kind=="component"&&h.target.kind=="component"=>{let f=d.floats(&[h.weight*20.0]);buckets[2].extend([2,h.source.component.unwrap() as u32,h.target.component.unwrap() as u32,f,0]);},
-   "prefer_layer" if h.source.kind=="component"=>{if let Some(l)=&h.layer{let f=d.floats(&[h.weight*10.0]);buckets[2].extend([2,h.source.component.unwrap() as u32,u32::MAX,f,layer(l)?]);}},
+   "same_side"=>{if let(Some(a),Some(b))=(d.target(&h.source),d.target(&h.target)){let f=d.floats(&[h.weight]);buckets[2].extend([2,a,b,f,0]);}},
+   "prefer_layer"=>{if let (Some(a),Some(l))=(d.target(&h.source),&h.layer){let f=d.floats(&[h.weight]);buckets[2].extend([2,a,u32::MAX,f,layer(l)?]);}},
    "edge"=>{if let(Some(a),Some(edge))=(d.target(&h.source),&h.edge){let f=d.floats(&[h.weight]);buckets[3].extend([3,a,0,f,match edge.as_str(){"left"=>0,"right"=>1,"top"=>2,_=>3}]);}},_=>{}
   }}
   // Compile local nearest-pad groups once; candidate distances stay on GPU.

@@ -6,6 +6,8 @@ use std::sync::Arc;
 #[serde(rename_all = "camelCase")]
 pub struct BoardPackProblem {
     #[serde(default)]
+    pub ignored_nets: Vec<Arc<str>>,
+    #[serde(default)]
     pub relation_groups: crate::group_endpoints::Groups,
     #[serde(default)]
     pub routing_obstacles: Vec<RouteObstacle>,
@@ -116,6 +118,8 @@ pub struct EdgePlaceIntent {
 #[serde(rename_all = "camelCase")]
 pub struct Relation {
     #[serde(default)]
+    pub condition: Option<crate::conditions::Spec>,
+    #[serde(default)]
     pub core: bool,
     pub id: Arc<str>,
     pub kind: Arc<str>,
@@ -151,6 +155,8 @@ pub struct ConstraintRegion {
 #[serde(rename_all = "camelCase")]
 pub struct ComponentGeometry {
     #[serde(default)]
+    pub hint_box: Option<Box2>,
+    #[serde(default)]
     pub access_rows: Vec<crate::pad_access::Row>,
     pub designator: Arc<str>,
     pub primitive_id: Arc<str>,
@@ -176,6 +182,8 @@ pub struct BoardOverflow {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockComponentGeometry {
+    #[serde(default)]
+    pub hint_box: Option<Box2>,
     #[serde(default)]
     pub access_rows: Vec<crate::pad_access::Row>,
     pub designator: Arc<str>,

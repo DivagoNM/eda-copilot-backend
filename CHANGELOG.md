@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Preserve placement hint semantics across native Block/Board and PostPlace: away_from/clearance use bbox gaps and authored minima, layer hints support groups without distance attraction, selected board edges retain their meaning, and clearance(group, all) excludes source members. Share CPU/CubeCL arithmetic and relation encoding; pass ignored nets into Board FastRoute. Keep existing PostPlace weights and physical constraints. Placement score contract v10 requires a native rebuild; evidence and legacy edge-orientation limitation: `docs/experimental/pcb/condition-semantics/README.md`.
+
 - Preserve every ordinary net's distance in Board connectivity using a weighted sum with capped total pair strength. Share pair planning and distance arithmetic across native CPU, Board GPU and Block GPU; replace the 30 mm saturation with linear growth up to 40 mm and a 0.25 slope beyond it. Placement score contract v9 requires a native rebuild. Experiment evidence: `docs/experimental/pcb/ordinary-net-calibration/README.md`.
 
 - Calibrate shared FastRoute crossing weights while keeping ordinary crossings cheap: directed critical/critical, critical/path and path/path costs are 30/60/90. Reduce the existing soft non-core pair/path cubic excess coefficient from 1 to 0.25, preserving linear distance, core weights and physical constraints. Nine debug captures select the moderate profile: STM32 retains D4 at 0° and reduces explicit crossings from four to two; remaining RS485 crossings are unresolved. See `docs/experimental/pcb/route-weight-calibration/README.md`.

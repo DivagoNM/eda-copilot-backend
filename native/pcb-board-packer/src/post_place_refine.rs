@@ -164,6 +164,7 @@ struct Hint {
     max: Option<f32>,
     hard: Option<bool>,
     edge: Option<String>,
+    orientation: Option<String>,
     layer: Option<Arc<str>>,
 }
 #[derive(Deserialize, Serialize)]
@@ -543,20 +544,11 @@ impl RefineProblem {
                         }
                     }
                 }
-                "same_side" if h.source.kind == "component" && h.target.kind == "component" => {
-                    if self.pose(w, h.source.component.unwrap()).layer
-                        != self.pose(w, h.target.component.unwrap()).layer
-                    {
-                        p.fixed_penalties.push(crate::post_place::layer_penalty(h.weight, true));
-                    }
+                "same_side" => {
+                    p.fixed_penalties.push(crate::conditions::layer_cost(self.target_layers(&h.source,w),self.target_layers(&h.target,w),h.weight,true));
                 }
-                "prefer_layer" if h.source.kind == "component" => {
-                    if h.layer
-                        .as_ref()
-                        .is_some_and(|l| *l != self.pose(w, h.source.component.unwrap()).layer)
-                    {
-                        p.fixed_penalties.push(crate::post_place::layer_penalty(h.weight, false));
-                    }
+                "prefer_layer" => {
+                    if let Some(layer)=&h.layer {p.fixed_penalties.push(crate::conditions::layer_cost(self.target_layers(&h.source,w),crate::conditions::layer_mask(layer),h.weight,false));}
                 }
                 "edge" => {
                     if let (Some(source), Some(edge)) = (self.target_box(&h.source, w), &h.edge) {
@@ -611,14 +603,16 @@ impl RefineProblem {
         }
         p
     }
+    fn target_layers(&self,t:&Target,w:&World)->u32 {
+        t.component_members().into_iter().fold(0,|mask,i|mask|crate::conditions::layer_mask(&self.pose(w,i).layer))
+    }
     fn clearance_targets(&self, h: &Hint, w: &World) -> Vec<(String, Box2)> {
         if h.all {
             self.components
                 .iter()
                 .enumerate()
                 .filter(|(i, _)| {
-                    !(matches!(h.source.kind.as_str(), "component" | "pin")
-                        && h.source.component == Some(*i))
+                    !h.source.contains(*i)
                 })
                 .map(|(i, c)| (c.designator.to_string(), w.boxes[i]))
                 .collect()
@@ -1524,3 +1518,10 @@ impl CpuBudget {
 }
 #[cfg(feature="gpu")]
 impl Drop for CpuPermit<'_>{fn drop(&mut self){*self.0.available.lock().unwrap()+=1;self.0.wake.notify_one();}}
+
+impl Target {
+    fn component_members(&self)->Vec<usize> {
+        match self.kind.as_str() { "component"|"pin"=>self.component.into_iter().collect(), "group"=>self.members.clone().unwrap_or_default(), _=>vec![] }
+    }
+    fn contains(&self,i:usize)->bool { self.component_members().contains(&i) }
+}

@@ -275,9 +275,9 @@ test('post-place GPU preserves full scores, paths, layers, clearance and stable 
     const target=(component:number)=>({kind:'component' as const,component});
     problem.hints.push(
         {kind:'distance',source:target(0),target:target(2),all:false,weight:1.7,min:1,max:6},
-        {kind:'clearance',source:target(0),target:{kind:'missing'},all:true,weight:2,min:3},
-        {kind:'same_side',source:target(0),target:target(1),all:false,weight:4},
-        {kind:'prefer_layer',source:target(0),target:{kind:'missing'},all:false,weight:7,layer:'bottom'},
+        {kind:'clearance',source:{kind:'group',members:[0,1]},target:{kind:'missing'},all:true,weight:2,min:3},
+        {kind:'same_side',source:{kind:'group',members:[0,2]},target:target(1),all:false,weight:4},
+        {kind:'prefer_layer',source:{kind:'group',members:[0,1]},target:{kind:'missing'},all:false,weight:7,layer:'bottom'},
         {kind:'edge',source:{kind:'group',members:[0,1]},target:{kind:'missing'},all:false,weight:3,edge:'right'},
     );
     problem.paths=[{id:'probe',shape:'straight',priority:'high',preferFacingPads:true,

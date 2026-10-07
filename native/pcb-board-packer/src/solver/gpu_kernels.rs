@@ -609,6 +609,7 @@ pub fn ranks(g:&Input,scores:&mut Array<f32>,tags:&mut Array<u32>,terms:&mut Arr
             for ob in 0..obstacles {severity+=unary_value(g,slot+2+ob);}
             severity+=unary_value(g,slot+2+obstacles);bias+=unary_value(g,slot+3+obstacles);edge_score+=unary_value(g,slot+4+obstacles);
         }
+        let hints=hint_cost(g,candidate);relations+=hints.score;hard+=hints.hard;severity+=hints.severity;
         let mut area_weight=0.8;let mut perimeter_weight=1.5;let mut overlap_weight=1.0;let mut edge_weight=1.0;let mut topology_weight=5.0;
         if g.si[0]!=0 {area_weight=1.2;perimeter_weight=8.0;overlap_weight=1.2;edge_weight=0.4;topology_weight=3.0;}
         let mut score=0.0;let mut w=0.0;let mut h=0.0;
@@ -660,7 +661,7 @@ pub fn legality(g:&Input,parent:&Array<u32>,tags:&mut Array<u32>) {
         for i in 0..n {
             let mut first=i+1;if first<nf {first=nf;}
             for j in first..n {if pair_value(g,pair_index(g,candidate,i,j)*3)>0.0 {hard+=1;}}
-        }tags[candidate]=hard;
+        }tags[candidate]=hard+hint_cost(g,candidate).hard;
     }
 }
 
@@ -705,4 +706,30 @@ fn unary_value(g:&Input,index:usize)->f32 {
 #[cube]
 fn unary_tag(g:&Input,index:usize)->u32 {
     let mut value=0u32;if index<g.frame[1] as usize {value=g.fixed_tags[index];}else{value=g.unary_tags[index];}value
+}
+
+#[derive(Clone, Copy, CubeType)]
+struct HintBox { l:f32,r:f32,t:f32,b:f32,valid:bool }
+#[derive(Clone, Copy, CubeType)]
+struct HintCost { score:f32,hard:u32,severity:f32 }
+#[cube]
+fn hint_box(g:&Input,c:usize,t:usize)->HintBox {
+    let mut l=f32::from_bits(0x7f800000u32);let mut r=-f32::from_bits(0x7f800000u32);
+    let mut top=f32::from_bits(0x7f800000u32);let mut bottom=-f32::from_bits(0x7f800000u32);
+    let count=g.si[t+1] as usize;let mut valid=count>0;
+    for j in 0..count {let owner=g.si[t+2+j*2];let index=g.si[t+3+j*2] as usize;let mut x=0.0;let mut y=0.0;
+        if owner==0xffffffffu32 {x=g.sf[index];y=g.sf[index+1];}else{let p=find_pose(g,c,owner);if p==0xffffffffusize {valid=false;}else{let q=cp(g,p,index);x=q.x;y=q.y;}}
+        l=min(l,x);r=max(r,x);top=min(top,y);bottom=max(bottom,y);
+    }HintBox{l:l,r:r,t:top,b:bottom,valid:valid}
+}
+#[cube]
+fn hint_cost(g:&Input,c:usize)->HintCost {
+    let root=g.si[21] as usize;let mut score=0.0;let mut hard=0u32;let mut severity=0.0;
+    for j in 0..g.si[root] as usize {let t=root+1+j*5;let kind=g.si[t];let ai=g.si[t+1] as usize;let bi=g.si[t+2] as usize;let f=g.si[t+3] as usize;
+        let a=hint_box(g,c,ai);let b=hint_box(g,c,bi);
+        if a.valid && b.valid {let d=crate::conditions::measure(kind,a.l,a.r,a.t,a.b,b.l,b.r,b.t,b.b);
+            score+=crate::conditions::cost(kind,d,g.si[ai],g.si[bi],g.sf[f],g.sf[f+1]);
+            if g.si[t+4]!=0 {let v=crate::conditions::violation(kind,d,g.sf[f+1],g.sf[f+2]);if v>0.0{hard+=1;}severity+=v;}
+        }
+    }HintCost{score:score,hard:hard,severity:severity}
 }
