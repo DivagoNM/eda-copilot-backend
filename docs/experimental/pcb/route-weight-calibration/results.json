@@ -1,0 +1,1879 @@
+{
+  "selected": "c",
+  "baseRevision": "6228e1bea53c7777d9905799b6658a9f033268c8",
+  "sameNormalizedInputs": true,
+  "stm32CandDIdenticalPoses": true,
+  "rows": [
+    {
+      "profile": "baseline",
+      "fixture": "BAND_V3_SIGNAL_PATH",
+      "run": "debugging/pcb-layout/runs/BAND_V3_SIGNAL_PATH/2026-10-07T09-52-49-617Z",
+      "wallMs": 19728.5168,
+      "nativeSha256": "4453acd203778879bab97aeabeb83873f3996bb9093abe452112c1bdfa6f00bc",
+      "inputSha256": "925b704b000271fd78f04e588ea3f180d4ce5827af7f45d979db9e6ac68c582f",
+      "sourceFiles": {
+        "BAND_V3_SIGNAL_PATH.js": "dc39f515fbf6cab1d467fcc39199bcda0491bbda2603b627e685465430d13ed4",
+        "BAND_V3_SIGNAL_PATH.json": "566aa183bacc4f8db2f630c7870a9c9236ba2671bc3e6bf93a1d48041cc4125f",
+        "BAND_V3_SIGNAL_PATH.ts": "88796df870738e272544b94a8df3961124dc8b451a1cb109f96f044495ddcd24"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 0.209s, threads=6, hard=0, joint candidates=0",
+        "local_improve 0.010s",
+        "repair 0.000s, total 0.220s"
+      ],
+      "gpuRecovery": [],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        }
+      ]
+    },
+    {
+      "profile": "c",
+      "fixture": "BAND_V3_SIGNAL_PATH",
+      "run": "debugging/pcb-layout/runs/BAND_V3_SIGNAL_PATH/2026-10-07T10-09-07-372Z",
+      "wallMs": 15649.0918,
+      "nativeSha256": "35abe979f577c9d30e4a8c797239f06db068d7002f2da1391b23af3caebae351",
+      "inputSha256": "925b704b000271fd78f04e588ea3f180d4ce5827af7f45d979db9e6ac68c582f",
+      "sourceFiles": {
+        "BAND_V3_SIGNAL_PATH.js": "dc39f515fbf6cab1d467fcc39199bcda0491bbda2603b627e685465430d13ed4",
+        "BAND_V3_SIGNAL_PATH.json": "566aa183bacc4f8db2f630c7870a9c9236ba2671bc3e6bf93a1d48041cc4125f",
+        "BAND_V3_SIGNAL_PATH.ts": "88796df870738e272544b94a8df3961124dc8b451a1cb109f96f044495ddcd24"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 0.195s, threads=6, hard=0, joint candidates=0",
+        "local_improve 0.010s",
+        "repair 0.000s, total 0.205s"
+      ],
+      "gpuRecovery": [],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 40,
+          "explicitLength": 41.06242135517574,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 0,
+          "foreignPadHits": 0,
+          "crossingPairs": [],
+          "inspected": []
+        }
+      ]
+    },
+    {
+      "profile": "baseline",
+      "fixture": "ESpower",
+      "run": "debugging/pcb-layout/runs/ESpower/2026-10-07T09-51-25-541Z",
+      "wallMs": 59230.288400000005,
+      "nativeSha256": "4453acd203778879bab97aeabeb83873f3996bb9093abe452112c1bdfa6f00bc",
+      "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 3.051s, threads=6, hard=4, joint candidates=0",
+        "local_improve 0.392s",
+        "repair 0.002s, total 3.446s"
+      ],
+      "gpuRecovery": [
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":8772.7217,\"precision\":\"f32\",\"reason\":\"assertion failed: c.problem.bounds.is_none()\",\"requested\":\"auto\",\"totalMs\":12397.3018}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.12210000000000001,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":7.2091}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.2079,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":10865.455300000001}"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "a",
+      "fixture": "ESpower",
+      "run": "debugging/pcb-layout/runs/ESpower/2026-10-07T09-59-45-796Z",
+      "wallMs": 56425.3974,
+      "nativeSha256": "576f0ec8d8afbd53a558dde63375d88b394dfb368d3e01f6b3935f192cb2fc2e",
+      "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 3.061s, threads=6, hard=4, joint candidates=0",
+        "local_improve 0.388s",
+        "repair 0.003s, total 3.452s"
+      ],
+      "gpuRecovery": [
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":2964.6917999999996,\"precision\":\"f32\",\"reason\":\"assertion failed: c.problem.bounds.is_none()\",\"requested\":\"auto\",\"totalMs\":6609.1793}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.1301,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":7.2113000000000005}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.2026,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":12059.9514}"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "c",
+      "fixture": "ESpower",
+      "run": "debugging/pcb-layout/runs/ESpower/2026-10-07T10-07-32-144Z",
+      "wallMs": 56170.897600000004,
+      "nativeSha256": "35abe979f577c9d30e4a8c797239f06db068d7002f2da1391b23af3caebae351",
+      "inputSha256": "d5598ae2d4a06088d1ecb457d5e149809e53ab979acf0305b170afc8f8a447da",
+      "sourceFiles": {
+        "ESpower.js": "f4c7dfe80771357b26460c1be0de88558a7e421d06a01e7de786a5fba598cb6d",
+        "ESpower.json": "1096b376abbe6b8a1c4e4fb13000b7b7c7b1ca5e1dd2d7edb6dd57a8c617bba6",
+        "ESpower.ts": "96a3a9246eee356d2f5a1af8ff692676934de198c7999f38ea029c6a69fb83f4"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 4.234s, threads=6, hard=3, joint candidates=0",
+        "local_improve 0.388s",
+        "repair 0.002s, total 4.625s"
+      ],
+      "gpuRecovery": [
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":3462.0642999999995,\"precision\":\"f32\",\"reason\":\"assertion failed: c.problem.bounds.is_none()\",\"requested\":\"auto\",\"totalMs\":7350.4015}"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 361.16,
+          "explicitLength": 38.83785646967219,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 45,
+          "foreignPadHits": 60,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": -17,
+              "y": 13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 10,
+              "y": -13.699999809265137,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 358.41,
+          "explicitLength": 37.52835815157743,
+          "explicitCrossings": 0,
+          "ordinaryMstCrossings": 43,
+          "foreignPadHits": 58,
+          "crossingPairs": [],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": -17,
+              "y": 13.699999809265137
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 10,
+              "y": -13.699999809265137
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "baseline",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "debugging/pcb-layout/runs/STM32G0_CAN_RS485/2026-10-07T09-50-06-772Z",
+      "wallMs": 71131.0067,
+      "nativeSha256": "4453acd203778879bab97aeabeb83873f3996bb9093abe452112c1bdfa6f00bc",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 9.378s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.013s",
+        "repair 0.004s, total 11.395s"
+      ],
+      "gpuRecovery": [
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.2418,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":3631.9183000000003}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.223,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":4883.4039}"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 701.48,
+          "explicitLength": 89.10359252825388,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 52,
+          "foreignPadHits": 89,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 13.786999702453613,
+              "y": -9.451000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 19.795000076293945,
+              "y": -9.270000457763672,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.786999702453613,
+              "y": 2.315999984741211,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.795000076293945,
+              "y": 2.000999927520752,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": 3.256999969482422,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 701.48,
+          "explicitLength": 89.10359252825388,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 52,
+          "foreignPadHits": 89,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.786999702453613,
+              "y": 2.315999984741211,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 13.786999702453613,
+              "y": -9.451000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.795000076293945,
+              "y": 2.000999927520752,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 19.795000076293945,
+              "y": -9.270000457763672,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": 3.256999969482422,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 702.35,
+          "explicitLength": 91.25020889100723,
+          "explicitCrossings": 4,
+          "ordinaryMstCrossings": 56,
+          "foreignPadHits": 91,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.786999702453613,
+              "y": 2.315999984741211
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.786999702453613,
+              "y": -9.451000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": 19.795000076293945,
+              "y": 2.000999927520752
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": 19.795000076293945,
+              "y": -9.270000457763672
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": 3.256999969482422
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 701.21,
+          "explicitLength": 91.25020889100723,
+          "explicitCrossings": 4,
+          "ordinaryMstCrossings": 56,
+          "foreignPadHits": 95,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.786999702453613,
+              "y": 2.315999984741211
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.786999702453613,
+              "y": -9.451000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": 19.795000076293945,
+              "y": 2.000999927520752
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": 19.795000076293945,
+              "y": -9.270000457763672
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": 3.256999969482422
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "a",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "debugging/pcb-layout/runs/STM32G0_CAN_RS485/2026-10-07T09-58-22-884Z",
+      "wallMs": 68065.66910000001,
+      "nativeSha256": "576f0ec8d8afbd53a558dde63375d88b394dfb368d3e01f6b3935f192cb2fc2e",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 8.341s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.054s",
+        "repair 0.003s, total 10.399s"
+      ],
+      "gpuRecovery": [],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 618,
+          "explicitLength": 87.59682180218063,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 85,
+          "foreignPadHits": 87,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 5.004000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 4.689000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": 1.7419999837875366,
+              "y": -1.4019999504089355,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 618,
+          "explicitLength": 87.59682180218063,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 85,
+          "foreignPadHits": 87,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 5.004000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 4.689000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": 1.7419999837875366,
+              "y": -1.4019999504089355,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 620.01,
+          "explicitLength": 89.39337936145883,
+          "explicitCrossings": 4,
+          "ordinaryMstCrossings": 86,
+          "foreignPadHits": 88,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.932999610900879,
+              "y": 5.004000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": 19.94099998474121,
+              "y": 4.689000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 1.7419999837875366,
+              "y": -1.4019999504089355
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 620.23,
+          "explicitLength": 88.86975021228228,
+          "explicitCrossings": 4,
+          "ordinaryMstCrossings": 86,
+          "foreignPadHits": 88,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "CAN_H",
+                "CAN_L"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.222999572753906,
+              "y": 5.004000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": 20.231000900268555,
+              "y": 4.689000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 1.7419999837875366,
+              "y": -1.4019999504089355
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "c",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "debugging/pcb-layout/runs/STM32G0_CAN_RS485/2026-10-07T10-05-45-659Z",
+      "wallMs": 94017.9817,
+      "nativeSha256": "35abe979f577c9d30e4a8c797239f06db068d7002f2da1391b23af3caebae351",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 8.627s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.200s",
+        "repair 0.004s, total 10.832s"
+      ],
+      "gpuRecovery": [
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.3469,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":3932.5269}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.1802,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":5767.683800000001}"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 683.65,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 46,
+          "foreignPadHits": 90,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 683.65,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 46,
+          "foreignPadHits": 90,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 682.02,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 90,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.932999610900879,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 19.94099998474121,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 682.45,
+          "explicitLength": 88.6185118536264,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 91,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.187000274658203,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 20.19499969482422,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "d",
+      "fixture": "STM32G0_CAN_RS485",
+      "run": "debugging/pcb-layout/runs/STM32G0_CAN_RS485/2026-10-07T10-14-16-026Z",
+      "wallMs": 77343.76839999999,
+      "nativeSha256": "9375eb17af711057c0c75d9132370c0045b5c990408c8dd3d37a6f66fbb8caf7",
+      "inputSha256": "9fc531b67ae032ecf7077bcec9cef90be686b4876ef39931122199e9b052ca47",
+      "sourceFiles": {
+        "STM32G0_CAN_RS485.js": "fcd0696d2f37a9d0cdf3a2175aef6616a51edaab6395fc579e429cd192569f9c",
+        "STM32G0_CAN_RS485.json": "b9ebd8d7b9d976754edeffa2a96b4899f93f42e8c4417eb21bcd5599e9ef31cd",
+        "STM32G0_CAN_RS485.ts": "b011ff4b900569f6379dc554d242515fbaf744f689c5b3414319d9b3a7ee24f8"
+      },
+      "placementOk": true,
+      "inventoryOk": true,
+      "fixedChanges": [],
+      "boardStages": [
+        "beam 6.604s, threads=6, hard=0, joint candidates=0",
+        "local_improve 2.064s",
+        "repair 0.004s, total 8.672s"
+      ],
+      "gpuRecovery": [
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.5184,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":3656.4772}",
+        "[block-gpu-fallback] {\"actual\":\"cpu\",\"gpuAttemptMs\":0.1701,\"precision\":\"f32\",\"reason\":\"GPU admission pending in this process\",\"requested\":\"auto\",\"totalMs\":4920.1304}"
+      ],
+      "stages": [
+        {
+          "name": "01-v2-tree",
+          "mstLength": 683.65,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 46,
+          "foreignPadHits": 90,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "02-v2-legalize",
+          "mstLength": 683.65,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 46,
+          "foreignPadHits": 90,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "x": 13.932999610900879,
+              "y": 6.504000186920166,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U5",
+              "x": 14.51200008392334,
+              "y": -4.951000213623047,
+              "rotate": 270,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D4",
+              "x": 19.94099998474121,
+              "y": 6.189000129699707,
+              "rotate": 0,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "D5",
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732,
+              "rotate": 90,
+              "layer": "top",
+              "score": 0
+            },
+            {
+              "designator": "U3",
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781,
+              "rotate": 180,
+              "layer": "top",
+              "score": 0
+            }
+          ]
+        },
+        {
+          "name": "03-v2-post-place",
+          "mstLength": 682.02,
+          "explicitLength": 89.1378838610947,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 90,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 13.932999610900879,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 19.94099998474121,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        },
+        {
+          "name": "04-v2-final",
+          "mstLength": 682.45,
+          "explicitLength": 88.6185118536264,
+          "explicitCrossings": 2,
+          "ordinaryMstCrossings": 47,
+          "foreignPadHits": 91,
+          "crossingPairs": [
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "critical_pair",
+                "signal_path"
+              ]
+            },
+            {
+              "nets": [
+                "RS485_A",
+                "RS485_B"
+              ],
+              "kinds": [
+                "signal_path",
+                "signal_path"
+              ]
+            }
+          ],
+          "inspected": [
+            {
+              "designator": "U4",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.187000274658203,
+              "y": 6.504000186920166
+            },
+            {
+              "designator": "U5",
+              "layer": "top",
+              "rotate": 270,
+              "score": 0,
+              "x": 14.51200008392334,
+              "y": -4.951000213623047
+            },
+            {
+              "designator": "D4",
+              "layer": "top",
+              "rotate": 0,
+              "score": 0,
+              "x": 20.19499969482422,
+              "y": 6.189000129699707
+            },
+            {
+              "designator": "D5",
+              "layer": "top",
+              "rotate": 90,
+              "score": 0,
+              "x": 20.219999313354492,
+              "y": -3.4839999675750732
+            },
+            {
+              "designator": "U3",
+              "layer": "top",
+              "rotate": 180,
+              "score": 0,
+              "x": -7.4019999504089355,
+              "y": -0.24199999868869781
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

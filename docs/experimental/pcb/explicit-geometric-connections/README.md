@@ -1,5 +1,11 @@
 # Explicit geometric connections
 
+> Historical report. The [2026-10-07 weight calibration](../route-weight-calibration/README.md)
+> supersedes the crossing factors below: ordinary combinations remain 1/2/3;
+> critical/critical, critical/path and path/path become 10/20/30.
+> The later [full-layout FastRoute unification](../unified-fast-route/README.md)
+> supersedes the separate stage scoring described here.
+
 Base: e0e1de4. User authorized including exact authored signalPath and criticalPair segments in geometric crossing checks, with stronger penalties by importance. No commit until quality review.
 
 ## Rules

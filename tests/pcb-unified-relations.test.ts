@@ -49,10 +49,10 @@ test('authored weight, legacy defaults, stronger path curve and no saturation',(
     assert.equal(near.max,12);assert.equal(near.min,.800000011920929);
     const pair=addon.placementRelationProfile({relation:'critical_pair',priority:'critical',weight:240,maxDistance:9});
     const path=addon.placementRelationProfile({relation:'critical_pair',priority:'critical',weight:240,maxDistance:9,path:true});
-    assert.equal(pair.weight,40);assert.equal(path.weight,80);assert.equal(pair.inverseTauSquared,1);
+    assert.equal(pair.weight,40);assert.equal(path.weight,80);assert.equal(pair.inverseTauSquared,.25);
     assert.equal(addon.placementRelationProfile({relation:'critical_pair',priority:'critical',path:true}).max,undefined);
     const score=(d:number,p=pair)=>addon.scorePostPlace({...emptyPost(),distances:[{source:{x:0,y:0},target:{x:d,y:0},...p}]});
-    assert.equal(score(9.5),385);assert.equal(score(9.5,path),770);
+    assert.equal(score(9.5),381.25);assert.equal(score(9.5,path),762.5);
     assert.ok(score(40)>250000);assert.ok(score(41)>score(40));
 });
 
@@ -64,7 +64,7 @@ test('core island uses each pair profile without its former 10000 multiplier',()
         pairRelations:[{relation:'critical_pair',priority:'critical',weight:240,maxDistance:9}]};
     const a=addon.scoreIslandQuality(island);
     island.pairRelations[0].weight=480;
-    close(addon.scoreIslandQuality(island)-a,385);
+    close(addon.scoreIslandQuality(island)-a,381.25);
 });
 
 test('critical/core/path profiles and authored multipliers agree across the three stages',()=>{

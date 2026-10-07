@@ -144,7 +144,7 @@ fn resolve_profile(
         weight: 10.0 * topology_weight,
         topology_weight,
         // Core hard distance allows drift, with a stronger excess cost only.
-        inverse_tau_squared: (if pair || path { 1.0 } else { 0.25 })
+        inverse_tau_squared: (if (pair || path) && core { 1.0 } else { 0.25 })
             * if core && hard { 100.0 } else { 1.0 },
         min,
         max,
@@ -209,7 +209,13 @@ mod tests {
 #[cfg_attr(feature = "gpu", cube)]
 pub fn crossing_factor(a: u32, b: u32) -> f32 {
     let sum = a + b;
-    let mut value=1.0; if sum == 1 {value=2.0;} if sum == 2 {value=3.0;} if sum == 3 {value=4.0;} if sum >= 4 {value=5.0;} value
+    let mut value = 1.0;
+    if sum == 1 { value = 2.0; }
+    if sum == 2 { value = 3.0; }
+    if a == 1 && b == 1 { value = 10.0; }
+    if sum == 3 { value = 20.0; }
+    if sum >= 4 { value = 30.0; }
+    value
 }
 #[cfg_attr(feature = "gpu", cube)]
 pub fn pad_factor(class: u32) -> f32 { let mut value=1.0; if class == 1 {value=2.0;} if class >= 2 {value=3.0;} value }

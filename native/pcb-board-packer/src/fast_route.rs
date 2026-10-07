@@ -115,7 +115,7 @@ mod tests {
         let path=crate::model::ExplicitConnection{source:a,target:b,net:"SIG".into(),kind:"signal_path".into(),layer:None};
         assert_eq!(weighted_path_cost(a,b,"SIG",&[],&skeleton,0.25,None,&[path.clone(),path.clone()]),9.);
         let other=crate::model::ExplicitConnection{source:c,target:d,net:"OTHER".into(),kind:"signal_path".into(),layer:None};
-        assert_eq!(weighted_path_cost(a,b,"SIG",&[],&skeleton,0.25,None,&[path,other]),15.);
+        assert_eq!(weighted_path_cost(a,b,"SIG",&[],&skeleton,0.25,None,&[path,other]),90.);
     }
     #[test]
     fn unrelated_new_pad_can_obstruct_an_existing_link() {
