@@ -15,34 +15,24 @@ export function interfacePinPairs(ctx: CircuitPatternContext, source: CircuitPin
         { source: { designator: resistor.designator, pin_number: resistor.pins.find(p => p.signal_name === b.signal_name)!.pin_number }, target }];
 }
 
-/** Confirmed bus endpoint maps are reusable by a future draft generator. */
+/** Recognized bus endpoints are reusable by a future draft generator. */
 export function detectMemoryInterfaces(ctx: CircuitPatternContext): CircuitPatternMatch[] {
     const matches: CircuitPatternMatch[] = [];
-    const add = (source: string, target: string, pairs: Array<{ source: CircuitPinRef; target: CircuitPinRef }>, minimumPriority?: 'high' | 'critical') => {
+    const add = (source: string, target: string, pairs: Array<{ source: CircuitPinRef; target: CircuitPinRef }>) => {
         if (!pairs.length) return;
         const sorted = [...pairs].sort((a, b) => stableCompare(pinKey(a.source.designator, a.source.pin_number), pinKey(b.source.designator, b.source.pin_number)));
-        const requirements: CircuitPatternRequirement[] = sorted.map(p => ({ relation: 'local', ...p, ...(minimumPriority ? { minimumPriority } : {}) }));
+        const requirements: CircuitPatternRequirement[] = sorted.map(p => ({ relation: 'local', ...p }));
         const components = [...new Set(sorted.flatMap(p => [p.source.designator, p.target.designator]))].sort(stableCompare);
         matches.push({ patternId: 'qspi-flash', components,
             roles: { host: source, flash: target, ...Object.fromEntries(components.filter(c => c !== source && c !== target).map((c, i) => ['series' + i, c])) },
             pins: Object.fromEntries(sorted.flatMap((p, i) => [['source.' + i, p.source], ['target.' + i, p.target]])),
             nets: [...new Set(sorted.flatMap(p => [p.source, p.target]).map(p => ctx.byDesignator.get(p.designator)!.pins.find(pin => String(pin.pin_number) === String(p.pin_number))!.signal_name))].sort(stableCompare),
-            requirements, evidence: 'verified-profile' });
+            requirements });
     };
     for (const host of ctx.components) {
-        for (const bus of ctx.knowledge?.components?.[host.designator]?.interfaces ?? []) {
-            const flash = ctx.byDesignator.get(bus.peer);
-            if (!flash) continue;
-            const branches = bus.signals.map(signal => interfacePinPairs(ctx, { designator: host.designator, pin_number: signal.source },
-                { designator: flash.designator, pin_number: signal.target }));
-            // Do not silently validate a partial declared bus.
-            if (branches.every((branch): branch is NonNullable<typeof branch> => !!branch))
-                add(host.designator, flash.designator, branches.flat(), bus.minimumPriority);
-        }
         for (const protocol of ['qspi', 'ospi'] as const) {
-            if (!ctx.hasFunction(host, protocol + '-host')) continue;
-            for (const flash of ctx.components.filter(c => c.designator !== host.designator && ctx.hasFunction(c, protocol + '-flash'))) {
-                if (ctx.knowledge?.components?.[host.designator]?.interfaces?.some(bus => bus.peer === flash.designator)) continue;
+            if (!ctx.hasFunction(host, protocol + '-host') || protocol === 'qspi' && ctx.hasFunction(host, 'ospi-host')) continue;
+            for (const flash of ctx.components.filter(c => stableCompare(host.designator, c.designator) < 0 && ctx.hasFunction(c, protocol + '-flash'))) {
                 const aliases = [['CLK', 'SCK', 'SCLK', 'QSPI.CK', 'OSPI.CK'], ['CS', 'CS#', 'NCS'],
                     ...Array.from({ length: protocol === 'qspi' ? 4 : 8 }, (_, i) => ['IO' + i, 'DQ' + i, 'QSPI.IO' + i, 'OSPI.IO' + i])];
                 const pairs = aliases.flatMap(names => {

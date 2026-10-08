@@ -7,7 +7,6 @@ import { validatePcbLayoutIntent } from '../src/pcb-layout/intent-validation/val
 const backend = fileURLToPath(new URL('../', import.meta.url));
 const fixtureRoot = join(backend, 'tests/pcb-layout');
 const optionalInputs = {
-    knowledge: ['knowledge', 'knowledge.json'],
     footprints: ['footprints', 'footprints.json'],
     existingPlacement: ['existing-placement', 'existing-placement.json'],
 };
@@ -91,14 +90,14 @@ function usage(cases) {
     console.log('\nRun: npm run debug:pcb-validation -- <fixture> [fixture ...]');
     console.log('Run every fixture: npm run debug:pcb-validation -- --all');
     console.log('Use files: npm run debug:pcb-validation -- --code placement.js --circuit circuit.json');
-    console.log('Options: --list, --strict, --knowledge <json>, --footprints <json>, --existing-placement <json>, --output-dir <directory>');
+    console.log('Options: --list, --strict, --footprints <json>, --existing-placement <json>, --output-dir <directory>');
     console.log('Input file options can also override one fixture. Warnings fail only with --strict.');
 }
 
 try {
     const { values: options, positionals: names } = parseArgs({ options: {
         list: { type: 'boolean' }, all: { type: 'boolean' }, strict: { type: 'boolean' }, help: { type: 'boolean' },
-        code: { type: 'string' }, circuit: { type: 'string' }, knowledge: { type: 'string' },
+        code: { type: 'string' }, circuit: { type: 'string' },
         footprints: { type: 'string' }, 'existing-placement': { type: 'string' }, 'output-dir': { type: 'string' },
     }, allowPositionals: true });
     const cases = fixtures();

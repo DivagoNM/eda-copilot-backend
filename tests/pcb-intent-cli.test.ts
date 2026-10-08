@@ -60,11 +60,9 @@ test('validation CLI lists directory names including fixtures with different inp
 
 test('validation CLI saves minimal diagnostics and exact standalone input snapshots', () => {
     const input = custom(base + '\ncriticalPair(pin("U1",1),pin("C1",1)); criticalPair(pin("U1",2),pin("C1",2));');
-    const knowledge = join(input.directory, 'knowledge.json');
     const footprints = join(input.directory, 'footprints.json');
-    writeFileSync(knowledge, '{}\n');
     writeFileSync(footprints, '{}\n');
-    const result = run([...input.args, '--knowledge', knowledge, '--footprints', footprints, '--strict']);
+    const result = run([...input.args, '--footprints', footprints, '--strict']);
     assert.equal(result.status, 0, result.stderr);
     const [output] = outputs(result.stdout);
     assert.ok(output);
@@ -79,7 +77,6 @@ test('validation CLI saves minimal diagnostics and exact standalone input snapsh
     const source = join(output.directory, 'source');
     assert.equal(readFileSync(join(source, 'placement.js'), 'utf8'), readFileSync(input.codeFile, 'utf8'));
     assert.equal(readFileSync(join(source, 'circuit.json'), 'utf8'), readFileSync(input.circuitFile, 'utf8'));
-    assert.equal(readFileSync(join(source, 'knowledge.json'), 'utf8'), '{}\n');
     assert.equal(readFileSync(join(source, 'footprints.json'), 'utf8'), '{}\n');
     assert.ok(existsSync(join(output.directory, 'summary.md')));
     assert.deepEqual(readdirSync(output.directory).sort(), ['diagnostics.json', 'source', 'summary.json', 'summary.md']);

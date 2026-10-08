@@ -1,4 +1,7 @@
-import { pattern } from '../recognition/catalog/qspi-flash.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "qspi-flash",
+    title: "QSPI/OSPI flash",
+    special: 'interface',
+};

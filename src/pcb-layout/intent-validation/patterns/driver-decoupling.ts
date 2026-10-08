@@ -1,4 +1,14 @@
-import { pattern } from '../recognition/catalog/driver-decoupling.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "driver-decoupling",
+    title: "Driver decoupling",
+    nodes: [
+        {"id":"driver","functions":["gate-driver"],"pins":{"v":["VDD","VCC"],"g":["VSS","COM","GND","VEE"]}},
+        {"id":"cap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
+    ],
+    links: [
+        {"from":"driver.v","to":"cap.a","local":true},
+        {"from":"driver.g","to":"cap.b","local":true},
+    ],
+};

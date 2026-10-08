@@ -1,4 +1,7 @@
-import { pattern } from '../recognition/catalog/shared-rail-consumers.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "shared-rail-consumers",
+    title: "Multiple consumers on one rail",
+    special: "shared-supply",
+};

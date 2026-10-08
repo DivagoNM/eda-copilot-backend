@@ -1,6 +1,6 @@
 import type { ExplainCircuit } from "#types/circuit.ts";
 import type { PlacementRules } from "#types/pcb/layout-rules.ts";
-import { collectPlacementRuleErrors as collectPlacementRuleErrorsCore, validatePlacementRulesForCircuit as validatePlacementRulesForCircuitCore } from "./placement-input.ts";
+import { validatePlacementRulesForCircuit as validatePlacementRulesForCircuitCore } from "./placement-input.ts";
 
 /**
  * Allow fixed() for any component role without weakening the unrelated
@@ -11,18 +11,11 @@ import { collectPlacementRuleErrors as collectPlacementRuleErrorsCore, validateP
  * rules and component roles are left unchanged for placement.
  */
 export function validatePlacementRulesForCircuit(circuit: ExplainCircuit, rules: PlacementRules) {
-    validatePlacementRulesForCircuitCore(circuit, validationRules(rules));
-}
-
-export function collectPlacementRuleErrors(circuit: ExplainCircuit, rules: PlacementRules) {
-    return collectPlacementRuleErrorsCore(circuit, validationRules(rules));
-}
-
-function validationRules(rules: PlacementRules): PlacementRules {
-    return {
+    const validationRules: PlacementRules = {
         ...rules,
         component_rules: rules.component_rules.map((rule) => rule.fixedPlacement
             ? { ...rule, role: "connector" as const }
             : rule),
     };
+    validatePlacementRulesForCircuitCore(circuit, validationRules);
 }

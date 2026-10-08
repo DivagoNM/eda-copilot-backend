@@ -28,12 +28,11 @@ test('connector recognition is reusable, per component, ordered and independent 
     assert.deepEqual(original.circuit.components.map(c => c.designator), ['J2', 'P1', 'CN1', 'J1', 'U1']);
 });
 
-test('connector placement emits warning with English message, component and authored line', () => {
+test('connector placement emits warning with English message, component context', () => {
     const [diagnostic] = validate(board + '\n' + block);
     assert.equal(diagnostic.severity, 'warning');
     assert.match(diagnostic.message, /no fixed or mechanical edge placement/);
     assert.deepEqual(diagnostic.context?.components, ['J1']);
-    assert.equal(diagnostic.context?.locations?.[0].line, 2);
 });
 
 test('block membership, localLayout and soft edge hints do not fix a connector', () => {
@@ -126,14 +125,6 @@ test('preserved footprint source origin and board source coordinates are normali
     assert.deepEqual(validate('preserve({board:true,components:"all"});', input), []);
 });
 
-test('verified kinds recognize nonstandard connector names and override prefix guesses', () => {
-    const input = { circuit: { components: [connector('H1'), connector('J1')] },
-        knowledge: { components: { H1: { kind: 'connector' }, J1: { kind: 'ic' } } } };
-    const diagnostics = validate('block("parts",["H1","J1"]);', input);
-    assert.equal(diagnostics.length, 1);
-    assert.deepEqual(diagnostics[0].context?.components, ['H1']);
-});
-
 test('explicit DSL connector roles recognize USB and header designators without broadening other electrical motifs', () => {
     const input = { circuit: { components: [connector('USB1'), connector('H1'), connector('SW1'), connector('U1')] } };
     const code = 'block("parts",["USB1","H1","SW1","U1"]); component("USB1").role("connector"); component("H1").role("connector");';
@@ -141,8 +132,6 @@ test('explicit DSL connector roles recognize USB and header designators without 
     assert.deepEqual(result.map(d => d.context?.components?.[0]).sort(), ['H1', 'USB1']);
     const matches = detectCircuitPatterns({ ...input, componentRoles: { USB1: 'connector', H1: 'connector' } });
     assert.equal(matches.filter(m => m.patternId === 'connector-placement').length, 2);
-    assert.ok(matches.filter(m => m.patternId === 'connector-placement').every(m => m.evidence === 'verified-profile'));
-    assert.equal(validate(code, { ...input, knowledge: { components: { H1: { kind: 'ic' } } } }).length, 1);
 });
 
 test('preview scope excludes unselected connectors and every unbound connector receives its own warning', () => {

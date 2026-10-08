@@ -1,4 +1,7 @@
-import { pattern } from '../recognition/catalog/controller-bias.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "controller-bias",
+    title: "Controller power and bias",
+    special: 'controller-bias',
+};

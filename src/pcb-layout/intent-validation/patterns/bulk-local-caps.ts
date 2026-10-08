@@ -1,4 +1,7 @@
-import { pattern } from '../recognition/catalog/bulk-local-caps.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "bulk-local-caps",
+    title: "Bulk and high-frequency capacitors",
+    special: "bulk-local",
+};

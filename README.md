@@ -17,7 +17,7 @@ try {
 
 Entry points: `.`, `/components`, `/schematic`, `/pcb`, `/types`. All runtime dependencies belong to this package. Component/UUID resolution uses public EasyEDA APIs; supplied footprints allow offline placement. No private Copilot server, LLM credentials or database is required.
 
-Use `validatePcbLayoutIntent({ code, circuit, footprints?, existingPlacement?, knowledge? })` for offline structured DSL diagnostics, or `detectCircuitPatterns({ circuit, knowledge?, footprints? })` to reuse deterministic recognition independently. The catalog contains 60 conservative motif/profile checks. See [PCB intent validation](docs/pcb-intent-validation.md) for prerequisites, English diagnostic messages and scope limits.
+Use `validatePcbLayoutIntent({ code, circuit, footprints?, existingPlacement? })` for offline structured DSL diagnostics, or `detectCircuitPatterns({ circuit, footprints? })` to reuse deterministic recognition independently. The catalog contains 57 conservative checks. See [PCB intent validation](docs/pcb-intent-validation.md) for English diagnostics and scope limits.
 
 ## Development
 

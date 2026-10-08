@@ -1,4 +1,7 @@
-import { pattern } from '../recognition/catalog/supply-domains.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "supply-domains",
+    title: "Separate IC supply domains",
+    special: "supply-domains",
+};

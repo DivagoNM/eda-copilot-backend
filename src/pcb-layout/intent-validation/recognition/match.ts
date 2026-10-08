@@ -7,13 +7,15 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
     if (definition.special) return detectSpecialPattern(context, definition);
     if (definition.variants) {
         const { variants, ...base } = definition;
-        const matches = [base, ...variants.map(topology => ({ id: definition.id, title: definition.title,
-            prerequisites: definition.prerequisites, ...topology }))].flatMap(d => matchCircuitPattern(context, d));
+        const matches = [base, ...variants.map(topology => ({ id: definition.id, title: definition.title, ...topology }))].flatMap(d => matchCircuitPattern(context, d));
         return [...new Map(matches.map(m => [JSON.stringify(m), m])).values()]
             .sort((a, b) => stableCompare(JSON.stringify(a), JSON.stringify(b)));
     }
     const nodes = definition.nodes ?? [];
     const links = definition.links ?? [];
+    const candidatesByNode = new Map(nodes.map(node => [node, context.candidates(node)]));
+    const pinsByNode = new Map(nodes.map(node => [node, new Map(candidatesByNode.get(node)!.map(component =>
+        [component, Object.fromEntries(Object.entries(node.pins).map(([label, aliases]) => [label, context.pinsFor(component, aliases)]))]))]));
     const roles: Record<string, string> = {};
     const selected: Record<string, { component: CircuitComponent; pin: CircuitPin }> = {};
     const matches: CircuitPatternMatch[] = [];
@@ -26,16 +28,15 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
                 components: Object.values(roles).sort(stableCompare),
                 roles: { ...roles }, pins,
                 nets: [...new Set(Object.values(selected).map(p => p.pin.signal_name))].sort(stableCompare),
-                requirements: links.filter(l => l.local && pins[l.from] && pins[l.to]).map(l => ({ relation: 'local', source: pins[l.from], target: pins[l.to] })),
-                evidence: nodes.some(n => n.functions?.length || context.knowledge?.components?.[roles[n.id]]?.kind ||
-                    n.placementRole && context.componentRoles?.[roles[n.id]] === n.placementRole ||
-                    context.knowledge?.components?.[roles[n.id]]?.pinFunctions) ? 'verified-profile' : 'connectivity',
+                requirements: [...links.filter(l => l.local && pins[l.from] && pins[l.to]).map(l => ({ relation: 'local' as const, source: pins[l.from], target: pins[l.to] })),
+                    ...(definition.componentRequirements ?? []).map(({ role, ...requirement }) => ({ ...requirement, source: roles[role] })),
+                    ...(definition.boardRequirements ?? [])],
             });
             return;
         }
         const node = nodes[index];
         const before = matches.length;
-        let candidates = context.candidates(node);
+        let candidates = candidatesByNode.get(node)!;
         // A link to an already assigned endpoint limits candidates to one electrical net.
         for (const link of links) {
             const own = link.from.startsWith(node.id + '.') ? link.from : link.to.startsWith(node.id + '.') ? link.to : undefined;
@@ -73,7 +74,7 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
                     delete selected[key];
                 }
             }
-            for (const pinSet of context.pinSetsFor(component, node)) choosePin(0, pinSet);
+            choosePin(0, pinsByNode.get(node)!.get(component)!);
             delete roles[node.id];
         }
         if (node.optional && before === matches.length) visit(index + 1);

@@ -1,4 +1,16 @@
-import { pattern } from '../recognition/catalog/sar-input-filter.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "sar-input-filter",
+    title: "SAR ADC input RC",
+    nodes: [
+        {"id":"adc","functions":["adc"],"pins":{"input":["IN","AIN","VIN","ADCIN"],"g":["GND","VSS","AGND","PGND","DGND","VEE"]}},
+        {"id":"series","kind":"resistor","pins":{"a":["*"],"b":["*"]}},
+        {"id":"cap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
+    ],
+    links: [
+        {"from":"adc.input","to":"series.b","local":true},
+        {"from":"adc.input","to":"cap.a","local":true},
+        {"from":"adc.g","to":"cap.b"},
+    ],
+};

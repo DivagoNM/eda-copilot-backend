@@ -1,8 +1,9 @@
-import { pattern } from '../recognition/catalog/mounting-holes.ts';
-import type { PcbIntentPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker: PcbIntentPatternChecker = {
-    id: pattern.id,
+export const pattern: CircuitPatternDefinition = {
+    id: 'mounting-holes',
+    title: 'Board mounting holes',
+    boardRequirements: [{ relation: 'mounting-holes', minimumCount: 1 }],
     check(match, context) {
         const missing = match.requirements.some(requirement => requirement.relation === 'mounting-holes' && context.requirementStatus(requirement) === 'missing');
         return missing ? [{ code: 'PCB_INTENT_MOUNTING_HOLES', severity: 'info',

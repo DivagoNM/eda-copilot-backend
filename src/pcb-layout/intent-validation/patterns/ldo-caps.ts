@@ -1,4 +1,17 @@
-import { pattern } from '../recognition/catalog/ldo-caps.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "ldo-caps",
+    title: "LDO input/output capacitors",
+    nodes: [
+        {"id":"ic","functions":["ldo"],"pins":{"input":["IN","VIN"],"output":["OUT","VOUT"],"g":["GND","VSS","AGND","PGND","DGND","VEE"]}},
+        {"id":"inputCap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
+        {"id":"outputCap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
+    ],
+    links: [
+        {"from":"ic.input","to":"inputCap.a","local":true},
+        {"from":"inputCap.b","to":"ic.g"},
+        {"from":"ic.output","to":"outputCap.a","local":true},
+        {"from":"outputCap.b","to":"ic.g"},
+    ],
+};

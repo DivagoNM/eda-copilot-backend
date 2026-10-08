@@ -1,54 +1,15 @@
+import type { PcbIntentContext } from '../context.ts';
+import type { PcbIntentDiagnostic } from '../types.ts';
 import type { ExplainCircuit } from '../../../types/circuit.ts';
 import type { FootprintSpec } from '../../../types/pcb/layout-model.ts';
 
 export type CircuitPinRef = { designator: string; pin_number: string | number };
-export type CircuitPlacementPurpose = 'antenna' | 'cold-junction' | 'ambient-temperature' | 'monitored-temperature' | 'magnetic-sensor' | 'quiet-controller' | 'external-load';
 export type CircuitPatternRequirement =
-    | { relation: 'local'; source: CircuitPinRef; target: CircuitPinRef; alternatives?: Array<{ source: CircuitPinRef; target: CircuitPinRef }>; minimumPriority?: 'high' | 'critical' }
+    | { relation: 'local'; source: CircuitPinRef; target: CircuitPinRef; alternatives?: Array<{ source: CircuitPinRef; target: CircuitPinRef }> }
     | { relation: 'supply-group'; targets: CircuitPinRef[]; capacitors: CircuitPinRef[] }
-    | { relation: 'near' | 'away'; source: string; target: string; minDistance?: number }
-    | { relation: 'edge'; source: string; edge: 'left' | 'right' | 'top' | 'bottom' }
-    | { relation: 'rotation'; source: string; allowed: number[] }
     | { relation: 'connector-placement'; source: string; maxEdgeDistance: number }
     | { relation: 'mounting-holes'; minimumCount: number }
-    | { relation: 'separate-group'; source: string; target: string }
-    | { relation: 'balanced'; branches: Array<{ source: CircuitPinRef; target: CircuitPinRef }>; maxDifference: number; ambiguous?: boolean }
-    | { relation: 'alignment'; source: string; target: string; axis: 'x' | 'y' | 'both'; tolerance: number; offset?: { x: number; y: number } }
-    | { relation: 'keepout'; source: string; region: string; minimumWidth?: number; minimumHeight?: number;
-        layers?: Array<'top' | 'bottom'>; allowBlocks?: string[] };
-/** Verified device/application facts. These are never inferred from MPN substrings. */
-export type CircuitPatternKnowledge = {
-    components?: Record<string, {
-        kind?: string;
-        functions?: string[];
-        pinFunctions?: Record<string, string>;
-        /** Each confirmed channel maps canonical function names to physical pins. */
-        channels?: Record<string, Record<string, string | number>>;
-        entryChain?: { connector: string; receiver: string; protection?: { component: string; side: 'connector' | 'receiver' } };
-        branchLengthTolerance?: number;
-        preferredGateResistorSide?: 'driver' | 'device';
-        supplyGroups?: Array<Array<string | number>>;
-        /** Confirmed interface endpoints and the layout priority required by this application. */
-        interfaces?: Array<{
-            function: 'qspi' | 'ospi';
-            peer: string;
-            signals: Array<{ source: string | number; target: string | number }>;
-            minimumPriority?: 'high' | 'critical';
-        }>;
-        placement?: {
-            purpose: CircuitPlacementPurpose;
-            target?: string;
-            avoid?: string[];
-            edge?: 'left' | 'right' | 'top' | 'bottom';
-            minDistance?: number;
-            rotations?: number[];
-            alignment?: { axis: 'x' | 'y' | 'both'; tolerance: number; offset?: { x: number; y: number } };
-            keepout?: { region: string; minimumWidth?: number; minimumHeight?: number;
-                layers?: Array<'top' | 'bottom'>; allowBlocks?: string[] };
-        };
-    }>;
-    isolation?: { domains: Record<string, string>; minClearance: number; pinDomains?: Record<string, Record<string, string>> };
-};
+    | { relation: 'separate-group'; source: string; target: string };
 export type CircuitPatternMatch = {
     patternId: string;
     components: string[];
@@ -56,11 +17,9 @@ export type CircuitPatternMatch = {
     pins: Record<string, CircuitPinRef>;
     nets: string[];
     requirements: CircuitPatternRequirement[];
-    evidence: 'connectivity' | 'verified-profile' | 'footprint';
 };
 export type DetectCircuitPatternsInput = {
     circuit: ExplainCircuit;
-    knowledge?: CircuitPatternKnowledge;
     footprints?: Record<string, FootprintSpec>;
     /** Explicit mechanical roles, for example authored component(...).role('connector'). */
     componentRoles?: Record<string, 'connector'>;
@@ -69,7 +28,6 @@ export type PatternNode = {
     id: string;
     optional?: boolean;
     kind?: string;
-    placementRole?: 'connector';
     kinds?: string[];
     pinCount?: number;
     withoutPins?: string[];
@@ -92,16 +50,11 @@ export type PatternTopology = {
     sameNets?: Array<[string, string]>;
 };
 export type CircuitPatternDefinition = PatternTopology & {
+    check?: (match: CircuitPatternMatch, context: PcbIntentContext) => PcbIntentDiagnostic[];
     id: string;
     title: string;
-    prerequisites: string;
     variants?: PatternTopology[];
-    placementPurposes?: CircuitPlacementPurpose[];
-    placementFunctions?: string[];
-    balancedBranches?: Array<{ owner: string; pairs: Array<[string, string]>; requiresFunctions?: Record<string, string> }>;
-    gateResistorAnchors?: { driver: string; device: string };
     componentRequirements?: Array<{ role: string; relation: 'connector-placement'; maxEdgeDistance: number }>;
     boardRequirements?: Array<Extract<CircuitPatternRequirement, { relation: 'mounting-holes' }>>;
-    entryChain?: boolean;
-    special?: 'supply-groups' | 'shared-supply' | 'supply-domains' | 'controller-bias' | 'bulk-local' | 'placement' | 'isolation' | 'interface';
+    special?: 'supply-groups' | 'shared-supply' | 'supply-domains' | 'controller-bias' | 'bulk-local' | 'interface';
 };

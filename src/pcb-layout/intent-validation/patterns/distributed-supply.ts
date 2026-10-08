@@ -1,4 +1,7 @@
-import { pattern } from '../recognition/catalog/distributed-supply.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "distributed-supply",
+    title: "Distributed supply pin groups",
+    special: "supply-groups",
+};

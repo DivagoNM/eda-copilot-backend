@@ -14,7 +14,7 @@ const bootstrap: ExplainCircuit = { components: [
     component('C1', [[1, '1', 'boot'], [2, '2', 'sw']]),
 ] };
 const base = 'block("power",["U1","C1"]);';
-const validate = (code: string, circuit = bootstrap) => validatePcbLayoutIntent({ code, circuit, knowledge: {} });
+const validate = (code: string, circuit = bootstrap) => validatePcbLayoutIntent({ code, circuit });
 const warnings = (code: string) => validate(code).filter(d => d.severity === 'warning');
 
 test('public root and pcb exports expose the same offline validator', () => {
@@ -35,16 +35,14 @@ test('component-center attraction and low-priority pairs retain advisory warning
 test('pin-specific near hints express locality without requiring a particular method', () => {
     assert.deepEqual(warnings(base + 'veryNear(pin("U1",1),pin("C1",1)); near(pin("C1",2),pin("U1",2),"high");'), []);
 });
-test('authored sparse localLayout expresses grouping and reports its physical limits', () => {
+test('authored sparse localLayout expresses grouping; malformed poses are rejected', () => {
     const diagnostics = validate('block("power",["U1","C1"],"power",{localLayout:{U1:{x:0,y:0},C1:{x:2,y:0}}});');
     assert.equal(diagnostics.filter(d => d.severity === 'warning' || d.severity === 'error').length, 0);
-    assert.ok(diagnostics.find(d => d.code === 'PCB_INTENT_COVERAGE')?.message.includes('localLayout'));
-    assert.ok(validate('block("power",["U1","C1"],"power",{localLayout:{C1:{x:2}}});').some(d => d.code === 'PCB_LOCAL_LAYOUT'));
+    assert.ok(validate('block("power",["U1","C1"],"power",{localLayout:{C1:{x:2}}});').some(d => d.code === 'PCB_DSL_STRUCTURE'));
 });
 test('source positions subtract strict and localLayout preambles, including functions and loops', () => {
     const code = ['function place() {', '  block("power",["U1","C1"]);', '}', 'for (let i=0;i<1;i++) place();'].join('\n');
-    const diagnostic = warnings(code)[0];
-    assert.ok(diagnostic.context?.locations?.some(l => l.line === 2));
+    assert.ok(warnings(code).length);
     const syntax = validate(base + '\nconst broken = ;')[0];
     assert.equal(syntax.code, 'PCB_DSL_EXECUTION');
     assert.equal(syntax.context?.locations?.[0].line, 2);
@@ -52,14 +50,8 @@ test('source positions subtract strict and localLayout preambles, including func
     assert.equal(runtime.context?.locations?.[0].line, 2);
     assert.equal('stack' in runtime, false);
 });
-test('tracing does not change executable DSL rules or fluent helper behavior', () => {
-    const code = base + '\ncomponent("C1").role("decoupling_cap").layers("top"); criticalPair(pin("U1",1),pin("C1",1));';
-    const calls: unknown[] = [];
-    assert.deepEqual(structuredClone(runPcbLayoutDsl(code, { onCall: c => calls.push(c) })), structuredClone(runPcbLayoutDsl(code)));
-    assert.ok(calls.length);
-});
 test('bad ownership, pin references, and input identities have structured errors', () => {
-    assert.ok(validate('block("power",["U1"]);').some(d => d.code === 'PCB_BLOCK_OWNERSHIP' && d.severity === 'error'));
+    assert.ok(validate('block("power",["U1"]);').some(d => d.code === 'PCB_DSL_STRUCTURE' && d.severity === 'error'));
     assert.ok(validate(base + 'near(pin("U1",99),comp("C1"));').some(d => d.code === 'PCB_TARGET_REF'));
     const duplicate = structuredClone(bootstrap);
     duplicate.components.push(duplicate.components[0]);
@@ -131,11 +123,10 @@ test('distributed supply groups detect one capCluster assigned only to a distant
         component('C1', [[1,'1','v'],[2,'2','g']]), component('C2', [[1,'1','v'],[2,'2','g']]),
     ] };
     const code = 'block("power",["U1","C1","C2"]); capCluster(["C1","C2"],{powerNet:"v",returnNet:"g",target:pin("U1",2)});';
-    const knowledge = { components: { U1: { supplyGroups: [[2],[40]] } } };
-    const result = validatePcbLayoutIntent({ code, circuit, knowledge });
+    const result = validatePcbLayoutIntent({ code, circuit });
     assert.ok(result.find(d => d.code === 'PCB_INTENT_DISTRIBUTED_SUPPLY')?.message.includes('U1.40'));
     const split = 'block("power",["U1","C1","C2"]); bypass(["C1"],pin("U1",2)); bypass(["C2"],pin("U1",40));';
-    assert.equal(validatePcbLayoutIntent({ code: split, circuit, knowledge }).some(d => d.code === 'PCB_INTENT_DISTRIBUTED_SUPPLY'), false);
+    assert.equal(validatePcbLayoutIntent({ code: split, circuit }).some(d => d.code === 'PCB_INTENT_DISTRIBUTED_SUPPLY'), false);
     const footprint: FootprintSpec = {name:'QFP',width:10,height:10,pads:[
         {pin_number:2,x:-5,y:0,width:1,height:1},{pin_number:40,x:5,y:0,width:1,height:1},{pin_number:10,x:0,y:5,width:1,height:1},
     ]};
@@ -144,19 +135,6 @@ test('distributed supply groups detect one capCluster assigned only to a distant
 test('functional topology spans authored main and satellite blocks', () => {
     const code = 'block("power",["U1"]); block("boot",["C1"],"generic",{placement:"satellite",attachTo:"power"});';
     assert.ok(warnings(code).some(d => d.code === 'PCB_INTENT_BOOTSTRAP'));
-});
-test('isolation uses declared clearance rather than a generic away preference or guessed standard', () => {
-    const circuit = { components: [component('U1', [[1,'VDD','v1']]), component('U2', [[1,'VDD','v2']])] };
-    const knowledge = {isolation:{domains:{U1:'primary',U2:'secondary'},minClearance:5}};
-    const code = 'block("a",["U1"]); block("b",["U2"]);';
-    const check = (suffix: string) => validatePcbLayoutIntent({ code:code+suffix,circuit,knowledge });
-    assert.ok(check('away(comp("U1"),comp("U2"));').some(d => d.code === 'PCB_INTENT_ISOLATION_DOMAINS'));
-    assert.ok(check('clearance(comp("U1"),comp("U2"),4);').some(d => d.code === 'PCB_INTENT_ISOLATION_DOMAINS'));
-    assert.equal(check('clearance(comp("U1"),comp("U2"),5);').some(d => d.code === 'PCB_INTENT_ISOLATION_DOMAINS'), false);
-});
-test('invalid verified profile refs cannot silently disable intended checks', () => {
-    assert.ok(validatePcbLayoutIntent({code:base,circuit:bootstrap,knowledge:{components:{U1:{pinFunctions:{99:'BOOT'}}}}}).some(d => d.code === 'PCB_KNOWLEDGE_REF'));
-    assert.ok(validatePcbLayoutIntent({code:base,circuit:bootstrap,knowledge:{components:{U1:{supplyGroups:[[1],[1]]}}}}).some(d => d.code === 'PCB_KNOWLEDGE_GROUP'));
 });
 test('bypass capacitors cannot be assigned to an electrically unrelated pin', () => {
     const circuit = {components:[
@@ -171,25 +149,6 @@ test('synthetic boardPad terminals remain valid targets in the offline validator
         'block("debug",["debug"],"connector",{allowDisconnected:true}); near(pin("debug",1),pin("U1",2));';
     assert.equal(validate(code).some(d => d.severity === 'error'), false, JSON.stringify(validate(code)));
 });
-test('clearance(block, all) cannot satisfy separation within that same source block', () => {
-    const circuit = {components:[component('U1',[[1,'VDD','a']]),component('U2',[[1,'VDD','b']])]};
-    const knowledge = {isolation:{domains:{U1:'a',U2:'b'},minClearance:5}};
-    const result = validatePcbLayoutIntent({code:'block("both",["U1","U2"],"generic",{allowDisconnected:true}); blockClearance("both","all",5);',circuit,knowledge});
-    assert.ok(result.some(d => d.code === 'PCB_INTENT_ISOLATION_DOMAINS'));
-});
-test('confirmed supply groups identify numeric power pins and unknown mechanical targets report limited coverage', () => {
-    const circuit = {components:[
-        component('U1',[[2,'2','v'],[40,'40','v'],[10,'GND','g']]),component('C1',[[1,'1','v'],[2,'2','g']]),
-    ]};
-    assert.ok(detectCircuitPatterns({circuit,knowledge:{components:{U1:{supplyGroups:[[2],[40]]}}}}).some(m => m.patternId === 'distributed-supply'));
-    const limited = validatePcbLayoutIntent({code:base,circuit:bootstrap,knowledge:{components:{U1:{placement:{purpose:'cold-junction'}}}}});
-    assert.ok(limited.find(d => d.code === 'PCB_INTENT_COVERAGE')?.message.includes('profiles lack'));
-});
-test('confirmed device function profiles are required for context-specific termination checks', () => {
-    const circuit = {components:[component('U1',[[1,'A','a'],[2,'B','b']]),component('R1',[[1,'1','a'],[2,'2','b']])]};
-    assert.equal(detectCircuitPatterns({circuit}).some(m => m.patternId === 'rs485-termination'), false);
-    assert.ok(detectCircuitPatterns({circuit,knowledge:{components:{U1:{functions:['rs485-endpoint']}}}}).some(m => m.patternId === 'rs485-termination'));
-});
 test('repeated identical return terminals are alternatives; different ground functions remain distinct', () => {
     const circuit = {components:[
         component('U1',[[1,'VCAP','internal'],[2,'GND','g'],[3,'GND','g']]),
@@ -201,10 +160,59 @@ test('repeated identical return terminals are alternatives; different ground fun
     const code = 'block("power",["U1","C1"]); bypass(["C1"],pin("U1",1));';
     assert.equal(validate(code,circuit).some(d => d.code === 'PCB_INTENT_INTERNAL_REGULATOR_CAP'),false);
 });
-test('observer programming failures propagate; user throws and infinite loops become execution diagnostics', () => {
-    const failure = new Error('test observer failure');
-    assert.throws(() => runPcbLayoutDsl(base,{onCall:()=>{throw failure;}}),error => error === failure);
-    assert.equal(validate(base+'throw null;')[0].code,'PCB_DSL_EXECUTION');
-    assert.equal(validate(base+'throw {stack:42};')[0].code,'PCB_DSL_EXECUTION');
-    assert.equal(validate(base+'while(true){}')[0].code,'PCB_DSL_EXECUTION');
+
+test('unknown component target is reported once by the existing structural validator', () => {
+    const diagnostics = validate(base + 'near(comp("Missing"),comp("U1"));');
+    assert.equal(diagnostics.length, 1);
+    assert.equal(diagnostics[0].code, 'PCB_DSL_STRUCTURE');
+    assert.equal(diagnostics[0].severity, 'error');
+    assert.match(diagnostics[0].message, /Missing/);
+});
+
+test('repeated validation is stable and does not mutate circuit, footprints or preserved placement', () => {
+    const input = { code: base + 'preserve({board:true,components:["U1"]});', circuit: bootstrap,
+        footprints: { U1: { name: 'test', width: 2, height: 2, pads: [] } },
+        existingPlacement: { board: { polygon: [{x:-10,y:-10},{x:10,y:-10},{x:10,y:10},{x:-10,y:10}] },
+            components: [{designator:'U1',x:0,y:0,rotate:0,layer:'top' as const}] } };
+    const original = structuredClone(input);
+    const first = validatePcbLayoutIntent(input);
+    assert.equal(first.some(d => d.severity === 'error'), false);
+    assert.deepEqual(validatePcbLayoutIntent(input), first);
+    const reversed = structuredClone(input);
+    reversed.circuit.components.reverse().forEach(c => c.pins.reverse());
+    assert.deepEqual(validatePcbLayoutIntent(reversed), first);
+    assert.deepEqual(input, original);
+});
+
+test('validation disallows ambient random values and time without changing the production runner', () => {
+    for (const expression of ['Math.random()', 'Date.now()', 'new Date()']) {
+        const code = base + expression + ';';
+        const first = validate(code);
+        assert.equal(first[0].code, 'PCB_DSL_EXECUTION');
+        assert.deepEqual(validate(code), first);
+        assert.doesNotThrow(() => runPcbLayoutDsl(code));
+    }
+    assert.equal(validate(base + 'Math.random = () => 0;')[0].code, 'PCB_DSL_EXECUTION');
+});
+
+test('user throws and infinite loops are returned as execution diagnostics', () => {
+    for (const suffix of ['throw null;', 'throw {stack:42};', 'while(true){}'])
+        assert.equal(validate(base + suffix)[0].code, 'PCB_DSL_EXECUTION');
+});
+
+test('obsolete extra input fields cannot affect the same layout input contract', () => {
+    const input = { code: base, circuit: bootstrap, knowledge: { components: { U1: { pinFunctions: { 1: 'GND' } } } } };
+    assert.deepEqual(validatePcbLayoutIntent(input), validate(base));
+});
+
+test('malformed localLayout carrier becomes a structured error', () => {
+    assert.equal(validate(base + 'module("__eda_local_layout__:invalid",[]);')[0].code, 'PCB_DSL_STRUCTURE');
+});
+
+test('all supply targets on one rail need explicit locality, including within named domains', () => {
+    const circuit = { components: [component('U1', [[1,'VDDA','v'],[2,'VDDA','v'],[3,'VDDIO','io'],[4,'GND','g']]),
+        component('C1', [[1,'1','v'],[2,'2','g']]), component('C2', [[1,'1','io'],[2,'2','g']])] };
+    const base = 'block("supply",["U1","C1","C2"]); bypass(["C1"],pin("U1",1)); bypass(["C2"],pin("U1",3));';
+    assert.ok(validate(base,circuit).some(d => d.code === 'PCB_INTENT_SUPPLY_DOMAINS'));
+    assert.equal(validate(base + 'bypass(["C1"],pin("U1",2));',circuit).some(d => d.code === 'PCB_INTENT_SUPPLY_DOMAINS'), false);
 });

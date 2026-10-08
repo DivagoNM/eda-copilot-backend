@@ -1,4 +1,14 @@
-import { pattern } from '../recognition/catalog/adc-reference.ts';
-import { createPatternChecker } from '../check-pattern.ts';
+import type { CircuitPatternDefinition } from '../recognition/types.ts';
 
-export const checker = createPatternChecker(pattern);
+export const pattern: CircuitPatternDefinition = {
+    id: "adc-reference",
+    title: "ADC reference capacitor",
+    nodes: [
+        {"id":"adc","functions":["adc"],"pins":{"ref":["REF","VREF","REFIN"],"g":["GND","VSS","AGND","PGND","DGND","VEE"]}},
+        {"id":"cap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
+    ],
+    links: [
+        {"from":"adc.ref","to":"cap.a","local":true},
+        {"from":"adc.g","to":"cap.b"},
+    ],
+};

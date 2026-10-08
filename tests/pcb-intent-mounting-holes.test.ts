@@ -41,14 +41,12 @@ test('mounting-hole symbols are identified by MH designators and explicit mechan
     }
 });
 
-test('provided footprint names and verified mounting-hole kinds are reusable recognition evidence', () => {
+test('provided footprint names are reusable recognition evidence', () => {
     const hole = component('H1');
     const input = { circuit: { components: [component('U1'), hole] },
         footprints: { H1: { name: 'MountingHole_3.2mm_M3', width: 6, height: 6, pads: [] } } };
     assert.equal(isMountingHoleComponent(hole, input), true);
     assert.deepEqual(findings(codeFor(['U1', 'H1']), input), []);
-    assert.deepEqual(findings(codeFor(['U1', 'H1']), { circuit: input.circuit,
-        knowledge: { components: { H1: { kind: 'mounting-hole' } } } }), []);
 });
 
 test('through-hole connector pads, solder-pad holes and via names are not mounting holes', () => {
@@ -63,10 +61,8 @@ test('through-hole connector pads, solder-pad holes and via names are not mounti
     assert.equal(findings(base + 'boardPad("via",{at:anchor("board.center"),pitch:1,layer:"multi",pads:[[{name:"pad",net:"signal",shape:"round",diameter:2,hole:{diameter:0.4}}]]}); block("via",["via"]);').length, 1);
 });
 
-test('verified non-hole kinds and explicit connector roles override mounting-name heuristics', () => {
+test('explicit connector roles override mounting-name heuristics', () => {
     const circuit = { components: [component('MH1', 'MountingHole')] };
-    const input = { circuit, knowledge: { components: { MH1: { kind: 'connector' } } } };
-    assert.equal(findings(codeFor(['MH1']), input).length, 1);
     assert.equal(findings(codeFor(['MH1']) + 'component("MH1").role("connector");', { circuit }).length, 1);
 });
 
