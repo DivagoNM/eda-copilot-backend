@@ -1,6 +1,6 @@
 # PCB DSL intent validation implementation plan
 
-Status: implementation in branch `feat/pcb-intent-validation`. Authoritative checklist; updated with verification before completion.
+Status: core motif/intent implementation completed in branch `feat/pcb-intent-validation`; verification and scope limits recorded below.
 
 ## Scope and public contract
 - Export synchronous `validatePcbLayoutIntent({ code, circuit, footprints?, existingPlacement?, knowledge? })`.
@@ -29,6 +29,7 @@ Status: implementation in branch `feat/pcb-intent-validation`. Authoritative che
 15. Structural checks use the same production validation rules, including arbitrary-role fixed poses and preview filtering. Preserve fixture DSLs and authored locked placement.
 16. Tests: positive/negative motifs, every catalog entry, wrong target, equivalent intent, overlap, reordered input, ambiguous pins, exact nets, localLayout and source offsets; then typecheck, build and repository suites.
 17. Update CHANGELOG and API documentation; record actual implemented checks and remaining limits rather than calling future routing checks complete.
+18. PCB owns these patterns. Recognition lives in `src/pcb-layout/intent-validation/recognition/`; it is separate from schematic drawing patterns in `src/circuit-layout/patterns/`. Do not create a general pattern subsystem at the `src` root.
 
 ## Catalog (60 patterns)
 Connectivity means graph recognition. Device/application knowledge means an explicit confirmed profile, not a guessed part identity.
@@ -98,12 +99,31 @@ Connectivity means graph recognition. Device/application knowledge means an expl
 ## Work sequence
 - [x] Read instructions and existing architecture; create branch.
 - [x] Save all agreed patterns and rules before implementation.
-- [ ] Build minimal public contracts, shared graph context, role resolution, deterministic registry.
-- [ ] Add 60 conservative recognizers with explicit prerequisites and independent checker modules.
-- [ ] Reuse structural runner path; capture optional DSL positions; compare equivalent authored relations.
-- [ ] Add meaningful regressions and public export tests.
-- [ ] Typecheck, build, focused and broad tests; inspect final diff; Conventional Commits.
-- [ ] Document observed limitations and final verified behavior.
+- [x] Build minimal public contracts, shared graph context, role resolution, deterministic registry.
+- [x] Add 60 conservative recognizers with explicit prerequisites and independent checker modules.
+- [x] Reuse structural runner path; capture optional DSL positions; compare equivalent authored relations.
+- [x] Add meaningful regressions and public export tests.
+- [x] Typecheck, build, focused tests, broad-suite attempt and baseline comparison; inspect diff; Conventional Commits.
+- [x] Document observed limitations and final verified behavior.
+
+## Implemented scope and verification (2026-10-08)
+- All 60 entries have independent authored recognition examples and missing-intent checks. This is core motif/locality validation, not a full electrical or physical verifier for every topology variation; see `pcb-intent-validation.md`.
+- Recognition and checkers both belong to `pcb-layout/intent-validation`. The recognition API remains reusable for a future PCB DSL generator. Existing schematic pattern implementations were not changed.
+- `npm run typecheck`: passed after relocation. `npm run build`: passed; built `dist/pcb.js` exports both APIs and returns structured invalid-input diagnostics.
+- Focused final command: `node --import tsx --test tests/pcb-intent-patterns.test.ts tests/pcb-intent-validation.test.ts tests/pcb-local-layout.test.ts tests/pcb-provided-footprints.test.ts`: **97 passed**, including 89 new tests.
+- New regressions include 60 positive/profile examples, broken connectivity, order stability, no mutation, pin aliases, exact ground-net identity, equivalent hints/paths/localLayout, distributed supply pin groups, source offsets, synthetic boardPad targets, incorrect bypass nets, isolation group/all semantics, preview/preserve, ambiguous channels, observer failure propagation and execution timeout.
+- Offline real-circuit smoke checks used unchanged ESP32_C3_MAN (107 components) and Portable_AC_DC_Telemetry (154 components) DSL/netlists. Structural checks passed and produced bounded intent warnings/coverage info. USB_ISOL (24 components) surfaced the existing block-connectivity structural error. No placement run or footprint download was performed for these smoke checks.
+- Broad `npm run check` passed typecheck/build, then reported **504 passed, 14 failed, 40 skipped** (558 tests; approximately 299 seconds). This was before the final seven additional focused regressions. The complete repository suite is **not green**.
+- Compared with an archived `main` snapshot at `0353f7a03972c85e534ddc70715fb00f52de424f`, using the same native addon and a dependency junction. The main full attempt reported 404 passed, 18 failed, 39 skipped; it additionally lacked some generated build assets, so its total is not directly comparable.
+- Eleven of the fourteen branch failure titles reproduced in that main full attempt: core pair packing/balancing, grid clearance, alternate module order, captured USB baseline, Telemetry alignment, through-hole export, empty/locked GPU initialization, both mixed-side spacing tests, and RF signal-path placement.
+- The remaining three titles (parallel block hypotheses, USB combined experiment and full-branch USB legality) reproduced on main in a targeted run of `tests/pcb-block-experiments.test.ts` with `--test-name-pattern='parallel block hypotheses preserve|USB combined experiment shortens|full branch profile preserves USB'`: 3 failed, after restoring the archived scripts required by the replay helper. All 14 failure titles therefore occur on main as well. Exact native experiment outcomes differ between full/isolated runs; this is evidence of pre-existing failures, not a green baseline or a diagnosis of their root causes.
+- Raw local evidence stays ignored under `debugging/pcb-intent-*.log`. No unrelated native/scoring changes were made to force the broad suite green.
+
+## Remaining scope limits
+- Complex topology variants require verified device/application profiles. MFB filters, integrated MagJacks/protection, detailed QSPI data-group symmetry, emitter/Kelvin variants and datasheet-specific snubber/driver placement preferences can extend the existing pattern files.
+- Footprint-derived supply groups distinguish only unambiguous perimeter sides. Same-side spatial subdivisions, repeated pad identity and channel-specific semantics require verified groups/functions.
+- Actual pad distances, routed loop areas, return paths, symmetry/skew, antenna keepout dimensions and physical isolation compliance are future physical/routing checks.
+- Draft DSL generation and automatic fixes are not part of this implementation.
 
 ## Research references and boundaries
 - [TI switching layout](https://www.ti.com/document-viewer/lit/html/ssztau6), [four-switch converter](https://www.ti.com/document-viewer/lit/html/SSZTAE5/GUID-1402DA8B-73DB-44B4-B203-A3AF307A6C45).
@@ -113,4 +133,3 @@ Connectivity means graph recognition. Device/application knowledge means an expl
 - [CJC placement](https://www.ti.com/lit/ug/tiducc1/tiducc1.pdf), [temperature sensor purpose](https://www.ti.com/document-viewer/lit/html/SSZT563/GUID-4573E11C-5CAA-4F31-AD62-B31EAA287993), [Hall sensor placement](https://www.ti.com/lit/an/sboa518/sboa518.pdf).
 
 These sources motivate motif checks, not universal geometric limits. Datasheet requirements must be supplied by a verified profile. Physical routing, EMI, return-current continuity, actual loop area, electrical values and fabrication compliance are outside intent validation.
-
