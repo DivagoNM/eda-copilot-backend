@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Add `debug:pcb-validation` for offline intent checks of PCB fixtures or standalone DSL/schematic files. Capture the minimal diagnostic array, readable/count summaries and input snapshots under `debugging/pcb-validation/`; support optional knowledge, footprints, existing placement and strict warning failures without running placement.
+
 - Export offline `validatePcbLayoutIntent` and reusable `detectCircuitPatterns` with 60 independently registered motif/profile checks. Return stable English diagnostics with optional DSL source locations; reuse production structural/localLayout validation and accept equivalent pad pairs, paths, bypass anchors and authored local layouts. Support verified device/application knowledge and optional footprint geometry; report coverage limits without changing placement or native scores. See `docs/pcb-intent-validation.md` and the per-pattern implementation audit.
 
 - Expand PCB intent recognition with coherent channels, graph variants, MFB filters, RCD/TVS clamps, direct/filtered Kelvin sense and emitter returns, external switching loops, memory clock/data/select groups and series resistors, Ethernet center-tap/MagJack support and RF pi/T networks. Validate declared protection-chain sides and per-pin isolation domains. Check explicit antenna rotation/keepout and declared symmetry/alignment in authored geometry, reporting unavailable data as coverage info. Conservatively target each supplied logical power pad unless a verified supply group is declared; keep individual duplicate-pad addressing and final routing/physical certification outside coverage.

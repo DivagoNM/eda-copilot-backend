@@ -1,5 +1,7 @@
 # PCB layout debug output
 
+For offline DSL intent checks and JSON diagnostics, use `npm run debug:pcb-validation -- <fixture>`. See the [validation command guide](pcb-intent-validation.md#debug-command) for fixture batches, standalone inputs and strict mode.
+
 Run from the backend root:
 
 ```text

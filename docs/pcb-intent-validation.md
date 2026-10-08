@@ -27,6 +27,25 @@ Warnings report missing or conflicting explicit placement intent for recognized 
 
 An info diagnostic describes missing knowledge, unavailable supply geometry, unidentified functional pins, preview scope, or localLayout limits. Empty output only means there were no findings in the evaluated scope. It does not certify electrical completeness, routed loop area, return-current continuity, EMI, fabrication compliance, actual geometric separation or routing quality. `hard` remains the solver's existing amplified preference.
 
+## Debug command
+
+Run from the backend directory, using the same fixture directory names as `test:pcb-layout`:
+
+```sh
+npm run debug:pcb-validation -- --list
+npm run debug:pcb-validation -- esp32c3
+npm run debug:pcb-validation -- rp2040_base ThunderF722
+npm run debug:pcb-validation -- --all
+npm run debug:pcb-validation -- esp32c3 --strict
+npm run debug:pcb-validation -- --code placement.js --circuit circuit.json --knowledge knowledge.json
+```
+
+Each run saves `diagnostics.json` (the API's diagnostic array), `summary.json`, `summary.md`, and exact input snapshots in `debugging/pcb-validation/runs/<fixture>/<timestamp>-<unique suffix>/`. The console prints counts, the first 24 findings and the report path. The script calls only the offline validator; it does not execute the fixture's placement runner or download footprints. A JSON-only fixture without DSL is excluded from the list. Alternate DSL files can be selected with `--code` on one fixture.
+
+Optional `knowledge.json`, `footprints.json` and `existing-placement.json` in a fixture directory are loaded automatically. `--knowledge`, `--footprints` and `--existing-placement` accept explicit JSON paths; together with `--code` and `--circuit`, they can override one fixture or validate standalone files. Footprints must be the API's map keyed by designator. Relative file paths resolve from the current working directory. `--output-dir` selects a different report root. Batch validation continues after a failed fixture.
+
+Exit status is `0` for no errors, `1` for validation errors (or warnings with `--strict`), and `2` for command/input-file failures. Info diagnostics never fail a run. A passing status retains the API's coverage limits and does not certify final placement or routing.
+
 ## Recognition and confirmed knowledge
 
 `detectCircuitPatterns({ circuit, knowledge?, footprints? })` exposes the same reusable recognizers independently of DSL validation. Matches contain `patternId`, sorted `components`, component `roles`, named `pins`, exact electrical `nets`, explicit `requirements`, and an evidence kind. Patterns may overlap and span multiple DSL blocks. Detection never consumes components or mutates input.
