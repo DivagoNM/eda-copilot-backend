@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Add advisory `PCB_INTENT_CONNECTOR_PLACEMENT` warnings for connectors without fixed/mechanical edge binding or fixed farther than a 5 mm perimeter guideline. Recognize J/P/CN, explicit DSL connector roles or verified connector kinds, accept edge mounts/placements and preserved positions, and check authored contours with supplied footprint bounds when available. Report missing outlines and center-only estimates explicitly; keep every finding a warning.
+
 - Add `debug:pcb-validation` for offline intent checks of PCB fixtures or standalone DSL/schematic files. Capture the minimal diagnostic array, readable/count summaries and input snapshots under `debugging/pcb-validation/`; support optional knowledge, footprints, existing placement and strict warning failures without running placement.
 
 - Export offline `validatePcbLayoutIntent` and reusable `detectCircuitPatterns` with 60 independently registered motif/profile checks. Return stable English diagnostics with optional DSL source locations; reuse production structural/localLayout validation and accept equivalent pad pairs, paths, bypass anchors and authored local layouts. Support verified device/application knowledge and optional footprint geometry; report coverage limits without changing placement or native scores. See `docs/pcb-intent-validation.md` and the per-pattern implementation audit.

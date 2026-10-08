@@ -78,6 +78,7 @@ const cases: Record<string, DetectCircuitPatternsInput> = {
     'cold-junction': fixture(['U1', 'OUT=temp'], ['J1', '1=tc']),
     'temperature-placement': fixture(['U1', 'OUT=temp'], ['Q1', 'G=gate S=g D=sw']),
     'magnetic-sensor': fixture(['U1', 'OUT=angle'], ['M1', '1=mechanics']),
+    'connector-placement': fixture(['J1', '1=signal 2=g']),
 };
 cases['distributed-supply'].knowledge!.components!.U1 = { supplyGroups: [[1], [2]] };
 cases['antenna-region'].knowledge!.components!.U1 = { placement: { purpose: 'antenna', edge: 'right' } };
@@ -86,8 +87,8 @@ cases['cold-junction'].knowledge!.components!.U1 = { placement: { purpose: 'cold
 cases['temperature-placement'].knowledge!.components!.U1 = { placement: { purpose: 'ambient-temperature', avoid: ['Q1'], minDistance: 10 } };
 cases['magnetic-sensor'].knowledge!.components!.U1 = { placement: { purpose: 'magnetic-sensor', target: 'M1' } };
 
-test('all 60 registered patterns have independent electrical/profile examples and checkers', () => {
-    assert.equal(circuitPatternRegistry.length, 60);
+test('all registered patterns have independent electrical/profile examples and checkers', () => {
+    assert.equal(circuitPatternRegistry.length, 61);
     assert.deepEqual([...Object.keys(cases)].sort(), circuitPatternRegistry.map(p => p.id).sort());
     assert.deepEqual(pcbIntentPatternRegistry.map(p => p.id).sort(), circuitPatternRegistry.map(p => p.id).sort());
 });
@@ -105,7 +106,7 @@ for (const [id, input] of Object.entries(cases)) {
         reversed.circuit.components.reverse().forEach(c => c.pins.reverse());
         assert.deepEqual(detectCircuitPatterns(reversed), matches, 'stable under input order');
         const definition = circuitPatternRegistry.find(p => p.id === id)!;
-        if (!definition.special) {
+        if (!definition.special && definition.links?.length) {
             const disconnected = structuredClone(input);
             for (const c of disconnected.circuit.components) for (const p of c.pins) p.signal_name = c.designator + '.' + p.pin_number;
             assert.equal(detectCircuitPatterns(disconnected).some(m => m.patternId === id), false, 'shared connectivity is required');

@@ -28,6 +28,7 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
                 nets: [...new Set(Object.values(selected).map(p => p.pin.signal_name))].sort(stableCompare),
                 requirements: links.filter(l => l.local && pins[l.from] && pins[l.to]).map(l => ({ relation: 'local', source: pins[l.from], target: pins[l.to] })),
                 evidence: nodes.some(n => n.functions?.length || context.knowledge?.components?.[roles[n.id]]?.kind ||
+                    n.placementRole && context.componentRoles?.[roles[n.id]] === n.placementRole ||
                     context.knowledge?.components?.[roles[n.id]]?.pinFunctions) ? 'verified-profile' : 'connectivity',
             });
             return;
@@ -80,7 +81,7 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
     visit(0);
     const unique = new Map<string, CircuitPatternMatch>();
     for (const match of matches) {
-        const key = JSON.stringify([definition.id, Object.entries(match.pins).map(([role, p]) => {
+        const key = JSON.stringify([definition.id, match.roles, Object.entries(match.pins).map(([role, p]) => {
             const component = context.byDesignator.get(p.designator)!;
             const pin = component.pins.find(pin => String(pin.pin_number) === String(p.pin_number))!;
             const fn = context.functionOf(component, pin);

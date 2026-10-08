@@ -9,6 +9,7 @@ export type CircuitPatternRequirement =
     | { relation: 'near' | 'away'; source: string; target: string; minDistance?: number }
     | { relation: 'edge'; source: string; edge: 'left' | 'right' | 'top' | 'bottom' }
     | { relation: 'rotation'; source: string; allowed: number[] }
+    | { relation: 'connector-placement'; source: string; maxEdgeDistance: number }
     | { relation: 'separate-group'; source: string; target: string }
     | { relation: 'balanced'; branches: Array<{ source: CircuitPinRef; target: CircuitPinRef }>; maxDifference: number; ambiguous?: boolean }
     | { relation: 'alignment'; source: string; target: string; axis: 'x' | 'y' | 'both'; tolerance: number; offset?: { x: number; y: number } }
@@ -60,11 +61,14 @@ export type DetectCircuitPatternsInput = {
     circuit: ExplainCircuit;
     knowledge?: CircuitPatternKnowledge;
     footprints?: Record<string, FootprintSpec>;
+    /** Explicit mechanical roles, for example authored component(...).role('connector'). */
+    componentRoles?: Record<string, 'connector'>;
 };
 export type PatternNode = {
     id: string;
     optional?: boolean;
     kind?: string;
+    placementRole?: 'connector';
     kinds?: string[];
     pinCount?: number;
     withoutPins?: string[];
@@ -95,6 +99,7 @@ export type CircuitPatternDefinition = PatternTopology & {
     placementFunctions?: string[];
     balancedBranches?: Array<{ owner: string; pairs: Array<[string, string]>; requiresFunctions?: Record<string, string> }>;
     gateResistorAnchors?: { driver: string; device: string };
+    componentRequirements?: Array<{ role: string; relation: 'connector-placement'; maxEdgeDistance: number }>;
     entryChain?: boolean;
     special?: 'supply-groups' | 'shared-supply' | 'supply-domains' | 'controller-bias' | 'bulk-local' | 'placement' | 'isolation' | 'interface';
 };

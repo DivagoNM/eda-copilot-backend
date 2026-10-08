@@ -1,15 +1,17 @@
 import type { CircuitPatternMatch, CircuitPatternRequirement, CircuitPinRef } from './recognition/types.ts';
 import { pinKey } from './recognition/context.ts';
 import type { ExplainCircuit } from '../../types/circuit.ts';
-import type { TargetRef, FootprintSpec } from '../../types/pcb/layout-model.ts';
+import type { TargetRef, FootprintSpec, ExistingPlacement } from '../../types/pcb/layout-model.ts';
 import type { PlacementRules } from '../../types/pcb/layout-rules.ts';
 import type { PcbDslCall } from '../pcb-layout-dsl/spec.ts';
 import type { LocalLayout } from '../pcb-auto-place-v2/local-layout.ts';
 import * as fp from '../f32.ts';
 import { createAuthoredGeometry } from './authored-geometry.ts';
+import { createConnectorMechanics } from './connector-mechanics.ts';
 
-export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRules, layouts: Map<string, LocalLayout>, calls: PcbDslCall[], footprints?: Record<string, FootprintSpec>) {
+export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRules, layouts: Map<string, LocalLayout>, calls: PcbDslCall[], footprints?: Record<string, FootprintSpec>, existingPlacement?: ExistingPlacement) {
     const geometry = createAuthoredGeometry(rules, layouts, footprints);
+    const connectorPlacementWarning = createConnectorMechanics(rules, footprints, existingPlacement);
     const byDesignator = new Map(circuit.components.map(c => [c.designator, c]));
     const blocks = new Map(rules.blocks.map(b => [b.name, new Set(b.component_designators)]));
     for (const rule of rules.component_rules) if (rule.block_name) blocks.get(rule.block_name)?.add(rule.designator);
@@ -47,6 +49,7 @@ export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRul
         return weak ? 'weak' : 'missing';
     }
     function requirementStatus(requirement: CircuitPatternRequirement) {
+        if (requirement.relation === 'connector-placement') return connectorPlacementWarning(requirement.source, requirement.maxEdgeDistance) ? 'missing' : 'pad';
         if (requirement.relation === 'balanced' || requirement.relation === 'alignment') return geometry.status(requirement);
         if (requirement.relation === 'local') {
             const statuses = [requirement, ...(requirement.alternatives ?? [])].map(r => locality(r.source, r.target, requirement.minimumPriority));
@@ -94,7 +97,7 @@ export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRul
         const locations = calls.filter(call => call.args.some(arg => references(arg, known))).map(({ line, column }) => ({ line, column }));
         return [...new Map(locations.map(l => [JSON.stringify(l), l])).values()].sort((a, b) => a.line - b.line || a.column - b.column);
     }
-    return { circuit, rules, layouts, calls, locality, requirementStatus, locationsFor };
+    return { circuit, rules, layouts, calls, locality, requirementStatus, locationsFor, connectorPlacementWarning };
 }
 function references(value: unknown, components: Set<string>, depth = 0): boolean {
     if (typeof value === 'string') return components.has(value);

@@ -39,7 +39,8 @@ export function createCircuitPatternContext(input: DetectCircuitPatternsInput) {
     const hasFunction = (c: CircuitComponent, name: string) =>
         input.knowledge?.components?.[c.designator]?.functions?.includes(name) ?? false;
     const candidates = (node: PatternNode) => components.filter(c =>
-        (!node.kind || kindOf(c) === node.kind) && (!node.kinds || node.kinds.includes(kindOf(c))) &&
+        (!node.kind || kindOf(c) === node.kind || node.placementRole && input.componentRoles?.[c.designator] === node.placementRole &&
+            !input.knowledge?.components?.[c.designator]?.kind) && (!node.kinds || node.kinds.includes(kindOf(c))) &&
         (node.pinCount === undefined || c.pins.length === node.pinCount) &&
         (!node.withoutPins || ![...c.pins.map(p => functionOf(c, p)),
             ...Object.values(input.knowledge?.components?.[c.designator]?.channels ?? {}).flatMap(channel => Object.keys(channel).map(normalizeFunction))]

@@ -6,7 +6,7 @@ import { withEntryChain } from './entry-chain.ts';
 import { withBranchIntent } from './branch-intent.ts';
 import { detectSpecialPattern } from './special.ts';
 
-/** Recognizes electrical motifs only; does not run the DSL, resolve parts or place anything. */
+/** Recognizes circuit motifs and declared mechanical roles; does not run the DSL, resolve parts or place anything. */
 export function detectCircuitPatterns(input: DetectCircuitPatternsInput): CircuitPatternMatch[] {
     const context = createCircuitPatternContext(input);
     return circuitPatternRegistry.flatMap(pattern => [

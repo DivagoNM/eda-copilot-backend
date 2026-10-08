@@ -31,7 +31,16 @@ Status: **PARTIAL** in branch `feat/pcb-intent-validation`. The second implement
 17. Update CHANGELOG and API documentation; record actual implemented checks and remaining limits rather than calling future routing checks complete.
 18. PCB owns these patterns. Recognition lives in `src/pcb-layout/intent-validation/recognition/`; it is separate from schematic drawing patterns in `src/circuit-layout/patterns/`. Do not create a general pattern subsystem at the `src` root.
 
-## Catalog (60 patterns)
+## Additional pattern requested on 2026-10-08
+
+- `connector-placement` is the 61st registered pattern, added after the original 60-pattern catalog and audits below. User confirmed that a `fixed()` position far from the edge must also warn.
+- Recognize J/P/CN, explicit DSL connector roles or verified connector kinds independently of electrical connectivity. Explicit role hints apply only to opting-in catalog nodes; verified kinds override guesses. Keep reusable recognition and placement checking in separate registered PCB files.
+- Emit only English `warning` diagnostics with code `PCB_INTENT_CONNECTOR_PLACEMENT`, component context and available DSL locations. Check missing fixed/mechanical edge binding, explicit edgePlace inset and authored fixed/preserved perimeter proximity with a 5 mm advisory guideline. Use shared board, fixed-placement, rotation, source-coordinate and F32 geometry helpers; include polygon cutouts and footprint bounding boxes when supplied.
+- Treat `edgeMount()`/`edgePlace()` as mechanical binding; soft edge hints and localLayout do not establish fixation. Preserve context and preview selection must match production semantics. State center-only or missing-outline limits explicitly. Internal connectors remain advisory; do not change solver scores or certify housing/mating access.
+- Verify separate connector matches, lookalikes/profile overrides, warnings only, source context, fixed/edge equivalence, far positions, polygon cutouts, large source offsets, rotations, preservation, unavailable data and numeric boundaries.
+- Verification: `pcb-intent-connector`, `pcb-intent-patterns`, `pcb-intent-validation` and `pcb-intent-cli` suites passed **181/181** tests, including 17 focused connector tests; `npm run typecheck` and `npm run build` passed. Evidence logs are local under `debugging/pcb-intent-connector-final.log` and `debugging/pcb-intent-connector-build.log`.
+
+## Catalog (original 60 patterns)
 Connectivity means graph recognition. Device/application knowledge means an explicit confirmed profile, not a guessed part identity.
 | # | ID | Pattern | What to check | Prerequisites |
 |---|---|---|---|---|

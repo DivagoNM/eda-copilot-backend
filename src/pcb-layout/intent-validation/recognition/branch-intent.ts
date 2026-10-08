@@ -3,6 +3,9 @@ import type { CircuitPatternDefinition, CircuitPatternMatch } from './types.ts';
 
 export function withBranchIntent(ctx: CircuitPatternContext, definition: CircuitPatternDefinition, match: CircuitPatternMatch): CircuitPatternMatch {
     let requirements = [...match.requirements];
+    for (const { role, ...requirement } of definition.componentRequirements ?? []) {
+        if (match.roles[role]) requirements.push({ ...requirement, source: match.roles[role] });
+    }
     if (definition.gateResistorAnchors) {
         const side = ctx.knowledge?.components?.[match.roles[definition.gateResistorAnchors.driver]]?.preferredGateResistorSide;
         if (side) {

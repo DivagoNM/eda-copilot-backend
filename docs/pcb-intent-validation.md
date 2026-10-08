@@ -27,6 +27,16 @@ Warnings report missing or conflicting explicit placement intent for recognized 
 
 An info diagnostic describes missing knowledge, unavailable supply geometry, unidentified functional pins, preview scope, or localLayout limits. Empty output only means there were no findings in the evaluated scope. It does not certify electrical completeness, routed loop area, return-current continuity, EMI, fabrication compliance, actual geometric separation or routing quality. `hard` remains the solver's existing amplified preference.
 
+## Connector mechanical placement
+
+`connector-placement` adds the warning-only code `PCB_INTENT_CONNECTOR_PLACEMENT`. It recognizes J/P/CN designators, confirmed `kind: 'connector'` profiles and explicit DSL `component(...).role('connector')` declarations, without requiring named/connected pins. A verified different kind overrides a prefix/role guess. Each connector is checked independently, including across blocks; placement preview limits its scope. Standalone `detectCircuitPatterns` callers can pass `componentRoles: { USB1: 'connector' }` for explicit mechanical roles; these roles are considered only by catalog nodes that opt into them, without changing electrical component kinds.
+
+The warning reports either missing mechanical binding or a fixed position farther than a **5 mm** edge-proximity guideline. `fixed()` and selected `preserve()` positions are measured against the authored board perimeter; fixed anchors, explicit coordinate overrides and offsets use the shared placement resolver. Supplied footprints use their rotated axis-aligned bounding box; without a footprint, distance uses the component center and the message says so. Preserved footprint source origins are normalized with the existing offset transform. Polygon cutout edges count as perimeter; outline construction, segment tests and distances reuse the PCB geometry helpers with F32 and the 0.001 mm tolerance.
+
+`edgeMount()` (including sliding mounts) and `edgePlace()` express mechanical edge binding. An `edgePlace()` inset greater than 5 mm warns as well. A soft `edge()` hint, a block or a localLayout does not fix a connector, and a hint does not hide a fixed position far from the perimeter. If a fixed connector has an auto-sized board, the warning explicitly says edge proximity cannot be checked. Supplying existing placement without selecting the connector with `preserve()` does not bind it.
+
+This is an access/mechanics heuristic, so an intentional internal header can produce an advisory warning. It does not verify mating direction, casing access, the actual housing shape, final solver placement or routed geometry. The reusable match exposes a `connector-placement` requirement with `source` and `maxEdgeDistance`; the recognition and checker files are registered under `pcb-layout/intent-validation` like the other patterns.
+
 ## Debug command
 
 Run from the backend directory, using the same fixture directory names as `test:pcb-layout`:
@@ -74,7 +84,7 @@ ESD entry checks apply to confirmed ordinary connector ESD protection; `ethernet
 
 ## Extending the catalog
 
-The [implementation plan](pcb-intent-validation-plan.md) preserves all 60 agreed patterns, prerequisites and implementation rules.
+The [implementation plan](pcb-intent-validation-plan.md) preserves the original 60 agreed patterns, the additional connector-placement pattern, prerequisites and implementation rules.
 
 1. Add `src/pcb-layout/intent-validation/recognition/catalog/<id>.ts`: a CircuitPatternDefinition with typed component nodes, unambiguous pin aliases, same-net graph links, optional support nodes and selected local obligations. Related circuit variants stay in that file's `variants`. `pinCount`, `kinds`, function exclusions, channel maps and explicitly allowed `sameNets` keep electrical alternatives distinct. Mechanical purposes, preferred gate anchors and balanced branch roles are declared by the catalog entry. Add a specialized recognizer only when the shared graph matcher cannot express the circuit.
 2. Register it explicitly in `src/pcb-layout/intent-validation/recognition/registry.ts`.
