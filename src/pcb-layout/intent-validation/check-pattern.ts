@@ -18,6 +18,7 @@ function label(requirement: CircuitPatternRequirement): string {
     if (requirement.relation === 'edge') return requirement.source + ' at the ' + requirement.edge + ' edge';
     if (requirement.relation === 'rotation') return requirement.source + ' restricted to rotations ' + requirement.allowed.join(', ');
     if (requirement.relation === 'connector-placement') return requirement.source + ' mechanically anchored within ' + requirement.maxEdgeDistance + ' mm of the board outline';
+    if (requirement.relation === 'mounting-holes') return 'at least ' + requirement.minimumCount + ' board mounting hole';
     if (requirement.relation === 'keepout') return requirement.source + ' keepout region ' + requirement.region;
     if (requirement.relation === 'separate-group') return requirement.source + ' and ' + requirement.target + ' outside the same rigid localLayout';
     if (requirement.relation === 'balanced') return 'authored pad spans for ' + requirement.branches.map(b => labelPin(b.source) + ' <-> ' + labelPin(b.target)).join(', ') + ' differing by at most ' + requirement.maxDifference + ' mm';

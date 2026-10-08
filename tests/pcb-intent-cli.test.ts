@@ -125,6 +125,20 @@ test('validation CLI continues a batch after an error and loads fixture preserve
     assert.equal(reports[3].diagnostics.some((d: { code: string }) => d.code === 'PCB_PRESERVE_CONTEXT'), false);
 });
 
+test('missing mounting-hole info does not fail strict CLI validation', () => {
+    const input = custom('board.rect(40,30); block("main",["U1"]);');
+    writeFileSync(input.circuitFile, JSON.stringify({ components: [{ designator: 'U1', value: 'test', part_uuid: null,
+        pins: [{ pin_number: '1', name: '1', signal_name: 'signal' }] }] }));
+    const result = run([...input.args, '--strict']);
+    assert.equal(result.status, 0, result.stderr);
+    const [output] = outputs(result.stdout);
+    assert.equal(output.summary.passed, true);
+    assert.equal(output.summary.counts.warning, 0);
+    const diagnostic = output.diagnostics.find((d: { code: string }) => d.code === 'PCB_INTENT_MOUNTING_HOLES');
+    assert.ok(diagnostic);
+    assert.equal(diagnostic.severity, 'info');
+});
+
 test('validation CLI reports input-file and argument failures separately from diagnostics', () => {
     const input = custom(base);
     writeFileSync(input.circuitFile, '{ invalid JSON');

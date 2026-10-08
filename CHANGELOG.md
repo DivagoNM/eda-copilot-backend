@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Add board-level `PCB_INTENT_MOUNTING_HOLES` info when neither DSL board holes nor identified mounting-hole components are present. Accept one hole, corner-hole declarations, MH designators, explicit mounting-hole labels and verified kinds; exclude ordinary vias/through-hole pads and inspect the complete schematic during previews. Info remains advisory even in strict validation mode.
+
 - Add advisory `PCB_INTENT_CONNECTOR_PLACEMENT` warnings for connectors without fixed/mechanical edge binding or fixed farther than a 5 mm perimeter guideline. Recognize J/P/CN, explicit DSL connector roles or verified connector kinds, accept edge mounts/placements and preserved positions, and check authored contours with supplied footprint bounds when available. Report missing outlines and center-only estimates explicitly; keep every finding a warning.
 
 - Add `debug:pcb-validation` for offline intent checks of PCB fixtures or standalone DSL/schematic files. Capture the minimal diagnostic array, readable/count summaries and input snapshots under `debugging/pcb-validation/`; support optional knowledge, footprints, existing placement and strict warning failures without running placement.

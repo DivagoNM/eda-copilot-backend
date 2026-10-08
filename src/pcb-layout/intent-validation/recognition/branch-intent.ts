@@ -2,7 +2,7 @@ import type { CircuitPatternContext } from './context.ts';
 import type { CircuitPatternDefinition, CircuitPatternMatch } from './types.ts';
 
 export function withBranchIntent(ctx: CircuitPatternContext, definition: CircuitPatternDefinition, match: CircuitPatternMatch): CircuitPatternMatch {
-    let requirements = [...match.requirements];
+    let requirements = [...match.requirements, ...(definition.boardRequirements ?? []).map(requirement => ({ ...requirement }))];
     for (const { role, ...requirement } of definition.componentRequirements ?? []) {
         if (match.roles[role]) requirements.push({ ...requirement, source: match.roles[role] });
     }

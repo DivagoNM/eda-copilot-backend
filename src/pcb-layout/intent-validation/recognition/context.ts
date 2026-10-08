@@ -1,5 +1,6 @@
 import type { ExplainCircuit } from '../../../types/circuit.ts';
 import type { DetectCircuitPatternsInput, PatternNode } from './types.ts';
+import { isMountingHoleComponent } from './mounting-holes.ts';
 
 export type CircuitComponent = ExplainCircuit['components'][number];
 export type CircuitPin = CircuitComponent['pins'][number];
@@ -23,6 +24,7 @@ export function createCircuitPatternContext(input: DetectCircuitPatternsInput) {
     const kindOf = (c: CircuitComponent): string => {
         const known = input.knowledge?.components?.[c.designator]?.kind;
         if (known) return known;
+        if (isMountingHoleComponent(c, input)) return 'mounting-hole';
         const prefix = c.designator.match(/^[A-Za-z]+/)?.[0].toUpperCase();
         if (c.pins.length === 2) {
             if (prefix === 'R') return 'resistor';

@@ -40,6 +40,14 @@ Status: **PARTIAL** in branch `feat/pcb-intent-validation`. The second implement
 - Verify separate connector matches, lookalikes/profile overrides, warnings only, source context, fixed/edge equivalence, far positions, polygon cutouts, large source offsets, rotations, preservation, unavailable data and numeric boundaries.
 - Verification: `pcb-intent-connector`, `pcb-intent-patterns`, `pcb-intent-validation` and `pcb-intent-cli` suites passed **181/181** tests, including 17 focused connector tests; `npm run typecheck` and `npm run build` passed. Evidence logs are local under `debugging/pcb-intent-connector-final.log` and `debugging/pcb-intent-connector-build.log`.
 
+## Mounting-hole presence requested on 2026-10-08
+
+- `mounting-holes` is the 62nd registered pattern. Emit one English `PCB_INTENT_MOUNTING_HOLES` **info** if there is no identified mounting hole; one hole suffices. Keep the board requirement, recognizer helper and checker separately reusable under PCB intent validation.
+- Accept `boardHole()`/`boardHole.corners()`, MH designators, explicit mounting/mount/screw-hole labels in schematic/footprint metadata and verified `kind: 'mounting-hole'`. Verified non-hole kinds and explicit connector roles override naming guesses. Do not infer mounting from H alone, generic drills/vias, boardPad holes or through-hole connector pads.
+- Inspect the full schematic during previews. Existing outline data alone cannot prove drilled mounting holes; preserved identified hole components count. Keep alternative mounting methods advisory and leave hole positioning, dimensions, casing fit and final placement outside this presence check.
+- Verify absence severity/message, single and corner holes, symbols/footprints/profiles, lookalikes, profile/role overrides, preview/preserve scope, deterministic matches and no mutation. Info must not fail strict CLI validation.
+- Verification: **192/192** focused tests passed across the intent pattern/validation/connector suites (176) and mounting-hole/CLI suites (16, including nine mounting-hole tests and strict-mode info coverage). `npm run typecheck` and `npm run build` passed. Regression/build evidence is local under `debugging/pcb-intent-mounting-regression.log` and `debugging/pcb-intent-mounting-build.log`.
+
 ## Catalog (original 60 patterns)
 Connectivity means graph recognition. Device/application knowledge means an explicit confirmed profile, not a guessed part identity.
 | # | ID | Pattern | What to check | Prerequisites |

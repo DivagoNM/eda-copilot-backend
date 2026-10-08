@@ -79,6 +79,7 @@ const cases: Record<string, DetectCircuitPatternsInput> = {
     'temperature-placement': fixture(['U1', 'OUT=temp'], ['Q1', 'G=gate S=g D=sw']),
     'magnetic-sensor': fixture(['U1', 'OUT=angle'], ['M1', '1=mechanics']),
     'connector-placement': fixture(['J1', '1=signal 2=g']),
+    'mounting-holes': fixture(['U1', '1=signal']),
 };
 cases['distributed-supply'].knowledge!.components!.U1 = { supplyGroups: [[1], [2]] };
 cases['antenna-region'].knowledge!.components!.U1 = { placement: { purpose: 'antenna', edge: 'right' } };
@@ -88,7 +89,7 @@ cases['temperature-placement'].knowledge!.components!.U1 = { placement: { purpos
 cases['magnetic-sensor'].knowledge!.components!.U1 = { placement: { purpose: 'magnetic-sensor', target: 'M1' } };
 
 test('all registered patterns have independent electrical/profile examples and checkers', () => {
-    assert.equal(circuitPatternRegistry.length, 61);
+    assert.equal(circuitPatternRegistry.length, 62);
     assert.deepEqual([...Object.keys(cases)].sort(), circuitPatternRegistry.map(p => p.id).sort());
     assert.deepEqual(pcbIntentPatternRegistry.map(p => p.id).sort(), circuitPatternRegistry.map(p => p.id).sort());
 });

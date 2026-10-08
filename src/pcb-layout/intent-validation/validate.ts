@@ -136,10 +136,11 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput): Pc
         ({ code: 'PCB_LOCAL_LAYOUT', severity: 'error' as const, message })));
     diagnostics.push(...collectRefs(effectiveCircuit, rules));
     if (diagnostics.some(d => d.severity === 'error')) return finish(diagnostics);
-    const context = createIntentContext(effectiveCircuit, rules, localLayouts, calls, data.footprints, data.existingPlacement);
-    const checks = new Map(pcbIntentPatternRegistry.map(check => [check.id, check]));
     const componentRoles = Object.fromEntries(rules.component_rules.filter(rule => rule.role === 'connector')
         .map(rule => [rule.designator, 'connector' as const]));
+    const fullCircuitContext = createCircuitPatternContext({ circuit, knowledge: data.knowledge, footprints: data.footprints, componentRoles });
+    const context = createIntentContext(effectiveCircuit, rules, localLayouts, calls, data.footprints, data.existingPlacement, fullCircuitContext);
+    const checks = new Map(pcbIntentPatternRegistry.map(check => [check.id, check]));
     for (const match of detectCircuitPatterns({ circuit: effectiveCircuit, knowledge: data.knowledge, footprints: data.footprints, componentRoles }))
         diagnostics.push(...checks.get(match.patternId)!.check(match, context));
     const limitations: string[] = [];

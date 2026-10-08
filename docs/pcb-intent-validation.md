@@ -37,6 +37,12 @@ The warning reports either missing mechanical binding or a fixed position farthe
 
 This is an access/mechanics heuristic, so an intentional internal header can produce an advisory warning. It does not verify mating direction, casing access, the actual housing shape, final solver placement or routed geometry. The reusable match exposes a `connector-placement` requirement with `source` and `maxEdgeDistance`; the recognition and checker files are registered under `pcb-layout/intent-validation` like the other patterns.
 
+## Mounting-hole presence
+
+`mounting-holes` adds one board-level **info** diagnostic, `PCB_INTENT_MOUNTING_HOLES`, when no mounting hole is identified. One `boardHole()` declaration is sufficient; `boardHole.corners()` counts its generated holes. Schematic components count when their verified `kind` is `mounting-hole`, their designator is `MH<number>`, or their value/schematic footprint name/supplied footprint name explicitly identifies a mounting/mount/screw hole. Verified different kinds and explicit DSL connector roles override naming heuristics. The bare H prefix, generic HOLE/NPTH/via labels, drilled boardPads and ordinary through-hole pads do not prove a mounting hole.
+
+This presence check uses the full input schematic and board-hole declarations even when a component preview is selected. Preserved mounting-hole components already identified in the schematic count; preserving an outline alone supplies no information about existing drilled holes. The reusable match declares `{ relation: 'mounting-holes', minimumCount: 1 }`. The check does not assess hole size, positions or suitability for a casing; alternative attachment methods may be intentional. Its English info diagnostic never fails the debug command, including `--strict`.
+
 ## Debug command
 
 Run from the backend directory, using the same fixture directory names as `test:pcb-layout`:
@@ -84,7 +90,7 @@ ESD entry checks apply to confirmed ordinary connector ESD protection; `ethernet
 
 ## Extending the catalog
 
-The [implementation plan](pcb-intent-validation-plan.md) preserves the original 60 agreed patterns, the additional connector-placement pattern, prerequisites and implementation rules.
+The [implementation plan](pcb-intent-validation-plan.md) preserves the original 60 agreed patterns, the additional connector-placement and mounting-hole patterns, prerequisites and implementation rules.
 
 1. Add `src/pcb-layout/intent-validation/recognition/catalog/<id>.ts`: a CircuitPatternDefinition with typed component nodes, unambiguous pin aliases, same-net graph links, optional support nodes and selected local obligations. Related circuit variants stay in that file's `variants`. `pinCount`, `kinds`, function exclusions, channel maps and explicitly allowed `sameNets` keep electrical alternatives distinct. Mechanical purposes, preferred gate anchors and balanced branch roles are declared by the catalog entry. Add a specialized recognizer only when the shared graph matcher cannot express the circuit.
 2. Register it explicitly in `src/pcb-layout/intent-validation/recognition/registry.ts`.

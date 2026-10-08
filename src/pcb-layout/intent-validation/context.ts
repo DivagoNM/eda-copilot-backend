@@ -1,5 +1,5 @@
 import type { CircuitPatternMatch, CircuitPatternRequirement, CircuitPinRef } from './recognition/types.ts';
-import { pinKey } from './recognition/context.ts';
+import { pinKey, createCircuitPatternContext, type CircuitPatternContext } from './recognition/context.ts';
 import type { ExplainCircuit } from '../../types/circuit.ts';
 import type { TargetRef, FootprintSpec, ExistingPlacement } from '../../types/pcb/layout-model.ts';
 import type { PlacementRules } from '../../types/pcb/layout-rules.ts';
@@ -9,9 +9,11 @@ import * as fp from '../f32.ts';
 import { createAuthoredGeometry } from './authored-geometry.ts';
 import { createConnectorMechanics } from './connector-mechanics.ts';
 
-export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRules, layouts: Map<string, LocalLayout>, calls: PcbDslCall[], footprints?: Record<string, FootprintSpec>, existingPlacement?: ExistingPlacement) {
+export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRules, layouts: Map<string, LocalLayout>, calls: PcbDslCall[], footprints?: Record<string, FootprintSpec>, existingPlacement?: ExistingPlacement, fullCircuitContext?: CircuitPatternContext) {
     const geometry = createAuthoredGeometry(rules, layouts, footprints);
     const connectorPlacementWarning = createConnectorMechanics(rules, footprints, existingPlacement);
+    const fullCircuit = fullCircuitContext ?? createCircuitPatternContext({ circuit, footprints });
+    const mountingHoleCount = rules.boardHoles.length + fullCircuit.components.filter(c => fullCircuit.kindOf(c) === 'mounting-hole').length;
     const byDesignator = new Map(circuit.components.map(c => [c.designator, c]));
     const blocks = new Map(rules.blocks.map(b => [b.name, new Set(b.component_designators)]));
     for (const rule of rules.component_rules) if (rule.block_name) blocks.get(rule.block_name)?.add(rule.designator);
@@ -49,6 +51,7 @@ export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRul
         return weak ? 'weak' : 'missing';
     }
     function requirementStatus(requirement: CircuitPatternRequirement) {
+        if (requirement.relation === 'mounting-holes') return mountingHoleCount >= requirement.minimumCount ? 'pad' : 'missing';
         if (requirement.relation === 'connector-placement') return connectorPlacementWarning(requirement.source, requirement.maxEdgeDistance) ? 'missing' : 'pad';
         if (requirement.relation === 'balanced' || requirement.relation === 'alignment') return geometry.status(requirement);
         if (requirement.relation === 'local') {
