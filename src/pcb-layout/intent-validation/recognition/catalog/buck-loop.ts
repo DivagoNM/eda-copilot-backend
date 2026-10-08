@@ -17,4 +17,39 @@ export const pattern: CircuitPatternDefinition = {
         {"from":"ic.input","to":"inputCap.a","local":true},
         {"from":"inputCap.b","to":"ic.g","local":true},
     ],
+    variants: [
+        {
+            nodes: [
+                {"id":"controller","functions":["buck"],"pins":{"high":["HG","HO","GH"],"low":["LG","LO","GL"]}},
+                {"id":"high","kind":"mosfet","pins":{"g":["G","GATE"],"s":["S","SOURCE"],"d":["D","DRAIN"]}},
+                {"id":"low","kind":"mosfet","pins":{"g":["G","GATE"],"s":["S","SOURCE"],"d":["D","DRAIN"]}},
+                {"id":"inductor","kind":"inductor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+                {"id":"inputCap","kind":"capacitor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+            ],
+            links: [
+                {"from":"controller.high","to":"high.g"},
+                {"from":"controller.low","to":"low.g"},
+                {"from":"high.d","to":"inputCap.a","local":true},
+                {"from":"high.s","to":"low.d","local":true},
+                {"from":"high.s","to":"inductor.a","local":true},
+                {"from":"low.s","to":"inputCap.b","local":true},
+            ],
+        },
+        {
+            nodes: [
+                {"id":"controller","functions":["buck"],"pins":{"gate":["OUT","GATE","DRV"]}},
+                {"id":"high","kind":"mosfet","pins":{"g":["G","GATE"],"s":["S","SOURCE"],"d":["D","DRAIN"]}},
+                {"id":"diode","kind":"diode","pins":{"a":["A"],"k":["K","C"]}},
+                {"id":"inductor","kind":"inductor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+                {"id":"inputCap","kind":"capacitor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+            ],
+            links: [
+                {"from":"controller.gate","to":"high.g"},
+                {"from":"high.d","to":"inputCap.a","local":true},
+                {"from":"high.s","to":"diode.k","local":true},
+                {"from":"high.s","to":"inductor.a","local":true},
+                {"from":"diode.a","to":"inputCap.b","local":true},
+            ],
+        },
+    ],
 };

@@ -12,4 +12,16 @@ export const pattern: CircuitPatternDefinition = {
         {"from":"receiver.input","to":"resistor.a","local":true},
         {"from":"receiver.ref","to":"resistor.b"},
     ],
+    variants: [
+        {
+            nodes: [
+                {"id":"receiver","functions":["receiver-termination"],"pins":{"plus":["IN+","RX+"],"minus":["IN-","RX-"]}},
+                {"id":"resistor","kind":"resistor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+            ],
+            links: [
+                {"from":"receiver.plus","to":"resistor.a","local":true},
+                {"from":"receiver.minus","to":"resistor.b","local":true},
+            ],
+        },
+    ],
 };

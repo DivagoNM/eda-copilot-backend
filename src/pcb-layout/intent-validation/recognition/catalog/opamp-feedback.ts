@@ -6,7 +6,7 @@ export const pattern: CircuitPatternDefinition = {
     prerequisites: "Unambiguous channel pin functions",
     nodes: [
         {"id":"amp","pins":{"out":["OUT","OUTPUT"],"minus":["IN-","INVERTING"],"plus":["IN+","NONINVERTING"]}},
-        {"id":"feedback","kind":"resistor","pins":{"a":["*"],"b":["*"]}},
+        {"id":"feedback","kinds":["resistor","capacitor"],"pinCount":2,"pins":{"a":["*"],"b":["*"]}},
     ],
     links: [
         {"from":"amp.out","to":"feedback.a","local":true},

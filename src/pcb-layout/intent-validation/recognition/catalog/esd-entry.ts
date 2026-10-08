@@ -6,7 +6,7 @@ export const pattern: CircuitPatternDefinition = {
     prerequisites: "Confirmed ESD protection; Ethernet excluded by profile",
     nodes: [
         {"id":"connector","kind":"connector","pins":{"signal":["*"]}},
-        {"id":"tvs","kind":"esd","pins":{"signal":["IO","LINE"],"g":["GND","VSS","AGND","PGND","DGND","VEE"]}},
+        {"id":"tvs","kind":"esd","withoutFunctions":["ethernet-protection"],"pins":{"signal":["IO","LINE"],"g":["GND","VSS","AGND","PGND","DGND","VEE"]}},
     ],
     links: [
         {"from":"connector.signal","to":"tvs.signal","local":true},

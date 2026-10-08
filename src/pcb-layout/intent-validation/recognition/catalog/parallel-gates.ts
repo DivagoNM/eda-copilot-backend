@@ -4,6 +4,7 @@ export const pattern: CircuitPatternDefinition = {
     id: "parallel-gates",
     title: "Parallel MOSFET gate resistors",
     prerequisites: "G/S/D and separate resistor paths",
+    balancedBranches: [{ owner: 'driver', pairs: [['r1.b', 'q1.g'], ['r2.b', 'q2.g']] }],
     nodes: [
         {"id":"driver","functions":["gate-driver"],"pins":{"out":["OUT","GATE","DRV"]}},
         {"id":"r1","kind":"resistor","pins":{"a":["*"],"b":["*"]}},

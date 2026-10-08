@@ -1,5 +1,7 @@
 import { detectCircuitPatterns } from './recognition/detect.ts';
-import { pinKey, stableCompare } from './recognition/context.ts';
+import { createCircuitPatternContext, normalizeFunction, pinKey, stableCompare, RETURN, SUPPLY } from './recognition/context.ts';
+import { findIsolationNetConflicts } from './recognition/isolation.ts';
+import { interfacePinPairs } from './recognition/interfaces.ts';
 import { LayoutRulesSchema, type PlacementRules } from '../../types/pcb/layout-rules.ts';
 import { runPcbLayoutDsl, PcbLayoutDslError, type PcbDslCall } from '../pcb-layout-dsl/spec.ts';
 import { instrumentLocalLayoutDsl, extractLocalLayouts, stripLocalLayoutCarriers, collectLocalLayoutErrors } from '../pcb-auto-place-v2/local-layout.ts';
@@ -33,21 +35,68 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput): Pc
             pins.add(key);
         }
     }
+    const recognition = createCircuitPatternContext({ circuit, knowledge: data.knowledge, footprints: data.footprints });
     for (const [designator, profile] of Object.entries(data.knowledge?.components ?? {})) {
         const component = circuit.components.find(c => c.designator === designator);
         const pinNumbers = new Set(component?.pins.map(p => String(p.pin_number)) ?? []);
-        const referencedPins = [...Object.keys(profile.pinFunctions ?? {}), ...(profile.supplyGroups ?? []).flat().map(String)];
-        const referencedComponents = [profile.placement?.target, ...(profile.placement?.avoid ?? [])].filter((s): s is string => !!s);
+        const referencedPins = [...Object.keys(profile.pinFunctions ?? {}), ...(profile.supplyGroups ?? []).flat().map(String),
+            ...Object.values(profile.channels ?? {}).flatMap(channel => Object.values(channel).map(String))];
+        const referencedComponents = [profile.placement?.target, ...(profile.placement?.avoid ?? []), profile.entryChain?.connector,
+            profile.entryChain?.receiver, profile.entryChain?.protection?.component].filter((s): s is string => !!s);
         if (!component || referencedPins.some(p => !pinNumbers.has(p)) || referencedComponents.some(c => !names.has(c)))
             diagnostics.push({ code: 'PCB_KNOWLEDGE_REF', severity: 'error', message: 'Verified profile for ' + designator +
                 ' references an unknown component or pin.', context: { components: [designator] } });
         const groupedPins = (profile.supplyGroups ?? []).flat().map(String);
         if (groupedPins.length !== new Set(groupedPins).size) diagnostics.push({ code: 'PCB_KNOWLEDGE_GROUP', severity: 'error',
             message: 'Supply groups for ' + designator + ' contain repeated pins.', context: { components: [designator] } });
+        if (Object.values(profile.channels ?? {}).some(channel => {
+            const functions = Object.keys(channel).map(normalizeFunction), pins = Object.values(channel).map(String);
+            return !functions.length || new Set(functions).size !== functions.length || new Set(pins).size !== pins.length;
+        })) diagnostics.push({ code: 'PCB_KNOWLEDGE_CHANNEL', severity: 'error',
+            message: 'Channels for ' + designator + ' must have unique functions and distinct physical terminals.', context: { components: [designator] } });
+        for (const bus of profile.interfaces ?? []) {
+            const peer = circuit.components.find(c => c.designator === bus.peer);
+            const endpoints = new Set<string>();
+            if (!component || !peer || component === peer || bus.signals.some(signal => {
+                const duplicate = endpoints.has('source:' + String(signal.source)) || endpoints.has('target:' + String(signal.target));
+                endpoints.add('source:' + String(signal.source)); endpoints.add('target:' + String(signal.target));
+                return duplicate || !interfacePinPairs(recognition, { designator, pin_number: signal.source }, { designator: bus.peer, pin_number: signal.target });
+            })) diagnostics.push({ code: 'PCB_KNOWLEDGE_INTERFACE', severity: 'error',
+                message: 'Interface for ' + designator + ' must reference unique, connected pins on a distinct peer.',
+                context: { components: [designator, bus.peer].sort(stableCompare) } });
+        }
     }
     if (Object.keys(data.knowledge?.isolation?.domains ?? {}).some(c => !names.has(c)))
         diagnostics.push({ code: 'PCB_KNOWLEDGE_REF', severity: 'error', message: 'Isolation domains reference an unknown component.' });
+    for (const [name, domains] of Object.entries(data.knowledge?.isolation?.pinDomains ?? {})) {
+        const component = circuit.components.find(c => c.designator === name);
+        if (!component || Object.keys(domains).some(pin => !component.pins.some(p => String(p.pin_number) === pin)))
+            diagnostics.push({ code: 'PCB_KNOWLEDGE_REF', severity: 'error', message: 'Isolation pin domains reference an unknown component or pin.', context: { components: [name] } });
+    }
     if (!circuit.components.length) diagnostics.push({ code: 'PCB_INTENT_INPUT', severity: 'error', message: 'The circuit must contain components.' });
+    if (diagnostics.some(d => d.severity === 'error')) return finish(diagnostics);
+
+    for (const conflict of findIsolationNetConflicts(recognition)) diagnostics.push({ code: 'PCB_ISOLATION_NET', severity: 'error',
+        message: 'Net ' + conflict.net + ' joins distinct declared isolation domains: ' + conflict.domains.join(', ') + '.',
+        context: { components: conflict.components } });
+    for (const choke of recognition.components) {
+        const chain = data.knowledge?.components?.[choke.designator]?.entryChain;
+        if (!chain) continue;
+        const receiver = recognition.byDesignator.get(chain.receiver)!;
+        const protection = chain.protection && recognition.byDesignator.get(chain.protection.component)!;
+        const connector = recognition.byDesignator.get(chain.connector)!;
+        const sides = [['IN+', 'OUT+', ['IN+', 'RX+', 'DP']], ['IN-', 'OUT-', ['IN-', 'RX-', 'DM']]] as const;
+        if (recognition.kindOf(choke) !== 'common-mode-choke' || new Set([choke.designator, chain.connector, chain.receiver, ...(protection ? [protection.designator] : [])]).size !== (protection ? 4 : 3) ||
+            sides.some(([input, output, aliases]) => {
+                const a = recognition.pinsFor(choke, [input]), b = recognition.pinsFor(choke, [output]), target = recognition.pinsFor(receiver, [...aliases]);
+                const protectionNet = chain.protection?.side === 'connector' ? a[0]?.signal_name : b[0]?.signal_name;
+                return a.length !== 1 || b.length !== 1 || target.length !== 1 || b[0].signal_name !== target[0].signal_name ||
+                    !connector.pins.some(p => p.signal_name === a[0].signal_name) || protection && !protection.pins.some(p =>
+                        p.signal_name === protectionNet && ![...RETURN, ...SUPPLY].includes(recognition.functionOf(protection, p)));
+            })) diagnostics.push({ code: 'PCB_KNOWLEDGE_CHAIN', severity: 'error',
+                message: 'Entry chain for ' + choke.designator + ' does not match the declared connector, receiver or protection side.',
+                context: { components: [choke.designator, chain.connector, chain.receiver, ...(protection ? [protection.designator] : [])].sort(stableCompare) } });
+    }
     if (diagnostics.some(d => d.severity === 'error')) return finish(diagnostics);
 
     const instrumented = instrumentLocalLayoutDsl(data.code);
@@ -87,7 +136,7 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput): Pc
         ({ code: 'PCB_LOCAL_LAYOUT', severity: 'error' as const, message })));
     diagnostics.push(...collectRefs(effectiveCircuit, rules));
     if (diagnostics.some(d => d.severity === 'error')) return finish(diagnostics);
-    const context = createIntentContext(effectiveCircuit, rules, localLayouts, calls);
+    const context = createIntentContext(effectiveCircuit, rules, localLayouts, calls, data.footprints);
     const checks = new Map(pcbIntentPatternRegistry.map(check => [check.id, check]));
     for (const match of detectCircuitPatterns({ circuit: effectiveCircuit, knowledge: data.knowledge, footprints: data.footprints }))
         diagnostics.push(...checks.get(match.patternId)!.check(match, context));
@@ -97,16 +146,38 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput): Pc
     if (Object.values(data.knowledge?.components ?? {}).some(p => {
         const placement = p.placement;
         return placement && (!placement.target && ['cold-junction', 'monitored-temperature', 'magnetic-sensor'].includes(placement.purpose) ||
-            placement.purpose === 'ambient-temperature' && !placement.avoid?.length ||
-            placement.purpose === 'antenna' && !placement.edge && !placement.target && !placement.avoid?.length);
+            ['ambient-temperature', 'quiet-controller'].includes(placement.purpose) && !placement.avoid?.length ||
+            placement.purpose === 'external-load' && !placement.target ||
+            placement.purpose === 'antenna' && !placement.edge && !placement.target && !placement.avoid?.length && !placement.rotations && !placement.keepout);
     })) limitations.push('Some mechanical/application profiles lack their required target, interference sources or edge');
+    if (Object.values(data.knowledge?.components ?? {}).some(p => p.placement?.purpose === 'quiet-controller' && !p.functions?.includes('flyback-controller')))
+        limitations.push('Quiet flyback-controller checks require the confirmed flyback-controller function');
     if (effectiveCircuit.components.some(c => {
         const functions = c.pins.map(p => data.knowledge?.components?.[c.designator]?.pinFunctions?.[String(p.pin_number)] ?? p.name);
-        return ['OUT', 'IN-', 'IN+', 'OSCIN', 'OSCOUT', 'BOOT', 'SW'].some(f => functions.filter(name => name.toUpperCase() === f).length > 1);
+        return !data.knowledge?.components?.[c.designator]?.channels &&
+            ['OUT', 'IN-', 'IN+', 'OSCIN', 'OSCOUT', 'BOOT', 'SW'].some(f => functions.filter(name => name.toUpperCase() === f).length > 1);
     })) limitations.push('Ambiguous multi-channel functions require channel-specific verified pinFunctions');
+    if (effectiveCircuit.components.some(c => {
+        const profile = data.knowledge?.components?.[c.designator];
+        const protocol = profile?.functions?.some(f => f === 'ospi-host' || f === 'ospi-flash') ? 'ospi' :
+            profile?.functions?.some(f => f === 'qspi-host' || f === 'qspi-flash') ? 'qspi' : undefined;
+        if (!protocol || profile?.interfaces?.length) return false;
+        const functions = c.pins.map(p => normalizeFunction(profile?.pinFunctions?.[String(p.pin_number)] ?? p.name));
+        return Array.from({ length: protocol === 'ospi' ? 8 : 4 }, (_, i) => ['IO' + i, 'DQ' + i, protocol.toUpperCase() + '.IO' + i])
+            .some(aliases => functions.filter(name => aliases.includes(name)).length !== 1);
+    })) limitations.push('QSPI/OSPI bus coverage requires unambiguous data endpoints or an explicit interface map; speed needs require a declared minimumPriority');
+    if (effectiveCircuit.components.some(c => data.knowledge?.components?.[c.designator]?.kind === 'shunt' && c.pins.length > 2 &&
+        !c.pins.some(p => ['SENSE+', 'KELVIN+', 'S+', 'VS+'].includes(normalizeFunction(data.knowledge?.components?.[c.designator]?.pinFunctions?.[String(p.pin_number)] ?? p.name)))))
+        limitations.push('Multi-terminal shunts require confirmed Kelvin sense pin functions');
     if (effectiveCircuit.components.some(c => c.pins.filter(p => /^(VDD|VCC)$/i.test(p.name)).length > 1 &&
         !data.knowledge?.components?.[c.designator]?.supplyGroups && !data.footprints?.[c.designator]))
         limitations.push('Distributed supply groups require footprint geometry or confirmed supplyGroups');
+    if (effectiveCircuit.components.some(c => {
+        const footprint = data.footprints?.[c.designator];
+        if (!footprint) return false;
+        return c.pins.some(pin => SUPPLY.includes(normalizeFunction(data.knowledge?.components?.[c.designator]?.pinFunctions?.[String(pin.pin_number)] ?? pin.name)) &&
+            footprint.pads.filter(p => String(p.pin_number) === String(pin.pin_number)).length !== 1);
+    })) limitations.push('Missing or repeated physical supply pads limit geometry coverage; DSL pin targets address logical pins, not individual duplicate pads');
     if (effectiveCircuit.components.some(c => !/^[RCL]\d+$/i.test(c.designator) &&
         c.pins.some(p => !p.name || /^\d+$/.test(p.name))))
         limitations.push('Unnamed or numeric-only functional pins cannot establish device roles');

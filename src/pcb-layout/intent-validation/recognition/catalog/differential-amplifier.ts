@@ -4,12 +4,14 @@ export const pattern: CircuitPatternDefinition = {
     id: "differential-amplifier",
     title: "Discrete differential amplifier",
     prerequisites: "Confirmed amplifier channels and paired resistor graph",
+    balancedBranches: [{ owner: 'amp', pairs: [['inputMinus.b', 'amp.minus'], ['inputPlus.b', 'amp.plus']],
+        requiresFunctions: { inputPlus: 'differential-input', returnPlus: 'differential-return' } }],
     nodes: [
         {"id":"amp","pins":{"out":["OUT","OUTPUT"],"minus":["IN-","INVERTING"],"plus":["IN+","NONINVERTING"]}},
         {"id":"feedback","kind":"resistor","pins":{"a":["*"],"b":["*"]}},
         {"id":"inputMinus","kind":"resistor","pins":{"a":["*"],"b":["*"]}},
-        {"id":"inputPlus","kind":"resistor","pins":{"a":["*"],"b":["*"]}},
-        {"id":"returnPlus","kind":"resistor","pins":{"a":["*"],"b":["*"]}},
+        {"id":"inputPlus","kind":"resistor","withoutFunctions":["differential-return"],"pins":{"a":["*"],"b":["*"]}},
+        {"id":"returnPlus","kind":"resistor","withoutFunctions":["differential-input"],"pins":{"a":["*"],"b":["*"]}},
     ],
     links: [
         {"from":"amp.out","to":"feedback.a","local":true},

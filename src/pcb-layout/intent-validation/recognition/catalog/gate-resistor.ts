@@ -4,6 +4,7 @@ export const pattern: CircuitPatternDefinition = {
     id: "gate-resistor",
     title: "Gate series resistor",
     prerequisites: "OUT and G/S/D or confirmed functions",
+    gateResistorAnchors: { driver: 'driver', device: 'switch' },
     nodes: [
         {"id":"driver","functions":["gate-driver"],"pins":{"out":["OUT","GATE","DRV"]}},
         {"id":"resistor","kind":"resistor","pins":{"a":["*"],"b":["*"]}},

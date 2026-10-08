@@ -1,13 +1,15 @@
 import type { CircuitPatternMatch, CircuitPatternRequirement, CircuitPinRef } from './recognition/types.ts';
 import { pinKey } from './recognition/context.ts';
 import type { ExplainCircuit } from '../../types/circuit.ts';
-import type { TargetRef } from '../../types/pcb/layout-model.ts';
+import type { TargetRef, FootprintSpec } from '../../types/pcb/layout-model.ts';
 import type { PlacementRules } from '../../types/pcb/layout-rules.ts';
 import type { PcbDslCall } from '../pcb-layout-dsl/spec.ts';
 import type { LocalLayout } from '../pcb-auto-place-v2/local-layout.ts';
 import * as fp from '../f32.ts';
+import { createAuthoredGeometry } from './authored-geometry.ts';
 
-export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRules, layouts: Map<string, LocalLayout>, calls: PcbDslCall[]) {
+export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRules, layouts: Map<string, LocalLayout>, calls: PcbDslCall[], footprints?: Record<string, FootprintSpec>) {
+    const geometry = createAuthoredGeometry(rules, layouts, footprints);
     const byDesignator = new Map(circuit.components.map(c => [c.designator, c]));
     const blocks = new Map(rules.blocks.map(b => [b.name, new Set(b.component_designators)]));
     for (const rule of rules.component_rules) if (rule.block_name) blocks.get(rule.block_name)?.add(rule.designator);
@@ -17,24 +19,25 @@ export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRul
     const samePin = (a: CircuitPinRef, b: CircuitPinRef) => pinKey(a.designator, a.pin_number) === pinKey(b.designator, b.pin_number);
     const strong = (priority: string, hard?: boolean | null) => priority === 'high' || priority === 'critical' || hard === true;
     const seededTogether = (a: string, b: string) => [...layouts.values()].some(l => l[a] && l[b]);
-    function locality(source: CircuitPinRef, target: CircuitPinRef): 'pad' | 'seed' | 'weak' | 'missing' {
+    function locality(source: CircuitPinRef, target: CircuitPinRef, minimumPriority?: 'high' | 'critical'): 'pad' | 'seed' | 'weak' | 'missing' {
+        const adequate = (priority: string, hard?: boolean | null) => minimumPriority === 'critical' ? priority === 'critical' : strong(priority, hard);
         const net = byDesignator.get(source.designator)?.pins.find(p => String(p.pin_number) === String(source.pin_number))?.signal_name;
         const targetNet = byDesignator.get(target.designator)?.pins.find(p => String(p.pin_number) === String(target.pin_number))?.signal_name;
         const segments = [...rules.paths.flatMap(p => p.segments), ...rules.hints.filter(h => h.relation === 'critical_pair')];
-        if (segments.some(h => strong(h.priority, h.hard) &&
+        if (segments.some(h => adequate(h.priority, h.hard) &&
             ((samePin(h.source, source) && samePin(h.target, target)) || (samePin(h.source, target) && samePin(h.target, source))))) return 'pad';
         for (const hint of rules.hints) {
             if (hint.relation === 'bypass' || hint.relation === 'cap_cluster') {
-                if (hint.target && strong(hint.priority) && net && net === targetNet &&
+                if (hint.target && adequate(hint.priority) && net && net === targetNet &&
                     ((hint.capacitors.includes(source.designator) && samePin(hint.target, target)) ||
                      (hint.capacitors.includes(target.designator) && samePin(hint.target, source)))) return 'pad';
             } else if (hint.relation === 'near' || hint.relation === 'very_near' || hint.relation === 'cluster_with') {
-                if (hint.source.type === 'pin' && hint.target.type === 'pin' && strong(hint.priority) &&
+                if (hint.source.type === 'pin' && hint.target.type === 'pin' && adequate(hint.priority) &&
                     ((samePin(hint.source, source) && samePin(hint.target, target)) ||
                      (samePin(hint.source, target) && samePin(hint.target, source)))) return 'pad';
             }
         }
-        if (seededTogether(source.designator, target.designator)) return 'seed';
+        if (seededTogether(source.designator, target.designator)) return minimumPriority === 'critical' ? 'weak' : 'seed';
         const a = source, b = target;
         const weak = rules.hints.some(h => (h.relation === 'near' || h.relation === 'very_near' || h.relation === 'cluster_with') &&
             ((covers(h.source, a.designator) && covers(h.target, b.designator)) ||
@@ -44,8 +47,9 @@ export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRul
         return weak ? 'weak' : 'missing';
     }
     function requirementStatus(requirement: CircuitPatternRequirement) {
+        if (requirement.relation === 'balanced' || requirement.relation === 'alignment') return geometry.status(requirement);
         if (requirement.relation === 'local') {
-            const statuses = [requirement, ...(requirement.alternatives ?? [])].map(r => locality(r.source, r.target));
+            const statuses = [requirement, ...(requirement.alternatives ?? [])].map(r => locality(r.source, r.target, requirement.minimumPriority));
             return statuses.includes('pad') ? 'pad' : statuses.includes('seed') ? 'seed' : statuses.includes('weak') ? 'weak' : 'missing';
         }
         if (requirement.relation === 'supply-group') {
@@ -56,6 +60,21 @@ export function createIntentContext(circuit: ExplainCircuit, rules: PlacementRul
             const component = rules.component_rules.find(c => c.designator === requirement.source);
             if (component?.edgeMount?.edge === requirement.edge || component?.edgePlace?.edges.includes(requirement.edge)) return 'pad';
             return rules.hints.some(h => h.relation === 'edge' && h.edge === requirement.edge && covers(h.source, requirement.source)) ? 'pad' : 'missing';
+        }
+        if (requirement.relation === 'rotation') {
+            const component = rules.component_rules.find(c => c.designator === requirement.source);
+            const rotations = component?.fixedPlacement?.rotate != null ? [component.fixedPlacement.rotate] : component?.allowedRotations;
+            const normalized = (angle: number) => ((angle % 360) + 360) % 360;
+            return rotations?.length && rotations.every(r => requirement.allowed.includes(normalized(r))) ? 'pad' : 'missing';
+        }
+        if (requirement.relation === 'separate-group') return seededTogether(requirement.source, requirement.target) ? 'missing' : 'pad';
+        if (requirement.relation === 'keepout') {
+            const region = rules.constraintRegions.find(r => r.name === requirement.region);
+            if (!region || requirement.minimumWidth !== undefined && fp.f32(region.shape.width) < fp.f32(requirement.minimumWidth) ||
+                requirement.minimumHeight !== undefined && fp.f32(region.shape.height) < fp.f32(requirement.minimumHeight) ||
+                requirement.layers?.some(layer => !region.layers.includes(layer)) ||
+                region.allow.blocks.some(block => !(requirement.allowBlocks ?? []).includes(block))) return 'missing';
+            return 'pad';
         }
         const expected = requirement.relation === 'near' ? ['near', 'very_near', 'cluster_with'] : ['away_from', 'clearance'];
         return rules.hints.some(h => {

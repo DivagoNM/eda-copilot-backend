@@ -16,4 +16,22 @@ export const pattern: CircuitPatternDefinition = {
         {"from":"diode.k","to":"outputCap.a","local":true},
         {"from":"outputCap.b","to":"ic.g","local":true},
     ],
+    variants: [
+        {
+            nodes: [
+                {"id":"controller","functions":["boost"],"pins":{"gate":["OUT","GATE","DRV"]}},
+                {"id":"switch","kind":"mosfet","pins":{"g":["G","GATE"],"s":["S","SOURCE"],"d":["D","DRAIN"]}},
+                {"id":"inductor","kind":"inductor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+                {"id":"diode","kind":"diode","pins":{"a":["A"],"k":["K","C"]}},
+                {"id":"outputCap","kind":"capacitor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+            ],
+            links: [
+                {"from":"controller.gate","to":"switch.g"},
+                {"from":"switch.d","to":"inductor.b","local":true},
+                {"from":"switch.d","to":"diode.a","local":true},
+                {"from":"diode.k","to":"outputCap.a","local":true},
+                {"from":"switch.s","to":"outputCap.b","local":true},
+            ],
+        },
+    ],
 };

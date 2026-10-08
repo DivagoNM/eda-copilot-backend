@@ -18,4 +18,21 @@ export const pattern: CircuitPatternDefinition = {
         {"from":"returnL.b","to":"ic.g"},
         {"from":"transferCap.b","to":"diode.a","local":true},
     ],
+    variants: [
+        {
+            nodes: [
+                {"id":"ic","functions":["sepic"],"pins":{"sw":["SW","LX"],"g":["GND","VSS","AGND","PGND","DGND","VEE"]}},
+                {"id":"coupled","kind":"coupled-inductor","pins":{"input":["W1+","INPUT+"],"sw":["W1-","INPUT-"],"transfer":["W2+","RETURN+"],"g":["W2-","RETURN-"]}},
+                {"id":"transferCap","kind":"capacitor","pinCount":2,"pins":{"a":["*"],"b":["*"]}},
+                {"id":"diode","kind":"diode","pins":{"a":["A"],"k":["K","C"]}},
+            ],
+            links: [
+                {"from":"ic.sw","to":"coupled.sw","local":true},
+                {"from":"ic.sw","to":"transferCap.a","local":true},
+                {"from":"transferCap.b","to":"coupled.transfer","local":true},
+                {"from":"coupled.g","to":"ic.g"},
+                {"from":"transferCap.b","to":"diode.a","local":true},
+            ],
+        },
+    ],
 };

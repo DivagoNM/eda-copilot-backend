@@ -33,13 +33,19 @@ export function createCircuitPatternContext(input: DetectCircuitPatternsInput) {
         }
         if (prefix === 'J' || prefix === 'P' || prefix === 'CN') return 'connector';
         if (prefix === 'U' || prefix === 'IC') return 'ic';
-        if (prefix === 'Q' && ['G', 'S', 'D'].every(name => c.pins.some(p => functionOf(c, p) === name))) return 'mosfet';
+        if (prefix === 'Q' && [['G', 'GATE'], ['S', 'SOURCE'], ['D', 'DRAIN']].every(names => c.pins.some(p => names.includes(functionOf(c, p))))) return 'mosfet';
         return 'unknown';
     };
     const hasFunction = (c: CircuitComponent, name: string) =>
         input.knowledge?.components?.[c.designator]?.functions?.includes(name) ?? false;
     const candidates = (node: PatternNode) => components.filter(c =>
-        (!node.kind || kindOf(c) === node.kind) && (!node.functions || node.functions.every(f => hasFunction(c, f))));
+        (!node.kind || kindOf(c) === node.kind) && (!node.kinds || node.kinds.includes(kindOf(c))) &&
+        (node.pinCount === undefined || c.pins.length === node.pinCount) &&
+        (!node.withoutPins || ![...c.pins.map(p => functionOf(c, p)),
+            ...Object.values(input.knowledge?.components?.[c.designator]?.channels ?? {}).flatMap(channel => Object.keys(channel).map(normalizeFunction))]
+            .some(fn => node.withoutPins!.map(normalizeFunction).includes(fn))) &&
+        (!node.withoutFunctions || !node.withoutFunctions.some(f => hasFunction(c, f))) &&
+        (!node.functions || node.functions.every(f => hasFunction(c, f))));
     const pinsFor = (c: CircuitComponent, aliases: string[]) => {
         if (aliases.includes('*')) return [...c.pins].filter(p => p.signal_name)
             .sort((a, b) => compare(String(a.pin_number), String(b.pin_number)));
@@ -49,7 +55,21 @@ export function createCircuitPatternContext(input: DetectCircuitPatternsInput) {
         return pins.length === 1 || names.every(name => RETURN.includes(name))
             ? [...pins].sort((a, b) => compare(String(a.pin_number), String(b.pin_number))) : [];
     };
-    return { ...input, components, byDesignator, byNet, functionOf, kindOf, hasFunction, candidates, pinsFor };
+    const pinSetsFor = (c: CircuitComponent, node: PatternNode): Record<string, CircuitPin[]>[] => {
+        const entries = Object.entries(node.pins);
+        const channels = Object.entries(input.knowledge?.components?.[c.designator]?.channels ?? {})
+            .sort(([a], [b]) => compare(a, b))
+            .map(([, channel]) => new Map(Object.entries(channel).map(([name, pin]) => [normalizeFunction(name), String(pin)])))
+            .filter(channel => entries.some(([, aliases]) => aliases.some(alias => channel.has(normalizeFunction(alias)))));
+        if (!channels.length) return [Object.fromEntries(entries.map(([label, aliases]) => [label, pinsFor(c, aliases)]))];
+        return channels.map(channel => Object.fromEntries(entries.map(([label, aliases]) => {
+            const names = aliases.map(normalizeFunction);
+            const mapped = names.flatMap(name => channel.has(name) ? [channel.get(name)!] : []);
+            const pins = mapped.length ? c.pins.filter(p => p.signal_name && mapped.includes(String(p.pin_number))) : pinsFor(c, aliases);
+            return [label, [...pins].sort((a, b) => compare(String(a.pin_number), String(b.pin_number)))];
+        })));
+    };
+    return { ...input, components, byDesignator, byNet, functionOf, kindOf, hasFunction, candidates, pinsFor, pinSetsFor };
 }
 export type CircuitPatternContext = ReturnType<typeof createCircuitPatternContext>;
 export const SUPPLY = ['VDD', 'VCC', 'VDDIO', 'VDDA', 'VCORE', 'PVIN', 'AVIN', 'BIAS', 'VBAT'];

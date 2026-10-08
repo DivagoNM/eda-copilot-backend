@@ -5,6 +5,13 @@ import { detectSpecialPattern } from './special.ts';
 /** Exhaustive graph matching with net-index pruning, not destructive component claiming. */
 export function matchCircuitPattern(context: CircuitPatternContext, definition: CircuitPatternDefinition): CircuitPatternMatch[] {
     if (definition.special) return detectSpecialPattern(context, definition);
+    if (definition.variants) {
+        const { variants, ...base } = definition;
+        const matches = [base, ...variants.map(topology => ({ id: definition.id, title: definition.title,
+            prerequisites: definition.prerequisites, ...topology }))].flatMap(d => matchCircuitPattern(context, d));
+        return [...new Map(matches.map(m => [JSON.stringify(m), m])).values()]
+            .sort((a, b) => stableCompare(JSON.stringify(a), JSON.stringify(b)));
+    }
     const nodes = definition.nodes ?? [];
     const links = definition.links ?? [];
     const roles: Record<string, string> = {};
@@ -40,7 +47,7 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
             if (Object.values(roles).includes(component.designator)) continue;
             roles[node.id] = component.designator;
             const entries = Object.entries(node.pins);
-            function choosePin(i: number) {
+            function choosePin(i: number, pinSet: Record<string, CircuitPin[]>) {
                 if (i === entries.length) {
                     if (links.some(l => selected[l.from] && selected[l.to] &&
                         selected[l.from].pin.signal_name !== selected[l.to].pin.signal_name)) return;
@@ -49,22 +56,23 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
                     visit(index + 1);
                     return;
                 }
-                const [label, aliases] = entries[i];
+                const [label] = entries[i];
                 const key = node.id + '.' + label;
-                for (const pin of context.pinsFor(component, aliases)) {
+                for (const pin of pinSet[label]) {
                     if (Object.entries(selected).some(([k, value]) => k.startsWith(node.id + '.') &&
                         String(value.pin.pin_number) === String(pin.pin_number))) continue;
                     // Different logical terminals on a motif component must be on distinct nets.
                     if (Object.entries(selected).some(([k, value]) => k.startsWith(node.id + '.') &&
                         value.pin.signal_name === pin.signal_name && !links.some(l =>
-                            (l.from === k && l.to === key) || (l.to === k && l.from === key)))) continue;
+                            (l.from === k && l.to === key) || (l.to === k && l.from === key)) &&
+                        !definition.sameNets?.some(([a, b]) => (a === k && b === key) || (a === key && b === k)))) continue;
                     selected[key] = { component, pin };
                     if (!links.some(l => selected[l.from] && selected[l.to] &&
-                        selected[l.from].pin.signal_name !== selected[l.to].pin.signal_name)) choosePin(i + 1);
+                        selected[l.from].pin.signal_name !== selected[l.to].pin.signal_name)) choosePin(i + 1, pinSet);
                     delete selected[key];
                 }
             }
-            choosePin(0);
+            for (const pinSet of context.pinSetsFor(component, node)) choosePin(0, pinSet);
             delete roles[node.id];
         }
         if (node.optional && before === matches.length) visit(index + 1);
