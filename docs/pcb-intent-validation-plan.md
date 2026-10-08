@@ -1,6 +1,6 @@
 # PCB DSL intent validation implementation plan
 
-Status: **PARTIAL** in branch `feat/pcb-intent-validation`. Infrastructure and first-pass recognition are implemented; the original 60-pattern catalog is not fully implemented. The prior completion statement was too broad.
+Status: **PARTIAL** in branch `feat/pcb-intent-validation`. The second implementation pass expands the semantics of all 60 catalog entries and closes the concrete omissions listed in the first audit. Coverage is still bounded by the implemented graph variants and by what the existing DSL can express; this is not a claim that every possible circuit in each family is supported. The first completion statement was too broad.
 
 ## Scope and public contract
 - Export synchronous `validatePcbLayoutIntent({ code, circuit, footprints?, existingPlacement?, knowledge? })`.
@@ -101,79 +101,80 @@ Connectivity means graph recognition. Device/application knowledge means an expl
 - [x] Save all agreed patterns and rules before implementation.
 - [x] Build minimal public contracts, shared graph context, role resolution, deterministic registry.
 - [x] Add 60 conservative recognizers with explicit prerequisites and independent checker modules.
-- [ ] Complete the original per-pattern semantics and topology variants; the presence of 60 registered files does not close this item.
+- [x] Implement the concrete missing semantics from the first audit: additional graph variants, channel binding, Kelvin endpoints, memory buses, declared mechanical intent, isolation domains and authored geometry.
+- [ ] Exhaustive coverage of arbitrary topology variants remains open; supported variants and the duplicate-physical-pad DSL boundary are documented explicitly.
 - [x] Reuse structural runner path; capture optional DSL positions; compare equivalent authored relations.
 - [x] Add meaningful regressions and public export tests.
-- [ ] Add regression cases for every outstanding pattern-specific requirement, including false passes and successful corrections.
+- [x] Add independent circuit examples, missing/wrong intent cases and successful corrections for the expanded checks, including declared geometry and coverage limits.
 - [x] Typecheck, build, focused tests, broad-suite attempt and baseline comparison; inspect diff; Conventional Commits.
 - [x] Document observed limitations and final verified behavior.
 
 ## Completion audit (2026-10-08)
 The table below compares the implementation with the original catalog. A checked core motif is not a claim that its entire family is complete. Prerequisite knowledge is deliberately required where appropriate; missing implemented semantics are separate from missing caller data.
-60 entries were reviewed against their recognizers, the shared checker and profile schema. The 97 passing targeted tests verify the currently implemented behavior, not the outstanding requirements.
+All 60 entries were reviewed again after the second pass. The original 97-test result is retained below as history; current targeted verification is recorded separately. These checks cover the stated variants and declared intentions, not unrestricted circuit-family recognition.
 
 | Pattern | Implemented scope / outstanding work |
 |---|---|
-| distributed-supply | Declared supply groups and coarse footprint-side groups are checked. Same-side subdivision and repeated physical pads are not covered. |
-| shared-rail-consumers | Supply-group targeting for each identified consumer is implemented; relies on known supply/return functions. |
-| supply-domains | Separate named supply nets are checked. Distinct physical domains tied to one rail are not distinguished. |
-| filtered-supply | One tagged filter and downstream capacitor motif is checked; the current load aliases omit VDDA/VDDIO. |
-| bulk-local-caps | Local capacitor targeting is checked; the influence of mixed bulk/local rigid clusters is not checked. |
-| controller-bias | One PVIN and one AVIN/BIAS branch are checked; same-net and multiple-bias variants are not covered. |
-| ldo-caps | Direct input/output capacitor targeting is checked for a confirmed LDO profile. |
-| internal-regulator-cap | Direct VCAP/VREG capacitor targeting is checked for unambiguous functions. |
-| buck-loop | Integrated SW/VIN/GND core and optional diode are checked; discrete half-bridge variants are not recognized. |
-| boost-loop | One integrated-switch/diode/output-capacitor motif is checked; external switching variants are not covered. |
-| buck-boost-loops | One SW1/SW2 IC motif is checked; separate four-switch half-bridges and their local areas are not modeled. |
-| sepic-loop | Two separate inductors and transfer-capacitor motif are checked; coupled-inductor variants are not covered. |
-| flyback-primary | Winding/MOSFET/input-capacitor locality is checked; shunt support and quiet controller placement are missing. |
-| flyback-secondary | Diode rectifier motif is checked; synchronous rectification is missing. |
-| dc-feedback | The two-resistor FB divider midpoint is checked. |
-| compensation | One series RC COMP network is checked; other compensation topologies are missing. |
-| snubber | Only RC is implemented. RCD and TVS clamp variants are missing. |
-| charge-pump | One flying-capacitor pin pair is checked; multiple pairs/channels are not jointly identified. |
-| gate-resistor | Driver-resistor-gate locality is checked; device-specific preferred placement side is not represented. |
-| gate-split-resistors | One R plus R/diode branch orientation is checked; reversed diode and separate output variants are missing. |
-| driver-return | Ordinary MOSFET source is checked; Kelvin-source and emitter cases are missing. |
-| driver-decoupling | Direct driver supply/return capacitor targeting is checked for a confirmed profile. |
-| bootstrap | Both BOOT/HB and SW/HS capacitor endpoints are checked; unrelated bypass nets are rejected. |
-| parallel-gates | Separate resistor/gate pairs are checked; comparable branch geometry is not checked. |
-| miller-clamp | The declared CLAMP-to-gate relation is checked. |
-| inductive-clamp | Two-terminal load and flyback diode are checked; TVS and external-load location variants are missing. |
-| opamp-feedback | Only resistor feedback is recognized; capacitor feedback is missing. |
-| transimpedance | Photodiode plus feedback resistor is checked; feedback capacitor and other current-source variants are missing. |
-| instrumentation-gain | Both confirmed RG pins of one gain resistor are checked. |
-| differential-amplifier | One four-resistor motif is checked; branch symmetry and broader channel arrangements are missing. |
-| active-filter | Only the Sallen-Key motif is implemented; MFB is missing. |
-| sar-input-filter | The declared ADC-side series resistor and shunt capacitor motif is checked. |
-| differential-adc-filter | Two resistors plus differential capacitor are checked; common-mode capacitors are missing. |
-| adc-reference | Direct reference capacitor targeting is checked for a confirmed ADC. |
-| reference-buffer | Only a direct voltage-follower/reference capacitor motif is implemented; other feedback/buffer arrangements are missing. |
-| high-impedance-divider | The declared ADC divider midpoint and filter capacitor motif is checked. |
-| shunt-kelvin | Two-terminal shunt relations are checked; power and dedicated Kelvin terminals are not distinguished. |
-| sense-input-filter | Two series resistors and a differential capacitor at confirmed amplifier inputs are checked. |
-| crystal | Unambiguous crystal branches and optional load capacitors are checked. |
-| active-oscillator | Confirmed oscillator decoupling and direct clock-consumer relation are checked. |
-| source-termination | A declared single source-side resistor relation is checked. |
-| receiver-termination | Single-ended parallel termination is checked; differential termination variants are missing. |
-| pll-filter | One IC with CP and VTUNE plus RC is checked; multi-stage networks and separate VCO endpoints are missing. |
-| qspi-flash | Only the clock relation is checked; data grouping and speed/profile requirements are missing. |
-| esd-entry | Ordinary tagged ESD-to-connector locality is checked; explicit protocol exceptions and arrays are missing. |
-| common-mode-choke | Both connector-side winding relations are checked; complete protocol-specific ordering is missing. |
-| ac-coupling-pair | Two declared transmitter-side capacitor relations are checked; joint pair geometry and other placement-side profiles are missing. |
-| ethernet-magnetics | PHY/magnetics/connector core is checked; center taps, termination sides and integrated MagJack variants are missing. |
-| can-split-termination | Two resistors and midpoint capacitor at a declared CAN endpoint are checked. |
-| rs485-termination | The A/B resistor at a confirmed endpoint is checked; missing electrical termination is outside intent scope. |
-| usb-series-pair | Both declared PHY-side series resistors are checked; PHY requirements must be supplied. |
-| repeated-port-protection | Two ordinary ESD port branches are checked; repeated filter groups are missing. |
-| rf-matching | Only one series/shunt motif is checked; complete pi/T networks are missing. |
-| rf-balun | Only differential RF-to-balun relations are checked; single-ended branch placement is missing. |
-| antenna-region | Declared target/avoid/edge intent is checked; orientation and keepout declarations from the plan are missing. |
-| isolation-domains | Declared cross-domain clearance hints are checked; local group membership across a barrier is not explicitly validated. |
-| opto-feedback | LED/collector support resistors are checked; explicit per-side isolation-domain assignment is missing. |
-| cold-junction | A confirmed CJC sensor-to-connector target is checked. |
-| temperature-placement | Declared ambient avoid/monitored target intent is checked; purpose and heat sources must be supplied. |
-| magnetic-sensor | Declared target/avoid intent is checked; detailed mechanical alignment is not represented. |
+| distributed-supply | Verified physical groups are checked. Footprint fallback now targets every represented logical supply pin separately, including far-apart pins on the same side; adjacent pins may share an explicit group. Repeated physical pads have logical-pin coverage and an info limitation because the DSL cannot address individual duplicate pads. |
+| shared-rail-consumers | Each identified consumer sharing a supply rail needs its own local capacitor anchor; known supply/return functions remain prerequisites. |
+| supply-domains | Different named physical/function domains need distinct targets even when VDDA/VDDIO share the same net. |
+| filtered-supply | Downstream capacitor targeting includes VDD, VCC, VDDA, VDDIO, VCORE, AVIN and BIAS aliases. |
+| bulk-local-caps | Local capacitor targeting and mixed bulk/local rigid localLayout groups are checked separately. |
+| controller-bias | PVIN, AVIN and BIAS groups are checked separately, including repeated functions and shared rails. Any electrically appropriate capacitor may satisfy its own group; arbitrary capacitor-role permutations no longer require every capacitor at every pin. |
+| ldo-caps | Confirmed LDO input/output capacitor branches are checked; verified channels can bind repeated regulator functions. |
+| internal-regulator-cap | VCAP/VREG capacitor targeting uses the actual internal-regulator pin and return net. |
+| buck-loop | Integrated switching core, optional external diode, external asynchronous switch and synchronous half-bridge are recognized. External variants currently require directly connected named gate outputs. |
+| boost-loop | Integrated-switch and external-switch diode/output-capacitor loops are recognized; external gate connection is direct. |
+| buck-boost-loops | Integrated SW1/SW2 and external four-switch half-bridges have separate input/output commutation obligations; external gate connections are direct. |
+| sepic-loop | Separate inductors and confirmed coupled-inductor winding roles are supported. External-switch controllers without an identifiable SW endpoint need another graph variant. |
+| flyback-primary | Winding/switch/input-capacitor and source-shunt/controller-sense variants are supported. Confirmed flyback controllers may declare quiet-controller avoidance and a supplied distance. |
+| flyback-secondary | Diode and confirmed low-side synchronous-switch variants are supported; the synchronous-switch application tag is required. |
+| dc-feedback | Divider midpoint targets FB; overlapping support motifs do not consume the divider. |
+| compensation | Series, parallel and direct-capacitor COMP support is recognized. FB and REF/VREF returns have additional series/direct-capacitor variants. Arbitrary higher-order networks outside these motifs remain outside coverage. |
+| snubber | Both RC orders, RCD across a switch, flyback RCD returning to the primary rail and confirmed TVS clamps are supported. |
+| charge-pump | Every declared channel keeps its own flying-capacitor pair; channel maps prevent unrelated pairs from being mixed. |
+| gate-resistor | Driver/resistor/device branch is checked. A confirmed preferredGateResistorSide selects the driver or device anchor without inventing a universal distance. |
+| gate-split-resistors | Both diode orientations and directly connected separate on/off driver outputs are supported. |
+| driver-return | Ordinary MOSFET source, dedicated Kelvin source, IGBT emitter and dedicated Kelvin emitter are supported; dedicated terminals take precedence over power terminals sharing the same net. |
+| driver-decoupling | Confirmed driver supply/return capacitor targeting is checked. |
+| bootstrap | Both capacitor endpoints are checked against BOOT/HB and SW/HS; unrelated bypass nets are rejected. |
+| parallel-gates | Each MOSFET has its own resistor anchor. A declared branchLengthTolerance checks authored pad spans using complete poses/layers/footprints; unavailable geometry produces info. |
+| miller-clamp | Confirmed CLAMP-to-gate locality is checked. |
+| inductive-clamp | Flyback diode and confirmed TVS load clamps are supported. An external-load profile may bind the clamp to a connector/mechanical target. |
+| opamp-feedback | Both resistor and capacitor feedback are supported; verified channels prevent OUT/IN pairs from crossing between channels. |
+| transimpedance | Photodiode and confirmed current-source variants include optional parallel feedback capacitance. |
+| instrumentation-gain | Both confirmed RG endpoints are checked. |
+| differential-amplifier | Resistor/input branches and verified amplifier channels are supported. Declared span symmetry needs confirmed differential-input/differential-return roles to distinguish the signal resistor from its return resistor. |
+| active-filter | Declared Sallen-Key and low-pass MFB motifs are supported; unrelated filter architectures need another explicit variant. |
+| sar-input-filter | ADC-side series resistor and shunt capacitor targeting are checked. |
+| differential-adc-filter | Differential capacitance and paired common-mode capacitors are supported. |
+| adc-reference | Direct ADC reference capacitor targeting is checked. |
+| reference-buffer | Direct follower and resistive-feedback reference buffers are supported; more complex buffer architectures need explicit variants. |
+| high-impedance-divider | Declared ADC divider midpoint/filter targeting is checked. |
+| shunt-kelvin | Two-terminal and four-terminal shunts, direct and through two sense-filter resistors, are supported. Force terminals cannot satisfy dedicated sense-terminal obligations on the same net. |
+| sense-input-filter | Confirmed sense amplifier input resistors and differential capacitor are checked. |
+| crystal | Both oscillator branches and optional load capacitors are checked, with verified channels available for ambiguous devices. |
+| active-oscillator | Confirmed oscillator bypass and clock-consumer locality are checked. |
+| source-termination | The confirmed source-side resistor anchor is checked. |
+| receiver-termination | Single-ended and direct differential termination are supported; endpoint/application facts remain explicit. |
+| pll-filter | Integrated PLL, separate VCO and two-stage RC-to-VCO filter motifs are supported. Other filter architectures need explicit variants. |
+| qspi-flash | Named clock/data/select grouping, QSPI/OSPI endpoint maps, one unambiguous series resistor per signal and declared minimumPriority are checked. Level shifters and longer/ambiguous series chains are outside these variants; incomplete functional naming is reported as coverage info. |
+| esd-entry | Ordinary protection includes explicitly mapped array channels; ethernet-protection is excluded from the ordinary connector-anchor rule. |
+| common-mode-choke | Both winding branches and confirmed receiver endpoints are checked. entryChain declares the connector/receiver/protection side and validates its connectivity; no universal protocol ordering is invented. More complex chains need another variant/profile. |
+| ac-coupling-pair | Confirmed transmitter-side and receiver-side profiles are supported. A declared tolerance can compare authored branch spans; this is not routed skew measurement. |
+| ethernet-magnetics | Discrete magnetics, PHY center-tap capacitor, line-side termination/chassis capacitor and integrated MagJack variants are supported. Support tags must describe the actual winding side. |
+| can-split-termination | Both resistors and midpoint capacitor at the confirmed endpoint are checked. |
+| rs485-termination | Confirmed endpoint resistor locality is checked; electrical completeness of missing termination remains outside intent validation. |
+| usb-series-pair | Both required PHY-side resistor branches are checked under the confirmed USB profile. |
+| repeated-port-protection | Repeated discrete protection, one multi-line protection array and confirmed repeated connector filters are supported. |
+| rf-matching | Series/shunt, pi and T networks are supported under confirmed series/shunt application tags. |
+| rf-balun | Differential branches and a confirmed single-ended RF endpoint are supported. |
+| antenna-region | Declared target/avoid/edge, rotation restriction and named keepout dimensions/layers/allowed blocks are checked. Final radiating geometry/copper coverage is not certified. |
+| isolation-domains | Declared separation, mixed rigid localLayout groups and exact nets joining distinct declared domains are checked. Bridging components can declare per-pin domains. |
+| opto-feedback | Support anchors use actual LED/collector pins. Per-pin isolation domains identify each side and detect support/net assignments crossing declared domains. |
+| cold-junction | Confirmed CJC-to-contact targeting is checked; declared alignment can validate common-frame authored positions. |
+| temperature-placement | Ambient avoidance and monitored-object targeting use declared application/heat-source facts; declared alignment is optional. |
+| magnetic-sensor | Declared target/avoid/rotation and center alignment with an explicit offset/tolerance are checked. Unknown authored geometry produces info rather than a pass. |
 
 ## Implemented scope and verification (2026-10-08)
 - All 60 entries have independent authored recognition examples and missing-intent checks. This is core motif/locality validation, not a full electrical or physical verifier for every topology variation; see `pcb-intent-validation.md`.
@@ -189,9 +190,10 @@ The table below compares the implementation with the original catalog. A checked
 - Raw local evidence stays ignored under `debugging/pcb-intent-*.log`. No unrelated native/scoring changes were made to force the broad suite green.
 
 ## Remaining scope limits
-- Complex topology variants require verified device/application profiles. MFB filters, integrated MagJacks/protection, detailed QSPI data-group symmetry, emitter/Kelvin variants and datasheet-specific snubber/driver placement preferences can extend the existing pattern files.
-- Footprint-derived supply groups distinguish only unambiguous perimeter sides. Same-side spatial subdivisions, repeated pad identity and channel-specific semantics require verified groups/functions.
-- Actual pad distances, routed loop areas, return paths, symmetry/skew, antenna keepout dimensions and physical isolation compliance are future physical/routing checks.
+- The catalog implements the concrete graph variants in the audit, rather than every possible circuit belonging to the 60 broad families. External gate resistors in controller power-stage graphs, externally switched SEPIC without a named SW endpoint, arbitrary higher-order compensators/filters, memory level shifters and more complex protocol chains may need additional variants. Confirmed channels/roles cannot substitute for an unimplemented electrical graph.
+- Footprint fallback is conservative per logical supply pin. Nearby pins may share an explicitly verified group. Individual repeated physical pads cannot be distinguished by the current DSL pin target; coverage info states this boundary.
+- Authored symmetry/alignment checks use declared tolerances, common-frame positions and F32 arithmetic. Pad spans require explicit component layers and unambiguous supplied pads. They are not final placement or routed length measurements. Missing/ambiguous data is reported, not considered a pass.
+- A named keepout checks the authored region, dimensions, layers and exceptions. Its physical overlap with a radiating region and final copper/manufacturing clearance remain outside this API.
 - Draft DSL generation and automatic fixes are not part of this implementation.
 
 ## Research references and boundaries
@@ -202,3 +204,12 @@ The table below compares the implementation with the original catalog. A checked
 - [CJC placement](https://www.ti.com/lit/ug/tiducc1/tiducc1.pdf), [temperature sensor purpose](https://www.ti.com/document-viewer/lit/html/SSZT563/GUID-4573E11C-5CAA-4F31-AD62-B31EAA287993), [Hall sensor placement](https://www.ti.com/lit/an/sboa518/sboa518.pdf).
 
 These sources motivate motif checks, not universal geometric limits. Datasheet requirements must be supplied by a verified profile. Physical routing, EMI, return-current continuity, actual loop area, electrical values and fabrication compliance are outside intent validation.
+
+## Second implementation pass and verification (2026-10-08)
+- The concrete first-audit omissions are implemented in the existing PCB catalog files; there are still 60 registered IDs. Recognition, shared transforms and checkers remain under `pcb-layout/intent-validation`; no root circuit-pattern subsystem or native score changes were added.
+- New reusable pieces include coherent channel pin sets, graph variants, direct/series memory-interface recognition, entry-chain intent, per-pin isolation domain conflict detection and authored-geometry checks. Preferred gate resistor anchors, balanced branch roles and application purposes are declared by their catalog entry rather than dispatched by ID in a central switch.
+- Final targeted command: `node --import tsx --test tests/pcb-intent-patterns.test.ts tests/pcb-intent-validation.test.ts tests/pcb-local-layout.test.ts tests/pcb-provided-footprints.test.ts tests/pcb-constraint-region.test.ts`: **167 passed**. Of these, 157 exercise the intent validator/recognizers (68 more than the first pass). Expanded examples include missing/wrong anchors, corrected intent, exact sense pins, channel isolation, translated authored geometry, ambiguous/repeated pads and incomplete geometry coverage.
+- `npm run typecheck` and `npm run build`: passed after the final code changes. Built `dist/pcb.js` exports both APIs and returns an English structured invalid-input diagnostic in the smoke check.
+- Broad `npm run check` before the last memory/COMP/Kelvin/catalog refinements: typecheck/build passed; test summary was **573 passed, 13 failed, 40 skipped** (626 tests, approximately 223 seconds). Final refinements are covered by the targeted suite above; the broad suite was not repeated after them.
+- Twelve broad failure titles belong to the placement/native failures previously reproduced on main. The additional `bounded block neighbourhoods preserve hard legality` failure passed when isolated on both the archived main and this branch with the same native addon. Its full-suite/isolated difference remains unexplained; the suite is not green and this comparison does not establish a root cause.
+- Ignored evidence: `debugging/pcb-intent-expanded-{final,check,build,baseline-neighbourhood,branch-neighbourhood}.log`. No fixture DSL/netlist, native artifact or solver weight was edited to change these results.
