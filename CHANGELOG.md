@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Export offline `validatePcbLayoutIntent` and reusable `detectCircuitPatterns` with 60 independently registered motif/profile checks. Return stable English diagnostics with optional DSL source locations; reuse production structural/localLayout validation and accept equivalent pad pairs, paths, bypass anchors and authored local layouts. Support verified device/application knowledge and optional supply-group footprint geometry; report coverage limits without changing placement or native scores. See `docs/pcb-intent-validation.md` and the complete implementation plan.
+
 - Share a 0.001 mm physical geometry tolerance across native CPU/CubeCL Block, Board, FastRoute and placement validation. Ignore only boundary noise; preserve full severity beyond the tolerance. Remove false fixed collision penalties reproduced by ESP32 digital_input_1, align PostPlace/report edge allowances, and keep score ties and exact ordering separate. Placement score contract v12 requires a native rebuild; evidence: `docs/experimental/pcb/geometry-tolerance/README.md`.
 
 - Evaluate the complete Board repair batch through the existing GPU rank API instead of requesting an oversized shortlist. Preserve all repair candidates and scores; avoid an unnecessary whole-call CPU fallback above 96 variants, reproduced by the ESP32 orientation-weight experiment.

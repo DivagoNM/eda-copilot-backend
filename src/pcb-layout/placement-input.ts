@@ -102,6 +102,22 @@ export function validatePlacementRulesForCircuit(circuit: ExplainCircuit, rules:
     throw new Error(["Invalid PCB placement DSL:", ...errors].join("\n"));
 }
 
+/** Stable categories reuse the production collectors without parsing their rendered report. */
+export function collectPlacementRuleErrors(circuit: ExplainCircuit, rules: PlacementRules) {
+    const groups = [
+        ['PCB_TARGET_REF', collectPlacementTargetRefErrors(circuit, rules)],
+        ['PCB_BLOCK_OWNERSHIP', collectBlockOwnershipErrors(circuit, rules)],
+        ['PCB_BLOCK_LAYER', collectBlockLayerOwnershipErrors(rules)],
+        ['PCB_MECHANICAL_OWNERSHIP', collectMechanicalBlockOwnershipErrors(rules)],
+        ['PCB_HINT_SEMANTICS', collectPlacementHintSemanticErrors(circuit, rules)],
+        ['PCB_SIGNAL_PATH', collectSignalPathErrors(circuit, rules)],
+        ['PCB_REFINE_GROUP', collectRefineGroupErrors(circuit, rules)],
+        ['PCB_BLOCK_CONNECTIVITY', collectBlockNetConnectivityErrors(circuit, rules)],
+        ['PCB_FIXED_PLACEMENT', collectFixedPlacementUsageErrors(circuit, rules)],
+    ] as const;
+    return groups.filter(([, errors]) => errors.length > 0).map(([code, errors]) => ({ code, message: errors.join('\n') }));
+}
+
 export function applyPlacementPreviewFilter(circuit: ExplainCircuit, rules: PlacementRules): {
     circuit: ExplainCircuit;
     rules: PlacementRules;
@@ -1000,7 +1016,7 @@ function proceduralCircuitComponents(rules: ProceduralFeatureRule[]): ExplainCir
     });
 }
 
-function syntheticCircuitComponents(rules: PlacementRules): ExplainCircuit["components"] {
+export function syntheticCircuitComponents(rules: PlacementRules): ExplainCircuit["components"] {
     return [
         ...boardPadCircuitComponents(rules.boardPads ?? []),
         ...proceduralCircuitComponents(rules.proceduralFeatures ?? []),

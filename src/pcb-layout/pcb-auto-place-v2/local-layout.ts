@@ -83,6 +83,21 @@ export function validateLocalLayouts(
     rules: PlacementRules,
     layouts: Map<string, LocalLayout>,
 ) {
+    const errors = collectLocalLayoutErrors(circuit, rules, layouts);
+    if (errors.length > 0) {
+        throw new Error([
+            'Invalid PCB placement DSL:',
+            'Invalid localLayout rules:',
+            ...errors.map((error) => `- ${error}`),
+        ].join('\n'));
+    }
+}
+
+export function collectLocalLayoutErrors(
+    circuit: { components: Array<{ designator: string }> },
+    rules: PlacementRules,
+    layouts: Map<string, LocalLayout>,
+) {
     const circuitComponents = new Set(circuit.components.map((component) => component.designator));
     const rulesByDesignator = new Map(rules.component_rules.map((rule) => [rule.designator, rule]));
     const errors: string[] = [];
@@ -121,13 +136,7 @@ export function validateLocalLayouts(
         }
     }
 
-    if (errors.length > 0) {
-        throw new Error([
-            'Invalid PCB placement DSL:',
-            'Invalid localLayout rules:',
-            ...errors.map((error) => `- ${error}`),
-        ].join('\n'));
-    }
+    return errors;
 }
 
 export function attachLocalLayoutSeeds(input: PlacementInput, layouts: Map<string, LocalLayout>) {

@@ -256,19 +256,77 @@ type PreserveOptions = {
     components?: "all" | string[];
 };
 
-export function runPcbLayoutDsl(code: string): DslRules {
+export type PcbDslCall = { name: string; args: unknown[]; line: number; column: number };
+export type PcbDslRunOptions = { onCall?: (call: PcbDslCall) => void; sourceLineOffset?: number };
+
+/** User-code failures are distinguished from host validation/programming failures. */
+export class PcbLayoutDslError extends Error {
+    constructor(message: string, public readonly location?: { line: number; column?: number }) {
+        super(message);
+        this.name = 'PcbLayoutDslError';
+    }
+}
+
+class PcbDslObserverError extends Error {
+    constructor(public readonly failure: unknown) { super('DSL observer failed.'); }
+}
+
+function dslLocation(stack: string | undefined, offset: number) {
+    const frames = [...(stack ?? '').matchAll(/pcb-layout-dsl\.js:(\d+)(?::(\d+))?/g)];
+    const frame = frames.find(f => Number(f[1]) > offset);
+    return frame ? { line: Number(frame[1]) - offset, column: frame[2] ? Number(frame[2]) : undefined } : undefined;
+}
+
+/** Opt-in wrappers preserve calls/results and never enter placement or solver state. */
+function traceDslSandbox<T extends object>(sandbox: T, options: PcbDslRunOptions): T {
+    const wrapped = new WeakMap<object, object>();
+    const offset = 1 + (options.sourceLineOffset ?? 0);
+    function wrap(value: unknown, name: string): unknown {
+        if ((typeof value !== 'function' && (typeof value !== 'object' || value === null))) return value;
+        // Rule data and target refs retain their identity; only callable API
+        // objects (board/fluent component helpers) need observation.
+        if (typeof value === 'object' && !Object.values(value).some(v => typeof v === 'function')) return value;
+        if (wrapped.has(value)) return wrapped.get(value);
+        const proxy = new Proxy(value, {
+            get(target, key, receiver) {
+                return wrap(Reflect.get(target, key, receiver), name ? name + '.' + String(key) : String(key));
+            },
+            apply(target, thisArg, args) {
+                const location = dslLocation(new Error().stack, offset);
+                if (location) {
+                    try { options.onCall!({ name, args, line: location.line, column: location.column ?? 1 }); }
+                    catch (error) { throw new PcbDslObserverError(error); }
+                }
+                return wrap(Reflect.apply(target as (...args: unknown[]) => unknown, thisArg, args), name);
+            },
+        });
+        wrapped.set(value, proxy);
+        return proxy;
+    }
+    // A Proxy as the VM global masks implicit built-ins such as JSON. Keep the
+    // global ordinary and wrap only the explicit DSL bindings.
+    return Object.fromEntries(Object.entries(sandbox).map(([name, value]) => [name, wrap(value, name)])) as T;
+}
+
+export function runPcbLayoutDsl(code: string, options: PcbDslRunOptions = {}): DslRules {
     const builder = new PcbLayoutDslBuilder();
-    const sandbox = createContext(builder.createSandbox(), {
+    const bindings = builder.createSandbox();
+    const sandbox = createContext(options.onCall ? traceDslSandbox(bindings, options) : bindings, {
         codeGeneration: {
             strings: false,
             wasm: false,
         },
     });
-    const script = new Script(`"use strict";\n${code}`, {
-        filename: "pcb-layout-dsl.js",
-    });
-
-    script.runInContext(sandbox, { timeout: 1000, displayErrors: true });
+    try {
+        const script = new Script(`"use strict";\n${code}`, { filename: "pcb-layout-dsl.js" });
+        script.runInContext(sandbox, { timeout: 1000, displayErrors: true });
+    } catch (error) {
+        if (!options.onCall) throw error;
+        if (error instanceof PcbDslObserverError) throw error.failure;
+        const failure = (typeof error === 'object' && error !== null ? error : {}) as { message?: unknown; stack?: unknown };
+        throw new PcbLayoutDslError(typeof failure.message === 'string' ? failure.message : 'PCB DSL execution failed.',
+            dslLocation(typeof failure.stack === 'string' ? failure.stack : undefined, 1 + (options.sourceLineOffset ?? 0)));
+    }
     return builder.toRules();
 }
 
