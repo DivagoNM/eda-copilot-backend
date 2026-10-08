@@ -1,6 +1,9 @@
 import type { ExplainCircuit } from '../../../types/circuit.ts';
 import type { DetectCircuitPatternsInput, PatternNode } from './types.ts';
 import { isMountingHoleComponent } from './mounting-holes.ts';
+import type { PlacementRules } from '../../../types/pcb/layout-rules.ts';
+import { createLocalEnvironment } from './local-environment.ts';
+import type { PcbSchematicGroups } from '../types.ts';
 
 export type CircuitComponent = ExplainCircuit['components'][number];
 export type CircuitPin = CircuitComponent['pins'][number];
@@ -11,7 +14,7 @@ export const SUPPLY = ['VDD', 'VCC', 'VDDIO', 'VDDA', 'VCORE', 'PVIN', 'AVIN', '
 export const RETURN = ['GND', 'VSS', 'AGND', 'PGND', 'DGND', 'VEE'];
 
 /** Only schematic labels, named terminals and connectivity establish roles. */
-export function createCircuitPatternContext(input: DetectCircuitPatternsInput) {
+export function createCircuitPatternContext(input: DetectCircuitPatternsInput, rules?: PlacementRules, schematicGroups?: PcbSchematicGroups) {
     const components = [...input.circuit.components].sort((a, b) => stableCompare(a.designator, b.designator));
     const byDesignator = new Map(components.map(c => [c.designator, c]));
     const byNet = new Map<string, Array<{ component: CircuitComponent; pin: CircuitPin }>>();
@@ -68,6 +71,7 @@ export function createCircuitPatternContext(input: DetectCircuitPatternsInput) {
         return aliases.includes('*') || pins.length === 1 || names.every(name => RETURN.includes(name))
             ? [...pins].sort((a, b) => stableCompare(String(a.pin_number), String(b.pin_number))) : [];
     };
-    return { ...input, components, byDesignator, byNet, functionOf, kindOf, hasFunction, candidates, pinsFor };
+    const context = { ...input, components, byDesignator, byNet, functionOf, kindOf, hasFunction, candidates, pinsFor };
+    return { ...context, environment: createLocalEnvironment(context, rules, schematicGroups) };
 }
 export type CircuitPatternContext = ReturnType<typeof createCircuitPatternContext>;

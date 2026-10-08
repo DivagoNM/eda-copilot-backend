@@ -10,6 +10,8 @@
 
 - Add offline `validatePcbLayoutIntent` with the same input as `makePcbLayout`, English JSON diagnostics and reusable `detectCircuitPatterns`. Use one registry and one file for each of 57 conservative checks; reuse the production schema/validators and restore the placement helpers unchanged. Remove manual knowledge profiles and profile-only checks. Recognition uses schematic topology and labels; it does not place components or change native scores.
 
+- Scope ambiguous rail-passive candidates by explicit assignments, unique direct-wire islands and root/satellite families across intent patterns. Treat rail-bank candidates as complete alternatives instead of Cartesian warnings; accept small dedicated families for ordinary supply locality while keeping critical loops and individual supply pins strict. Accept structured groups/wire islands through the editor-independent `PcbSchematicGroups` contract; report conflicting grouping/ownership as info and abstain on ambiguous or partial wire evidence. Keep the layout input and LLM parameters unchanged.
+
 - Add `debug:pcb-validation` for fixtures or standalone DSL/schematic files, optional footprints/existing placement and saved diagnostic/input snapshots. Warnings fail only with --strict; info stays advisory.
 
 - Warn for unbound connectors and fixed positions farther than a 5 mm perimeter guideline, using shared geometry helpers. Report board-level info when neither mounting-hole components nor DSL holes are present, including during previews. See [intent validation](docs/pcb-intent-validation.md) for coverage limits.

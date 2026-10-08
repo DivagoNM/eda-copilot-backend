@@ -19,7 +19,7 @@ export function createIntentContext(recognition: CircuitPatternContext, rules: P
     const samePin = (a: CircuitPinRef, b: CircuitPinRef) => pinKey(a.designator, a.pin_number) === pinKey(b.designator, b.pin_number);
     const strong = (priority: string, hard?: boolean | null) => priority === 'high' || priority === 'critical' || hard === true;
     const seededTogether = (a: string, b: string) => [...layouts.values()].some(l => l[a] && l[b]);
-    function locality(source: CircuitPinRef, target: CircuitPinRef): 'pad' | 'seed' | 'weak' | 'missing' {
+    function locality(source: CircuitPinRef, target: CircuitPinRef, allowGroup = false): 'pad' | 'seed' | 'weak' | 'missing' {
         const net = byDesignator.get(source.designator)?.pins.find(p => String(p.pin_number) === String(source.pin_number))?.signal_name;
         const targetNet = byDesignator.get(target.designator)?.pins.find(p => String(p.pin_number) === String(target.pin_number))?.signal_name;
         const segments = [...rules.paths.flatMap(p => p.segments), ...rules.hints.filter(h => h.relation === 'critical_pair')];
@@ -37,6 +37,7 @@ export function createIntentContext(recognition: CircuitPatternContext, rules: P
             }
         }
         if (seededTogether(source.designator, target.designator)) return 'seed';
+        if (allowGroup && recognition.environment.ordinaryTogether(source.designator, target.designator)) return 'seed';
         const a = source, b = target;
         const weak = rules.hints.some(h => (h.relation === 'near' || h.relation === 'very_near' || h.relation === 'cluster_with') &&
             ((covers(h.source, a.designator) && covers(h.target, b.designator)) ||
@@ -49,12 +50,15 @@ export function createIntentContext(recognition: CircuitPatternContext, rules: P
         if (requirement.relation === 'mounting-holes') return mountingHoleCount >= requirement.minimumCount ? 'pad' : 'missing';
         if (requirement.relation === 'connector-placement') return connectorPlacementWarning(requirement.source, requirement.maxEdgeDistance) ? 'missing' : 'pad';
         if (requirement.relation === 'local') {
-            const statuses = [requirement, ...(requirement.alternatives ?? [])].map(r => locality(r.source, r.target));
+            const statuses = [requirement, ...(requirement.alternatives ?? [])].map(r => locality(r.source, r.target, requirement.allowGroup));
             return statuses.includes('pad') ? 'pad' : statuses.includes('seed') ? 'seed' : statuses.includes('weak') ? 'weak' : 'missing';
         }
         if (requirement.relation === 'supply-group') {
             const statuses = requirement.targets.map(target => {
-                const choices = requirement.capacitors.map(source => locality(source, target));
+                const choices = requirement.capacitors.map(source => {
+                    const status = locality(source, target, requirement.allowGroup);
+                    return status === 'seed' && !requirement.allowGroup ? 'weak' : status;
+                });
                 return choices.includes('pad') ? 'pad' : choices.includes('seed') ? 'seed' : choices.includes('weak') ? 'weak' : 'missing';
             });
             return statuses.includes('missing') ? 'missing' : statuses.includes('weak') ? 'weak' : statuses.includes('seed') ? 'seed' : 'pad';

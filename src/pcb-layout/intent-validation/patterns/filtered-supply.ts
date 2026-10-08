@@ -9,7 +9,7 @@ export const pattern: CircuitPatternDefinition = {
         {"id":"filter","functions":["supply-filter"],"pins":{"a":["*"],"b":["*"]}},
     ],
     links: [
-        {"from":"load.v","to":"cap.a","local":true},
+        {"from":"load.v","to":"cap.a","local":"group"},
         {"from":"cap.b","to":"load.g"},
         {"from":"load.v","to":"filter.b"},
     ],

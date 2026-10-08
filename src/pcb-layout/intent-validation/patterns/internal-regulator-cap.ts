@@ -8,7 +8,7 @@ export const pattern: CircuitPatternDefinition = {
         {"id":"cap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
     ],
     links: [
-        {"from":"ic.v","to":"cap.a","local":true},
+        {"from":"ic.v","to":"cap.a","local":"group"},
         {"from":"cap.b","to":"ic.g"},
     ],
 };

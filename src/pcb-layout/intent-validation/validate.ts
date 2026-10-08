@@ -1,6 +1,6 @@
 import { layoutSchema } from '../../pcb.ts';
 import { createCircuitPatternContext, pinKey, stableCompare } from './recognition/context.ts';
-import { matchCircuitPattern } from './recognition/match.ts';
+import { matchCircuitPattern, groupRailMatches } from './recognition/match.ts';
 import { LayoutRulesSchema, type PlacementRules } from '../../types/pcb/layout-rules.ts';
 import { runPcbLayoutDsl } from '../pcb-layout-dsl/spec.ts';
 import { instrumentLocalLayoutDsl, extractLocalLayouts, stripLocalLayoutCarriers, validateLocalLayouts } from '../pcb-auto-place-v2/local-layout.ts';
@@ -10,10 +10,12 @@ import { validatePlacementRulesForCircuit } from '../placement-validation.ts';
 import { createIntentContext } from './context.ts';
 import { checkPattern } from './check-pattern.ts';
 import { circuitPatternRegistry } from './registry.ts';
-import type { PcbIntentDiagnostic, ValidatePcbLayoutIntentInput } from './types.ts';
+import type { PcbIntentDiagnostic, ValidatePcbLayoutIntentInput, PcbSchematicGroups } from './types.ts';
+import { checkSchematicGroups } from './schematic-groups.ts';
 
 /** Offline validation: no device lookup, placement, native solver or input mutation. */
-export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput): PcbIntentDiagnostic[] {
+export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput,
+    schematicGroups?: PcbSchematicGroups): PcbIntentDiagnostic[] {
     const parsed = layoutSchema.safeParse(input);
     if (!parsed.success) return parsed.error.issues.map(issue => ({ code: 'PCB_INTENT_INPUT', severity: 'error',
         message: issue.path.join('.') + ': ' + issue.message }));
@@ -73,10 +75,17 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput): Pc
     catch (error) { return [{ code: 'PCB_DSL_STRUCTURE', severity: 'error', message: error instanceof Error ? error.message : String(error) }]; }
     diagnostics.push(...collectRefs(effectiveCircuit, rules));
     if (diagnostics.some(d => d.severity === 'error')) return finish(diagnostics);
-    const recognition = createCircuitPatternContext({ circuit: effectiveCircuit, footprints: data.footprints, componentRoles });
+    const recognition = createCircuitPatternContext({ circuit: effectiveCircuit, footprints: data.footprints, componentRoles }, rules, schematicGroups);
     const context = createIntentContext(recognition, rules, localLayouts, circuit, data.existingPlacement);
-    for (const pattern of circuitPatternRegistry) for (const match of matchCircuitPattern(recognition, pattern))
+    for (const pattern of circuitPatternRegistry) for (const group of groupRailMatches(recognition, matchCircuitPattern(recognition, pattern))) {
+        // Choose one complete alternative. Do not splice different capacitors' loop endpoints.
+        const ranked = group.map(match => ({ match, missing: match.requirements.filter(r =>
+            ['missing', 'weak'].includes(context.requirementStatus(r))).length }));
+        ranked.sort((a, b) => a.missing - b.missing);
+        const match = ranked[0].match;
         diagnostics.push(...(pattern.check ? pattern.check(match, context) : checkPattern(pattern, match, context)));
+    }
+    diagnostics.push(...checkSchematicGroups(schematicGroups, recognition));
     return finish(diagnostics);
 }
 function collectRefs(circuit: ValidatePcbLayoutIntentInput['circuit'], rules: PlacementRules): PcbIntentDiagnostic[] {

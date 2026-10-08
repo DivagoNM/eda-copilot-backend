@@ -9,7 +9,7 @@ export const pattern: CircuitPatternDefinition = {
         {"id":"receiver","pins":{"clock":["CLKIN","CLK","MCLK"]}},
     ],
     links: [
-        {"from":"osc.v","to":"cap.a","local":true},
+        {"from":"osc.v","to":"cap.a","local":"group"},
         {"from":"osc.g","to":"cap.b"},
         {"from":"osc.out","to":"receiver.clock","local":true},
     ],

@@ -5,6 +5,10 @@ import type { DetectCircuitPatternsInput } from '../src/pcb.ts';
 import { circuitPatternRegistry } from '../src/pcb-layout/intent-validation/registry.ts';
 
 type Device = [string, string, string[]?, string?];
+// A catch-all board block must not count as a small dedicated functional family.
+const boardWide = (input: DetectCircuitPatternsInput): DetectCircuitPatternsInput => ({ ...input,
+    circuit: { components: [...input.circuit.components, { designator: 'U_GUARD', value: 'unrelated IC', part_uuid: null,
+        pins: [{ pin_number: 1, name: 'UNUSED', signal_name: 'unrelated' }] }] } });
 function fixture(...devices: Device[]): DetectCircuitPatternsInput {
     return { circuit: { components: devices.map(([designator, connections, functions, kind]) => {
         return { designator, value: [...(functions ?? []), ...(kind ? [kind] : [])].join(' ') || 'fixture', part_uuid: null, pins: connections.split(' ').map((pair, i) => {
@@ -83,8 +87,9 @@ for (const [id, input] of Object.entries(cases)) {
         const original = structuredClone(input);
         const matches = detectCircuitPatterns(input);
         assert.ok(matches.some(m => m.patternId === id), 'missing recognition for ' + id);
-        const code = 'block("fixture",' + JSON.stringify(input.circuit.components.map(c => c.designator)) + ',"generic",{allowDisconnected:true});';
-        const diagnostics = validatePcbLayoutIntent({ ...input, code });
+        const validationInput = boardWide(input);
+        const code = 'block("fixture",' + JSON.stringify(validationInput.circuit.components.map(c => c.designator)) + ',"generic",{allowDisconnected:true});';
+        const diagnostics = validatePcbLayoutIntent({ ...validationInput, code });
         assert.equal(diagnostics.filter(d => d.severity === 'error').length, 0, JSON.stringify(diagnostics));
         assert.ok(diagnostics.some(d => d.code === 'PCB_INTENT_' + id.replace(/-/g, '_').toUpperCase()), JSON.stringify(diagnostics));
         assert.deepEqual(input, original);
@@ -260,9 +265,10 @@ for (const { name, id, input, pairs } of expanded) {
         const original = structuredClone(input);
         const matches = detectCircuitPatterns(input).filter(m => m.patternId === id);
         assert.ok(matches.length, 'topology not recognized');
-        const code = 'block("fixture",' + JSON.stringify(input.circuit.components.map(c => c.designator)) + ',"generic",{allowDisconnected:true});';
+        const validationInput = boardWide(input);
+        const code = 'block("fixture",' + JSON.stringify(validationInput.circuit.components.map(c => c.designator)) + ',"generic",{allowDisconnected:true});';
         const check = (suffix: string) => {
-            const diagnostics = validatePcbLayoutIntent({ ...input, code: code + suffix });
+            const diagnostics = validatePcbLayoutIntent({ ...validationInput, code: code + suffix });
             assert.deepEqual(diagnostics.filter(d => d.severity === 'error'), [], JSON.stringify(diagnostics));
             return diagnostics.filter(d => d.code === 'PCB_INTENT_' + id.replace(/-/g, '_').toUpperCase());
         };

@@ -5,8 +5,8 @@ import type { FootprintSpec } from '../../../types/pcb/layout-model.ts';
 
 export type CircuitPinRef = { designator: string; pin_number: string | number };
 export type CircuitPatternRequirement =
-    | { relation: 'local'; source: CircuitPinRef; target: CircuitPinRef; alternatives?: Array<{ source: CircuitPinRef; target: CircuitPinRef }> }
-    | { relation: 'supply-group'; targets: CircuitPinRef[]; capacitors: CircuitPinRef[] }
+    | { relation: 'local'; source: CircuitPinRef; target: CircuitPinRef; allowGroup?: boolean; alternatives?: Array<{ source: CircuitPinRef; target: CircuitPinRef }> }
+    | { relation: 'supply-group'; targets: CircuitPinRef[]; capacitors: CircuitPinRef[]; allowGroup?: boolean }
     | { relation: 'connector-placement'; source: string; maxEdgeDistance: number }
     | { relation: 'mounting-holes'; minimumCount: number }
     | { relation: 'separate-group'; source: string; target: string };
@@ -40,7 +40,7 @@ export type PatternLink = {
     from: string;
     to: string;
     /** Only selected edges imply a layout obligation. */
-    local?: boolean;
+    local?: boolean | 'group';
 };
 export type PatternTopology = {
     nodes?: PatternNode[];

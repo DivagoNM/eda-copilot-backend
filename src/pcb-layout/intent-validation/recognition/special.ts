@@ -19,7 +19,7 @@ export function detectSpecialPattern(ctx: CircuitPatternContext, definition: Cir
             .sort((a, b) => stableCompare(String(a.pin_number), String(b.pin_number)));
         const returns = new Set(component.pins.filter(pin => RETURN.includes(ctx.functionOf(component, pin))).map(pin => pin.signal_name));
         if (!supplies.length || !returns.size) continue;
-        const capsFor = (net: string) => ctx.components.filter(c => ctx.kindOf(c) === 'capacitor' && c.pins.length === 2 &&
+        const capsFor = (net: string) => ctx.components.filter(c => ctx.kindOf(c) === 'capacitor' && c.pins.length === 2 && ctx.environment.eligible(c, component.designator) &&
             c.pins.some(p => p.signal_name === net) && c.pins.some(p => returns.has(p.signal_name) && p.signal_name !== net));
         const rails = [...new Set(supplies.map(p => p.signal_name))].sort(stableCompare);
         if (definition.special === 'shared-supply' && !supplies.some(pin => ctx.components.some(other =>
@@ -63,7 +63,8 @@ export function detectSpecialPattern(ctx: CircuitPatternContext, definition: Cir
                 const caps = capsFor(rail);
                 if (!caps.length) continue; // Missing circuit capacitance is outside placement-intent validation.
                 const capacitors = caps.map(c => ref(c.designator, c.pins.find(p => p.signal_name === rail)!.pin_number));
-                add([component.designator, ...caps.map(c => c.designator)], [{ relation: 'supply-group', targets, capacitors }]);
+                add([component.designator, ...caps.map(c => c.designator)], [{ relation: 'supply-group', targets, capacitors,
+                    ...(definition.special === 'shared-supply' && targets.length === 1 ? { allowGroup: true } : {}) }]);
             }
         }
     }

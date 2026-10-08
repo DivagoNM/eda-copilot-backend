@@ -9,9 +9,9 @@ export const pattern: CircuitPatternDefinition = {
         {"id":"outputCap","kind":"capacitor","pins":{"a":["*"],"b":["*"]}},
     ],
     links: [
-        {"from":"ic.input","to":"inputCap.a","local":true},
+        {"from":"ic.input","to":"inputCap.a","local":"group"},
         {"from":"inputCap.b","to":"ic.g"},
-        {"from":"ic.output","to":"outputCap.a","local":true},
+        {"from":"ic.output","to":"outputCap.a","local":"group"},
         {"from":"outputCap.b","to":"ic.g"},
     ],
 };

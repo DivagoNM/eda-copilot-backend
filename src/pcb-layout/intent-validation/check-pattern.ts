@@ -16,6 +16,6 @@ export function checkPattern(pattern: CircuitPatternDefinition, match: CircuitPa
     if (!missing.length) return [];
     return [{ code: 'PCB_INTENT_' + pattern.id.replace(/-/g, '_').toUpperCase(), severity: 'warning',
         message: pattern.title + ': add or revise explicit placement intent for ' +
-            [...new Set(missing.map(label))].sort(stableCompare).join('; ') + '. Component-center relations or block membership alone do not establish pad locality.',
+            [...new Set(missing.map(label))].sort(stableCompare).join('; ') + '. Verify the indicated terminal relationships and their placement priority.',
         context: { components: match.components } }];
 }

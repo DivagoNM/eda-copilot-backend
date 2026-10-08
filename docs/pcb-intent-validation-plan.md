@@ -27,6 +27,23 @@ The full retained catalog, input/output contract, recognition limits and debug c
 
 ## Retained patterns
 
+### Shared locality follow-up
+
+- [x] Resolve functional families from a root block and all recursive attachTo descendants.
+- [x] Resolve explicit rail-passive ownership once; share candidate filtering across graph motifs and supply checks.
+- [x] Preserve recognition across wrong boundaries when the signal or supply owner is unique.
+- [x] Accept small dedicated families for ordinary supply locality, retaining strict critical-loop and individual supply-pin obligations.
+- [x] Group equivalent rail-bank candidates and check complete alternatives; emit one finding rather than Cartesian duplicates.
+- [x] Add optional backend schematic-group context; automatically read full groups in EasyEDA without changing the LLM file-only schema.
+- [x] Define one backend `PcbSchematicGroups` contract with component arrays and an optional incomplete flag. Parse EasyEDA strings/multipart references in the integration adapter; backend contains no EasyEDA transport parser.
+- [x] Compare schematic groups with root families as info only; skip giant, overlapping and unresolved groups.
+- [x] Add structured wire islands to the shared contract; parse actual pin references only in EasyEDA. Use explicit ownership, then unique small wire islands, then families across the shared recognition path. Retain PCB locality requirements, abstain on partial/ambiguous evidence and report conflicting assignments as info.
+- [x] Verify STM32 regression, other topology families, production regressions, MCP/CLI/bundled Skill, and commit only validator additions.
+
+The previous STM32 report contained 65 warnings, including 54 LDO Cartesian duplicates. The final report has 0 errors, 9 warnings and 1 mounting-hole info, no LDO warnings, and restricts U2 candidates to C7/C8/C9. Evidence: `debugging/pcb-validation/runs/STM32G0_CAN_RS485/2026-10-08T18-28-24-605Z-nNo69N/summary.md`.
+
+Final verification: all 217 focused backend tests passed, including 31 locality/group/wire cases and the existing localLayout/placement-validation regressions. Backend and MCP typechecks and builds passed. Both the normal runtime and the bundled Skill passed 14 independent backend/stdio/CLI cases, including exact pin-reference parsing, partial editor data, automatic reads and file-only LLM input. The scope audit confirmed the four production helpers still match `0353f7a`; old public files differ only in the validator type-export additions. Evidence: `debugging/intent-locality-tests.log`, `debugging/intent-locality-build.log`, `debugging/intent-locality-scope.log`.
+
 | # | ID | Pattern |
 |---|---|---|
 | 1 | ac-coupling-pair | Differential AC coupling |

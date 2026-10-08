@@ -16,11 +16,35 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
     const candidatesByNode = new Map(nodes.map(node => [node, context.candidates(node)]));
     const pinsByNode = new Map(nodes.map(node => [node, new Map(candidatesByNode.get(node)!.map(component =>
         [component, Object.fromEntries(Object.entries(node.pins).map(([label, aliases]) => [label, context.pinsFor(component, aliases)]))]))]));
+    const isAnchor = (name: string) => !['capacitor', 'resistor', 'inductor', 'diode'].includes(context.kindOf(context.byDesignator.get(name)!));
+    const possibleAnchors = new Map(nodes.map(node => [node.id, candidatesByNode.get(node)!
+        .filter(c => isAnchor(c.designator) && Object.values(pinsByNode.get(node)!.get(c)!).every(pins => pins.length))
+        .map(c => c.designator)]));
+    const rootAnchor = nodes.find(node => possibleAnchors.get(node.id)!.length)?.id;
+    const anchorRoles = new Map(nodes.map(node => {
+        const anchors = new Set<string>(), visited = new Set([node.id]);
+        function walk(role: string) {
+            for (const link of links.filter(l => l.local)) {
+                const a = link.from.split('.')[0], b = link.to.split('.')[0];
+                const next = a === role ? b : b === role ? a : undefined;
+                if (!next || visited.has(next)) continue;
+                visited.add(next);
+                if (possibleAnchors.get(next)?.length) anchors.add(next); else walk(next);
+            }
+        }
+        walk(node.id);
+        return [node.id, anchors.size ? [...anchors] : rootAnchor ? [rootAnchor] : []] as const;
+    }));
     const roles: Record<string, string> = {};
     const selected: Record<string, { component: CircuitComponent; pin: CircuitPin }> = {};
     const matches: CircuitPatternMatch[] = [];
     function visit(index: number) {
         if (index === nodes.length) {
+            if (nodes.some(node => {
+                if (!roles[node.id]) return false;
+                const anchors = anchorRoles.get(node.id)!.map(role => roles[role]).filter(name => name && isAnchor(name));
+                return anchors.length && !context.environment.eligible(context.byDesignator.get(roles[node.id])!, anchors);
+            })) return;
             const pins = Object.fromEntries(Object.entries(selected).map(([key, { component, pin }]) =>
                 [key, { designator: component.designator, pin_number: pin.pin_number }]));
             matches.push({
@@ -28,7 +52,7 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
                 components: Object.values(roles).sort(stableCompare),
                 roles: { ...roles }, pins,
                 nets: [...new Set(Object.values(selected).map(p => p.pin.signal_name))].sort(stableCompare),
-                requirements: [...links.filter(l => l.local && pins[l.from] && pins[l.to]).map(l => ({ relation: 'local' as const, source: pins[l.from], target: pins[l.to] })),
+                requirements: [...links.filter(l => l.local && pins[l.from] && pins[l.to]).map(l => ({ relation: 'local' as const, source: pins[l.from], target: pins[l.to], ...(l.local === 'group' ? { allowGroup: true } : {}) })),
                     ...(definition.componentRequirements ?? []).map(({ role, ...requirement }) => ({ ...requirement, source: roles[role] })),
                     ...(definition.boardRequirements ?? [])],
             });
@@ -47,6 +71,11 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
         }
         for (const component of candidates) {
             if (Object.values(roles).includes(component.designator)) continue;
+            if (context.environment.railPassive(component)) {
+                // Stop at the first active role: a clock receiver cannot own the oscillator's cap.
+                const anchors = anchorRoles.get(node.id)!.flatMap(role => roles[role] ? [roles[role]] : possibleAnchors.get(role)!);
+                if (anchors.length && !context.environment.eligible(component, anchors)) continue;
+            }
             roles[node.id] = component.designator;
             const entries = Object.entries(node.pins);
             function choosePin(i: number, pinSet: Record<string, CircuitPin[]>) {
@@ -104,4 +133,19 @@ export function matchCircuitPattern(context: CircuitPatternContext, definition: 
         });
     }
     return [...unique.values()].sort((a, b) => stableCompare(JSON.stringify(a.pins), JSON.stringify(b.pins)));
+}
+
+/** Rail-bank members are alternatives for one motif obligation, not separate violations. */
+export function groupRailMatches(context: CircuitPatternContext, matches: CircuitPatternMatch[]): CircuitPatternMatch[][] {
+    const groups = new Map<string, CircuitPatternMatch[]>();
+    for (const match of matches) {
+        const banks = new Set(Object.values(match.roles).filter(name => context.environment.railPassive(context.byDesignator.get(name)!)));
+        const key = JSON.stringify([match.patternId, Object.entries(match.roles).map(([role, name]) => [role, banks.has(name) ? null : name]),
+            Object.entries(match.pins).map(([role, pin]) => [role, banks.has(pin.designator)
+                ? context.byDesignator.get(pin.designator)!.pins.find(p => String(p.pin_number) === String(pin.pin_number))!.signal_name
+                : pinKey(pin.designator, pin.pin_number)]), match.requirements.map(r => r.relation === 'local' ? [r.relation, r.allowGroup] : r)]);
+        const group = groups.get(key) ?? [];
+        group.push(match); groups.set(key, group);
+    }
+    return [...groups.values()];
 }
