@@ -142,7 +142,7 @@ for(let i=0;i<4;i++) {
 block("output_driver", ["U11"], "generic");
 block("output_pulldowns", ["R30","R31","R32","R33"], "generic",{placement:"satellite",attachTo:"output_driver",anchor:pin("U11","1"),allowDisconnected:true});
 block("output_tvs", ["D14"], "power");
-near(comp("U11"), comp("J5"), "high");
+// near(comp("U11"), comp("J5"), "high");
 near(comp("D14"), pin("J5","5"), "high");
 for(let i=0;i<4;i++) {
   const fuse="F"+(3+i);

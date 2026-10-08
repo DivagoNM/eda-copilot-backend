@@ -97,12 +97,9 @@ near(block("led_b"), pin("U3", "20"), "normal");
 near(block("led_a"), anchor("board.top"), "high");
 near(block("led_b"), anchor("board.top"), "high");
 near(block("reset"), comp("SW1"), "normal");
-near(comp("J2"), comp("U3"), "high");
-near(comp("J3"), comp("U3"), "normal");
 
 // CAN: separate 5 V VCC and 3.3 V VIO bypass, ESD shunts at the connector.
-block("can", ["U4", "R13", "C18", "C19", "C20"], "generic", { anchor: comp("J4") });
-block("can_protection", ["D4"], "generic", { anchor: comp("J4") });
+block("can", ["U4", "D4", "R13", "C18", "C19", "C20"], "generic", { anchor: comp("J4") });
 block("can_termination", ["R11", "JP1"], "generic", { anchor: comp("J4") });
 bypass(["C18"], pin("U4", "3"), "high");
 bypass(["C19"], pin("U4", "5"), "high");
@@ -113,8 +110,7 @@ signalPath("can_h", [[pin("U4", "7"), pin("D4", "1")], [pin("D4", "1"), pin("J4"
 signalPath("can_l", [[pin("U4", "6"), pin("D4", "2")], [pin("D4", "2"), pin("J4", "2"), { maxDistance: 5 }]], { priority: "high" });
 
 // RS485: shared DE/RE control, defaults and local 3.3 V supply.
-block("rs485", ["U5", "R14", "R15", "R16", "C21", "C22"], "generic", { anchor: comp("J5") });
-block("rs485_protection", ["D5"], "generic", { anchor: comp("J5") });
+block("rs485", ["U5", "D5", "R14", "R15", "R16", "C21", "C22"], "generic", { anchor: comp("J5") });
 block("rs485_termination", ["R12", "JP2"], "generic", { anchor: comp("J5") });
 bypass(["C21"], pin("U5", "8"), "high");
 near(comp("C22"), pin("U5", "8"), "high");
