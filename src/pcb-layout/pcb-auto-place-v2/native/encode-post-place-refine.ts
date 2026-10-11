@@ -32,7 +32,7 @@ export function encodeNativePostPlaceRefineProblem(input: PlacementInput, placem
         return pad < 0 ? { kind: 'missing' } : { kind: 'pin', component, pad };
     };
     const explicitMembers = new Set((input.refineGroups ?? []).flatMap(g => g.componentDesignators));
-    const explicitlyRefinable = input.components.map(c => !c.pcb.edgeMount && !c.pcb.edgePlace && !c.pcb.syntheticBoardPad);
+    const explicitlyRefinable = input.components.map(c => !c.pcb.fixedBlock && !c.pcb.edgeMount && !c.pcb.edgePlace && !c.pcb.syntheticBoardPad);
     const fixed = input.components.map(c => Boolean(c.pcb.fixedPlacement));
     const automatic = input.components.map((c, i) => explicitlyRefinable[i] && !fixed[i] && !explicitMembers.has(c.designator));
     const groups = [

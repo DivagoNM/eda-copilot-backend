@@ -8,6 +8,8 @@
 
 ### PCB layout
 
+- Add independent `solver({ previewBlock })` and `block(..., { fixed: { reference, x, y, rotate } })`, both with or without `localLayout`. Preview resolves and fully solves only the selected block family, skips board/global stages, returns coordinates/SVG/diagnostics without a board assembly, and marks unaccepted recovery layouts as failures. Fixed root families use ordinary local search, then retain all transformed component poses through board packing and refinement, including explicit refine groups. Scope preview local-layout metadata and retain internal signal-path segments. See [block preview and fixation](docs/pcb-block-preview-fixed.md).
+
 - Add offline `validatePcbLayoutIntent` with the same input as `makePcbLayout`, English JSON diagnostics and reusable `detectCircuitPatterns`. Use one registry and one file for each of 57 conservative checks; reuse the production schema/validators and restore the placement helpers unchanged. Remove manual knowledge profiles and profile-only checks. Recognition uses schematic topology and labels; it does not place components or change native scores.
 
 - Scope ambiguous rail-passive candidates by explicit assignments, unique direct-wire islands and root/satellite families across intent patterns. Treat rail-bank candidates as complete alternatives instead of Cartesian warnings; accept small dedicated families for ordinary supply locality while keeping critical loops and individual supply pins strict. Accept structured groups/wire islands through the editor-independent `PcbSchematicGroups` contract; report conflicting grouping/ownership as info and abstain on ambiguous or partial wire evidence. Keep the layout input and LLM parameters unchanged.

@@ -43,6 +43,7 @@ export async function makePcbLayout(input: MakePcbLayoutInput, options: RunPcbLa
       content: formatPcbToolReportForMessage(run.toolReport),
       toolReport: run.toolReport,
       pcb: run.boardAssemble,
+      blockPreview: run.blockPreview,
       preview_image_url: svgToDataUrl(run.imageSvg),
       placement_debug_artifacts: {
         items: run.placementDebugArtifacts.items.map(item => ({

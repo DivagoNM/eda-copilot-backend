@@ -206,6 +206,8 @@ export interface PcbComponent {
         prohibitRoutingUnder?: boolean;
         prohibitRoutingUnderAllowOwnNets?: boolean;
         fixedPlacement?: PcbFixedPlacement;
+        /** Runtime owner of an immutable solved block pose. */
+        fixedBlock?: string;
         boardOverflow?: PcbBoardOverflowAllowance;
         edgeMount?: PcbEdgeMountOptions;
         edgePlace?: PcbEdgePlaceOptions;
@@ -357,6 +359,7 @@ export interface PcbFixedPlacement {
 
 export interface PcbBlock {
     name: string;
+    fixed?: { reference: string; x: number; y: number; rotate: 0 | 90 | 180 | 270 };
     description: string;
     component_designators: string[];
     role: BlockRole;

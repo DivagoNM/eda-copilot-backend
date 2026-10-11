@@ -1,4 +1,5 @@
 import * as fp from './f32.ts';
+import { validateFixedBlocks } from './fixed-blocks.ts';
 import type { EdaEdition } from '#devices/eda-api.ts';
 import { centeredBoard, defaultSolverOptions } from "#pcb-layout/pcb-auto-place/utils.ts";
 import { preferredPlacementLayers } from "#pcb-layout/pcb-auto-place/fixed.ts";
@@ -107,6 +108,7 @@ export function applyPlacementPreviewFilter(circuit: ExplainCircuit, rules: Plac
     rules: PlacementRules;
     preview: PlacementPreviewMetadata;
 } {
+    if (rules.solverOptions?.previewBlock) return applyBlockPreviewFilter(circuit, rules);
     const allComponentNames = [
         ...circuit.components.map((component) => component.designator),
         ...(rules.boardPads ?? []).map((pad) => pad.name),
@@ -219,6 +221,64 @@ export function applyPlacementPreviewFilter(circuit: ExplainCircuit, rules: Plac
                 ...(paths.length < (rules.paths?.length ?? 0) ? [`Removed ${(rules.paths?.length ?? 0) - paths.length} signal path(s) that referenced ignored preview components.`] : []),
             ],
         },
+    };
+}
+
+function applyBlockPreviewFilter(circuit: ExplainCircuit, rules: PlacementRules) {
+    const name = rules.solverOptions!.previewBlock!;
+    if (rules.solverOptions?.placeOnlyComponents?.length || rules.solverOptions?.ignoreComponents?.length) {
+        throw new Error('previewBlock cannot be combined with placeOnlyComponents or ignoreComponents.');
+    }
+    const root = rules.blocks.find(b => b.name === name);
+    if (!root) throw new Error(`Unknown previewBlock "${name}".`);
+    const names = new Set([name]);
+    for (let size = -1; size !== names.size;) {
+        size = names.size;
+        for (const block of rules.blocks) if (block.attachTo && names.has(block.attachTo)) names.add(block.name);
+    }
+    validateFixedBlocks({ ...rules, blocks: rules.blocks.filter(b => names.has(b.name)) });
+    const members = new Set(rules.blocks.filter(b => names.has(b.name)).flatMap(b => b.component_designators));
+    for (const c of rules.component_rules) if (c.block_name && names.has(c.block_name)) members.add(c.designator);
+    for (const p of rules.boardPads ?? []) if (p.block && names.has(p.block)) members.add(p.name);
+    for (const p of rules.proceduralFeatures ?? []) if (p.kind !== 'thermal_pad' && p.block && names.has(p.block)) members.add(p.name);
+    if (!members.size) throw new Error(`previewBlock "${name}" has no components.`);
+    const filtered = applyPlacementPreviewFilter(circuit, { ...rules, solverOptions: {
+        ...rules.solverOptions!, previewBlock: undefined, placeOnlyComponents: [...members],
+    } });
+    // Retain ordinary connectivity validation: this is a complete block, not a partial component selection.
+    const blocks = rules.blocks.filter(b => names.has(b.name)).map(b => ({ ...b,
+        attachTo: b.name === name ? null : b.attachTo,
+        placement: b.name === name ? 'main' as const : b.placement,
+        anchor: b.anchor && previewTargetIsUsable(b.anchor, members, names) ? b.anchor : null,
+    }));
+    const world = blocks.some(b => b.fixed) || filtered.rules.component_rules.some(c => c.fixedPlacement || c.edgeMount || c.edgePlace)
+        || filtered.rules.boardPads.length > 0 || Boolean(rules.preserve?.components)
+        || filtered.rules.proceduralFeatures.some(p => p.kind !== 'thermal_pad' && 'at' in p && p.at);
+    const boardHint = (h: PlacementHint) => h.relation === 'edge' || collectPlacementTargets([h]).some(t => t.type === 'board_anchor');
+    const hints = filtered.rules.hints.filter(h => !boardHint(h as PlacementHint));
+    const paths = (rules.paths ?? []).map(p => ({ ...p,
+        segments: p.segments.filter(s => members.has(s.source.designator) && members.has(s.target.designator)),
+    })).filter(p => p.segments.length > 0);
+    const ignored = rules.hints.length - hints.length;
+    return {
+        circuit: filtered.circuit,
+        rules: { ...filtered.rules, blocks: blocks.map(b => ({ ...b,
+            anchor: b.anchor?.type === 'board_anchor' ? null : b.anchor,
+            sidePreference: null,
+        })), modules: [], hints, paths,
+            // An isolated electrical block has no board bounds, holes or placement regions.
+            ...(!world ? { board: { ...rules.board, type: 'auto' as const, aspectRatio: null, componentDensity: null, minWidth: null, minHeight: null, maxWidth: null, maxHeight: null }, boardHoles: [], constraintRegions: [] } : {}),
+            preserve: rules.preserve ? { ...rules.preserve, components: Array.isArray(rules.preserve.components)
+                ? rules.preserve.components.filter(d => members.has(d)) : rules.preserve.components } : undefined,
+            solverOptions: { ...filtered.rules.solverOptions!, previewBlock: name, placeOnlyComponents: null },
+        },
+        preview: { ...filtered.preview, warnings: [
+            `BLOCK PREVIEW: ${name} and its satellites only; no board packing or global refinement.`,
+            'External connections, parent/module placement and board-level hints are not assessed.',
+            ...(ignored ? [`Excluded ${ignored} external or board-level placement rule(s).`] : []),
+            ...((rules.paths ?? []).some(p => p.segments.some(s => !members.has(s.source.designator) || !members.has(s.target.designator)))
+                ? ['External signal-path segments are not assessed; internal segments are retained.'] : []),
+        ] },
     };
 }
 
@@ -1380,6 +1440,7 @@ export function normalizeBlocks(circuit: ExplainCircuit, blocks: Block[], compon
         const canonicalDesignators = new Map(canonicalBlockDesignators(blocks, componentRules).map((block) => [block.name, block.designators]));
         return blocks.map((block) => ({
             name: block.name,
+            fixed: block.fixed ?? undefined,
             description: block.description ?? block.name,
             component_designators: canonicalDesignators.get(block.name) ?? block.component_designators,
             role: block.role ?? "generic",

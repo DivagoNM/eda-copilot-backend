@@ -1,4 +1,5 @@
 import * as fp from '../f32.ts';
+import { withFixedBlockPlacements, assertFixedBlockPlacements } from '../fixed-blocks.ts';
 import { round } from './geometry.ts';
 import type { Placement, PlacementGraphDiagnostic, PlacementStage, PlacementInput } from '#types/pcb/layout-model.ts';
 import { PlacementError, PCB_PLACEMENT_ASSUMPTIONS } from '#types/pcb/layout-model.ts';
@@ -72,10 +73,12 @@ function autoPlacePcbInternal(
     const legalized = preserveFixedPlacements(input, rawPlacements);
     // const legalized = preserveFixedPlacements(input, legalizeGlobalPlacement(input, fixedPreserved));
     pushStage('02-v2-legalize', legalized);
-    const refined = refinePostPlacement(input, legalized);
+    const refinementInput = withFixedBlockPlacements(input, legalized);
+    const refined = refinePostPlacement(refinementInput, legalized);
     solverDiagnostics.push(...refined.diagnostics);
     pushStage('03-v2-post-place', refined.placements, postPlaceStageData(refined));
-    const aligned = refineBoardAlignment(input, tree.root.children, refined.placements);
+    const aligned = refineBoardAlignment(refinementInput, tree.root.children, refined.placements);
+    assertFixedBlockPlacements(refinementInput, aligned.placements);
     solverDiagnostics.push(...aligned.diagnostics.map(d => ({ ...d, code: 'v2_solver' })));
     pushStage('03b-v2-board-alignment', aligned.placements, aligned);
     const placements = normalizePlacementScores(aligned.placements);
@@ -116,13 +119,15 @@ async function autoPlacePcbInternalAsync(
     });
     const legalized = preserveFixedPlacements(input, rawPlacements);
     pushStage('02-v2-legalize', legalized);
-    const refined = await refinePostPlacementAsync(input, legalized, (content) => {
+    const refinementInput = withFixedBlockPlacements(input, legalized);
+    const refined = await refinePostPlacementAsync(refinementInput, legalized, (content) => {
         emitPcbLayoutProgress(options.onProgress, { stage: 'solve_board', progress: 90, content });
         if (options.logProgress) console.error(`[pcb-post-place] ${content}`);
     });
     solverDiagnostics.push(...refined.diagnostics);
     pushStage('03-v2-post-place', refined.placements, postPlaceStageData(refined));
-    const aligned = refineBoardAlignment(input, tree.root.children, refined.placements);
+    const aligned = refineBoardAlignment(refinementInput, tree.root.children, refined.placements);
+    assertFixedBlockPlacements(refinementInput, aligned.placements);
     solverDiagnostics.push(...aligned.diagnostics.map(d => ({ ...d, code: 'v2_solver' })));
     pushStage('03b-v2-board-alignment', aligned.placements, aligned);
     const placements = normalizePlacementScores(aligned.placements);

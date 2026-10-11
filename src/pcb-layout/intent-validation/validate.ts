@@ -3,7 +3,7 @@ import { createCircuitPatternContext, pinKey, stableCompare } from './recognitio
 import { matchCircuitPattern, groupRailMatches } from './recognition/match.ts';
 import { LayoutRulesSchema, type PlacementRules } from '../../types/pcb/layout-rules.ts';
 import { runPcbLayoutDsl } from '../pcb-layout-dsl/spec.ts';
-import { instrumentLocalLayoutDsl, extractLocalLayouts, stripLocalLayoutCarriers, validateLocalLayouts } from '../pcb-auto-place-v2/local-layout.ts';
+import { instrumentLocalLayoutDsl, extractLocalLayouts, stripLocalLayoutCarriers, validateLocalLayouts, scopeLocalLayouts } from '../pcb-auto-place-v2/local-layout.ts';
 import { applyExistingBoard, ensurePreservedComponentBlocks } from '../existing-placement.ts';
 import { applyPlacementPreviewFilter } from '../placement-input.ts';
 import { validatePlacementRulesForCircuit } from '../placement-validation.ts';
@@ -69,6 +69,7 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput,
     catch (error) { return [{ code: 'PCB_PREVIEW_FILTER', severity: 'error', message: error instanceof Error ? error.message : String(error) }]; }
     const effectiveCircuit = preview.circuit;
     rules = preview.rules;
+    localLayouts = scopeLocalLayouts(localLayouts, rules);
     if (preview.preview.enabled) diagnostics.push({ code: 'PCB_INTENT_PREVIEW_SCOPE', severity: 'info',
         message: 'Intent validation is limited to components selected by the placement preview.' });
     try { validatePlacementRulesForCircuit(effectiveCircuit, rules); validateLocalLayouts(effectiveCircuit, rules, localLayouts); }

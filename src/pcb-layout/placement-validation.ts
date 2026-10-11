@@ -1,5 +1,6 @@
 import type { ExplainCircuit } from "#types/circuit.ts";
 import type { PlacementRules } from "#types/pcb/layout-rules.ts";
+import { validateFixedBlocks } from './fixed-blocks.ts';
 import { validatePlacementRulesForCircuit as validatePlacementRulesForCircuitCore } from "./placement-input.ts";
 
 /**
@@ -11,6 +12,7 @@ import { validatePlacementRulesForCircuit as validatePlacementRulesForCircuitCor
  * rules and component roles are left unchanged for placement.
  */
 export function validatePlacementRulesForCircuit(circuit: ExplainCircuit, rules: PlacementRules) {
+    validateFixedBlocks(rules);
     const validationRules: PlacementRules = {
         ...rules,
         component_rules: rules.component_rules.map((rule) => rule.fixedPlacement

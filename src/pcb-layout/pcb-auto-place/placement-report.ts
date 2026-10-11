@@ -23,7 +23,7 @@ import { buildPlacementGraph } from './placement-graph.ts';
 import { evaluateSignalPathPorts } from '../pcb-auto-place-v2/path-score.ts';
 import type { PlacementPathPort } from '../pcb-auto-place-v2/primitives.ts';
 
-export function createPlacementReport(input: PlacementInput, placements: Placement[], solverDiagnostics: PlacementGraphDiagnostic[] = []): PlacementReport {
+export function createPlacementReport(input: PlacementInput, placements: Placement[], solverDiagnostics: PlacementGraphDiagnostic[] = [], options: { checkBoard?: boolean } = {}): PlacementReport {
     const placementByDesignator = new Map(placements.map((placement) => [placement.designator, placement]));
     const board = boardBox(input.board);
     const outsideBoard: PlacementReport['outsideBoard'] = [];
@@ -55,18 +55,18 @@ export function createPlacementReport(input: PlacementInput, placements: Placeme
     for (const component of input.components) {
         const placement = placementByDesignator.get(component.designator);
         if (!placement) continue;
-        if (component.pcb.fixedPlacement !== undefined) continue;
+        if (component.pcb.fixedPlacement !== undefined && !component.pcb.fixedBlock) continue;
         const box = getBox(component, placement);
         // Match native board packing/refinement: body plus opposite-face
         // occupancy, excluding decorative footprint bounds.
         const edgeBoxes = [componentBodyBox(component, placement),
             ...componentCollisionBoxes(component, placement, placement.layer === 'top' ? 'bottom' : 'top')];
         const outsideBox = edgeBoxes.find(edgeBox => componentOutsideBoard(input, component, edgeBox));
-        if (outsideBox) {
+        if (options.checkBoard !== false && outsideBox) {
             outsideBoard.push({ designator: component.designator, box: outsideBox, board });
         }
 
-        for (const hole of input.boardHoles ?? []) {
+        for (const hole of options.checkBoard === false ? [] : input.boardHoles ?? []) {
             const required = fp.add(boardHoleKeepoutRadius(hole), input.board.clearances.component);
             const gap = boxPointGap(box, hole);
             if (fp.add(gap, PLACEMENT_EPSILON) < required) {
@@ -79,7 +79,7 @@ export function createPlacementReport(input: PlacementInput, placements: Placeme
             }
         }
 
-        for (const region of input.constraintRegions ?? []) {
+        for (const region of options.checkBoard === false ? [] : input.constraintRegions ?? []) {
             if (region.allowBlocks.includes(component.block_name)) continue;
             const overlap = fp.max(0, ...region.layers.flatMap(layer =>
                 componentCollisionBoxes(component, placement, layer).map(box => boxOverlapDepth(box, region.box))));

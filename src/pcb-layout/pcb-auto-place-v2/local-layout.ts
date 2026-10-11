@@ -130,6 +130,18 @@ export function validateLocalLayouts(
     }
 }
 
+/** Preview filters must scope the separately transported localLayout metadata too. */
+export function scopeLocalLayouts(layouts: Map<string, LocalLayout>, rules: PlacementRules) {
+    if (!rules.solverOptions?.preview && !rules.solverOptions?.previewBlock) return layouts;
+    return new Map([...layouts].flatMap(([name, layout]) => {
+        const block = rules.blocks.find(b => b.name === name);
+        if (!block) return [];
+        if (rules.solverOptions?.previewBlock) return [[name, layout]] as Array<[string, LocalLayout]>;
+        const members = new Set([...block.component_designators, ...rules.component_rules.filter(c => c.block_name === name).map(c => c.designator)]);
+        return [[name, Object.fromEntries(Object.entries(layout).filter(([d]) => members.has(d)))]] as Array<[string, LocalLayout]>;
+    }));
+}
+
 export function attachLocalLayoutSeeds(input: PlacementInput, layouts: Map<string, LocalLayout>) {
     if (layouts.size === 0) return input;
     for (const component of input.components) {

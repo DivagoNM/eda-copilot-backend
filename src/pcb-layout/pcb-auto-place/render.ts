@@ -4,6 +4,8 @@ import { allNets, ignoredSignalSet } from './utils.ts';
 import { minimumSpanningEdges } from './ratsnest.ts';
 
 export interface RenderPlacementSvgOptions {
+    /** Pixels per millimeter; block previews can enlarge small footprints. */
+    scale?: number;
     bounds?: Box;
     title?: string;
     labels?: boolean;
@@ -25,7 +27,7 @@ export function renderPlacementSvg(input: PlacementInput, placements: Placement[
     });
     const viewport = options.bounds ?? inflateBox(unionBoxes([board, ...placedComponentBoxes]), 2);
     const ignoredSignals = ignoredSignalSet(input);
-    const scale = 12;
+    const scale = options.scale ?? 12;
     const width = Math.max(1, (viewport.right - viewport.left) * scale);
     const height = Math.max(1, (viewport.bottom - viewport.top) * scale);
     const px = (value: number) => (value - viewport.left) * scale;
@@ -154,6 +156,7 @@ export function renderPlacementSubsetSvg(
         ? inflateBox(unionBoxes(boxes), padding)
         : { left: -5, right: 5, top: -5, bottom: 5 };
     return renderPlacementSvg(input, placements, {
+        scale: options.scale,
         bounds: box,
         title: options.title,
         labels: options.labels,

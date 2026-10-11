@@ -949,6 +949,7 @@ class PcbLayoutDslBuilder {
                 : options;
             this.blocks.set(name, {
                 name,
+                fixed: parsedOptions.fixed,
                 description,
                 component_designators: designators,
                 role: normalizeBlockRole(role),
@@ -1320,7 +1321,11 @@ class PcbLayoutDslBuilder {
     }
 
     private solver(options: Record<string, unknown>) {
+        if (options.previewBlock !== undefined && (typeof options.previewBlock !== 'string' || !options.previewBlock.trim())) {
+            throw new Error('solver.previewBlock must be a non-empty block name.');
+        }
         this.solverOptions = {
+            previewBlock: options.previewBlock as string | undefined,
             candidateRadii: nullableNumberArray(options.candidateRadii),
             candidateAngles: nullableNumberArray(options.candidateAngles),
             fallbackGridStep: nullableNumber(options.fallbackGrid ?? options.fallbackGridStep),

@@ -1,4 +1,5 @@
 import { placementNetClass } from './native/net-class.ts';
+import { fixSolvedBlock } from '../fixed-blocks.ts';
 import { loadNativeBoardPacker } from './native/load-native-board-packer.ts';
 import * as fp from '../f32.ts';
 import { sinCosDegrees } from '../f32.ts';
@@ -966,6 +967,7 @@ function rememberPrimitive(context: TreeSolveContext, primitive: PlacementPrimit
                 fp.div((fp.sub(fp.sub(fp.add(primitive.bbox.top, primitive.bbox.bottom), p.bbox.top), p.bbox.bottom)), 2));
         }).filter(p => { const key = signature(p); if (seen.has(key)) return false; seen.add(key); return true; });
     }
+    primitive = fixSolvedBlock(context.input, primitive);
     context.primitives.push(primitive);
     return primitive;
 }

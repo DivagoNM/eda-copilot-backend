@@ -295,6 +295,12 @@ const RefineGroupSchema = () => z.object({
 
 const BlockSchema = () => z.object({
     name: z.string(),
+    fixed: z.object({
+        reference: z.string().min(1),
+        x: z.number().finite(),
+        y: z.number().finite(),
+        rotate: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+    }).strict().nullish(),
     description: nullableSchema(z.string()),
     component_designators: z.array(z.string()),
     role: nullableSchema(z.enum(PCB_BLOCK_ROLES)),
@@ -502,6 +508,7 @@ const BoardSchema = () => {
 }
 
 export const SolverOptionsSchema = () => z.object({
+    previewBlock: z.string().min(1).nullish(),
     candidateRadii: nullableSchema(z.array(z.number())),
     candidateAngles: nullableSchema(z.array(z.number())),
     fallbackGridStep: nullableSchema(z.number()),

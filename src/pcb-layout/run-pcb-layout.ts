@@ -1,4 +1,7 @@
 import { autoPlacePcbWithReportAsync, renderPlacementSvg } from "#pcb-layout/pcb-auto-place/auto-place.ts";
+import { solveBlockPreview } from './block-preview.ts';
+import { validateResolvedFixedBlocks } from './fixed-blocks.ts';
+import { renderPlacementSubsetSvg } from './pcb-auto-place/render.ts';
 import { runPcbLayoutDsl } from "#pcb-layout/pcb-layout-dsl/spec.ts";
 import type { ExplainCircuit } from "#types/circuit.ts";
 import type { EdaEdition } from '#devices/eda-api.ts';
@@ -19,6 +22,7 @@ import {
     instrumentLocalLayoutDsl,
     stripLocalLayoutCarriers,
     validateLocalLayouts,
+    scopeLocalLayouts,
 } from "./pcb-auto-place-v2/local-layout.ts";
 import {
     emitPcbLayoutProgress,
@@ -62,7 +66,7 @@ export async function runPcbLayout(options: RunPcbLayoutOptions) {
     try {
         emitProgress('parse_dsl', PCB_LAYOUT_PROGRESS.parseDsl, 'Parsing PCB layout DSL.');
         const rawRules = runPcbLayoutDsl(instrumentLocalLayoutDsl(options.code));
-        const localLayouts = extractLocalLayouts(rawRules);
+        const allLocalLayouts = extractLocalLayouts(rawRules);
         const parsedRules = ensurePreservedComponentBlocks(
             options.circuit,
             applyExistingBoard(
@@ -72,6 +76,8 @@ export async function runPcbLayout(options: RunPcbLayoutOptions) {
             options.existingPlacement,
         );
         const { circuit, rules, preview } = applyPlacementPreviewFilter(options.circuit, parsedRules);
+        const localLayouts = scopeLocalLayouts(allLocalLayouts, rules);
+        const previewBlock = rules.solverOptions?.previewBlock;
         stageDone('validate_dsl');
 
         emitProgress('validate_dsl', PCB_LAYOUT_PROGRESS.validateDsl, 'Validating PCB layout DSL against the circuit.');
@@ -89,28 +95,32 @@ export async function runPcbLayout(options: RunPcbLayoutOptions) {
             localLayouts,
         );
         stageDone('build_graph');
+        validateResolvedFixedBlocks(placementInput);
 
         emitProgress('build_graph', PCB_LAYOUT_PROGRESS.buildGraph, 'Building placement ownership graph.');
         const placementGraph = buildPlacementGraph(placementInput);
         stageDone('auto_place');
 
-        const { placements, report, layout, stages } = await autoPlacePcbWithReportAsync(placementInput, {
+        const previewResult = previewBlock ? solveBlockPreview(placementInput, placementGraph, previewBlock) : undefined;
+        const solved = previewResult ?? await autoPlacePcbWithReportAsync(placementInput, {
             onProgress: options.onProgress,
             logProgress: Boolean(artifactDir),
         });
+        const { placements, report, layout, stages } = solved;
+        const blockPreview = previewResult?.blockPreview;
         stageDone('render_and_artifacts');
 
         emitProgress('render', PCB_LAYOUT_PROGRESS.render, 'Rendering PCB placement preview and debug artifacts.');
-        const placementSvg = renderPlacementSvg(placementInput, placements);
-        const placementDebugArtifacts = createPlacementDebugArtifacts(placementInput, placements);
+        const placementSvg = previewBlock ? renderPlacementSubsetSvg(placementInput, placements, { padding: 4, scale: 32, title: `Block preview: ${previewBlock}` }) : renderPlacementSvg(placementInput, placements);
+        const placementDebugArtifacts = previewBlock ? { items: [] } : createPlacementDebugArtifacts(placementInput, placements);
         const placementArtifacts = artifactDir
             ? writePlacementArtifacts(artifactDir, placementInput, placements, report, layout, stages, placementSvg, placementDebugArtifacts)
             : {};
         stageDone('assemble_and_report');
 
-        emitProgress('assemble', PCB_LAYOUT_PROGRESS.assemble, 'Creating PCB board assembly payload.');
+        if (!previewBlock) emitProgress('assemble', PCB_LAYOUT_PROGRESS.assemble, 'Creating PCB board assembly payload.');
         const imageSvg = placementSvg;
-        const boardAssemble = createBoardAssemble(layout, {
+        const boardAssemble = previewBlock ? undefined : createBoardAssemble(layout, {
             preserveBoard: rules.preserve?.board === true,
             preservedComponents: resolvePreservedComponentDesignators(rules.preserve, options.existingPlacement),
         });
@@ -127,7 +137,7 @@ export async function runPcbLayout(options: RunPcbLayoutOptions) {
             preview,
         });
 
-        if (artifactDir)
+        if (artifactDir && boardAssemble)
             await writeFile(path.join(artifactDir, 'board.assemble.json'), JSON.stringify(boardAssemble, null, 2)).catch(_ => _)
         if (artifactDir)
             await writeFile(path.join(artifactDir, 'placement.graph.json'), JSON.stringify(placementGraph, null, 2)).catch(_ => _)
@@ -143,9 +153,10 @@ export async function runPcbLayout(options: RunPcbLayoutOptions) {
             }, null, 2));
         }
 
-        emitProgress('done', PCB_LAYOUT_PROGRESS.done, 'PCB layout finished.');
+        emitProgress('done', PCB_LAYOUT_PROGRESS.done, previewBlock ? `Block preview finished: ${previewBlock}.` : 'PCB layout finished.');
 
         return {
+            blockPreview,
             rules,
             placementInput,
             placementGraph,
