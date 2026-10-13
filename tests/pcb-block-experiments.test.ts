@@ -41,10 +41,14 @@ test('pair continuation resumes singles without repeating beam and preserves the
     assert.throws(() => addon.solveBlockPrimitives({ ...locked, pairSeed: seed }), /locked/);
 });
 
-test('experiments are opt-in: captured USB baseline remains identical', () => {
-    const { checkpoints, ...result } = solve();
-    assert.deepEqual(result, { ...usb.solution, version: NATIVE_BLOCK_SOLVE_CONTRACT_VERSION });
-    assert.equal(checkpoints.length, 3);
+test('experiments are opt-in: omitted and explicitly disabled flags preserve the current result', () => {
+    // The saved USB solution predates F32 and the current score contract.
+    // Keep it for the independent quality checks below, not exact pose parity.
+    const implicit = addon.solveBlockPrimitives({ ...structuredClone(usb.problem), searchWidth: 1 } as NativeBlockSolveProblemV4);
+    assert.deepEqual(solve(), implicit);
+    assert.deepEqual(solve({ netCandidates: false, extraPasses: false, pairSwaps: false, reinsertPair: false }), implicit);
+    assert.equal(implicit.numericFrame?.precision, 'f32-rte-ftz-v1');
+    assert.equal(implicit.checkpoints.length, 3);
 });
 
 test('ignored ordinary nets produce no extra candidates (case insensitive)', () => {
@@ -54,9 +58,20 @@ test('ignored ordinary nets produce no extra candidates (case insensitive)', () 
     assert.deepEqual(solve({ netCandidates: true, ignoredNets }), solve({ ignoredNets }));
 });
 
-test('bounded block neighbourhoods preserve hard legality', () => {
+test('current USB baseline preserves mandatory geometry legality', () => {
+    const rank = solve().rank;
+    assert.equal(rank.hardCount, 0, `baseline USB layout is not legal: ${JSON.stringify(rank)}`);
+});
+
+test('bounded block neighbourhoods do not worsen the current baseline hard rank', () => {
+    // The saved F64 rank is historical quality evidence. Compare opt-in moves
+    // with the current solver on the same input/backend, as in the opt-in test.
+    // The independent baseline/combined/profile tests still require hardCount=0.
+    const baseline = solve().rank;
     for (const experiments of [{ extraPasses: true }, { pairSwaps: true }, { reinsertPair: true }]) {
-        assert.ok(solve(experiments).rank.hardCount <= usb.solution.rank.hardCount);
+        const rank = solve(experiments).rank;
+        assert.ok(rank.hardCount <= baseline.hardCount,
+            `${JSON.stringify(experiments)} worsened the current hard rank: ${JSON.stringify({ baseline, rank })}`);
     }
 });
 
@@ -80,7 +95,7 @@ test('USB combined experiment shortens local two-terminal connections without ov
     const candidate = solve({ netCandidates: true, stableNetWeight: true, reducedHull: true,
         smoothAspect: true, longNets: true, pairSwaps: true }, 4);
     const before = metrics(usb.problem, usb.solution), after = metrics(usb.problem, candidate);
-    assert.equal(after.hard, 0);
+    assert.equal(after.hard, 0, `combined USB layout is not legal: ${JSON.stringify(candidate.rank)}`);
     assert.ok(after.pairSum < before.pairSum * 0.75);
     assert.ok(after.pairMax < 6);
 });
@@ -92,6 +107,7 @@ test('unknown experiment flags fail instead of silently running the wrong varian
 
 test('full branch profile preserves USB hard legality with either alternative route term', () => {
     for (const routingMetric of ['off', 'geometric']) {
-        assert.equal(solve({ ...blockPolicy().experiments, routingMetric }, 4).rank.hardCount, 0);
+        const rank = solve({ ...blockPolicy().experiments, routingMetric }, 4).rank;
+        assert.equal(rank.hardCount, 0, `${routingMetric} USB layout is not legal: ${JSON.stringify(rank)}`);
     }
 });

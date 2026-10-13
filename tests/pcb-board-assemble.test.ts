@@ -51,6 +51,7 @@ test.describe('PCB board assemble adapter', () => {
         component.rotate = 0;
         // This assertion checks origin conversion; use an exact binary value so
         // message rounding does not depend on the auto-placer's fixture pose.
+        component.x = 4;
         component.y = -8;
         component.footprint = {
             ...component.footprint,

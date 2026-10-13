@@ -1,12 +1,21 @@
 # Changelog
 
-## Unreleased - 2026-09-29
+## 0.4.0 - Unreleased
+
+### Release validation
+
+- Compare bounded USB experiment moves with the current native baseline instead of a historical F64 rank, retaining an independent zero-hard-violation check for that baseline. Update the saved Telemetry alignment check to verify rejection of unsafe moves under current assembly clearances; retain USB profile hard-legality and RF clearance checks.
+- Update stale tests for the F32 physical tolerance, required component roles and native refiner contract v3. Check experiment opt-in behavior against the current solver rather than exact legacy F64 poses; retain independent quality and hard-constraint regressions.
+- Add mandatory CPU recovery checks with GPU disabled or CUDA/Vulkan unavailable, including empty and locked boards and installed-package workers. Bound native test subprocesses and expose focused recovery checks through `test:recovery`.
+- Reject known legacy native release binaries and verify host numeric/score/refiner contracts. Prepare macOS CI's Vulkan build SDK and check Linux/macOS runtime dependencies; target-platform CI remains required.
 
 ### Component libraries
 
 - Accept optional `edaEdition: 'easyeda' | 'jlceda'` API options for component search, symbol previews, schematic assembly and PCB footprint resolution. Default to international EasyEDA; use JLCEDA's API domain when explicitly selected, including PCB workers and edition-separated caches. Keep UUID and DSL formats unchanged.
 
 ### PCB layout
+
+- Keep empty and fully locked Board calls on CPU even when CubeCL is explicitly requested. Skip GPU control/phase cleanup when there are no movable primitives, retaining the complete CPU result and locked poses.
 
 - Add independent `solver({ previewBlock })` and `block(..., { fixed: { reference, x, y, rotate } })`, both with or without `localLayout`. Preview resolves and fully solves only the selected block family, skips board/global stages, returns coordinates/SVG/diagnostics without a board assembly, and marks unaccepted recovery layouts as failures. Fixed root families use ordinary local search, then retain all transformed component poses through board packing and refinement, including explicit refine groups. Scope preview local-layout metadata and retain internal signal-path segments. See [block preview and fixation](docs/pcb-block-preview-fixed.md).
 

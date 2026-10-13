@@ -148,7 +148,8 @@ pub fn solve(mut problem: BoardPackProblem) -> Result<BoardPackSolution, String>
     let backend=std::env::var("PCB_BOARD_BACKEND").unwrap_or_else(|_|"auto".into());
     if !matches!(backend.as_str(),"cpu"|"cubecl"|"auto") {return Err(format!("unsupported PCB_BOARD_BACKEND {backend}"));}
     #[cfg(feature = "gpu")]
-    if backend=="cubecl" || (backend=="auto" && cubecl::auto_profitable(&problem)) {
+    if problem.primitives.iter().any(|p| !p.locked)
+        && (backend=="cubecl" || (backend=="auto" && cubecl::auto_profitable(&problem))) {
         let control=match cubecl::Control::new(&problem,backend=="cubecl") {
             Ok(control)=>control,
             Err(error)=>{

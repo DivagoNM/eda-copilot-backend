@@ -158,18 +158,29 @@ test('electrical acceptance bounds total wire growth and large individual stretc
     assert.equal(boardElectricalRegression(baseline,{score:9990,lengths:[10.1,10,9]}),undefined);
 });
 
-test('Telemetry geometric blocks align on an intermediate axis without changing C9 or mandatory constraints',()=>{
+test('Telemetry finishing pass rejects unsafe alignment of the historical geometric layout',()=>{
     const {input}=telemetry();
     const saved=JSON.parse(gunzipSync(readFileSync('tests/fixtures/block-placement/Telemetry/board-alignment-geometric.json.gz')).toString()) as {roots:PlacementPrimitive[];placements:Placement[]};
+    // This historical capture predates the current physical assembly clearance
+    // floor. A conservative alignment pass must not force a cosmetic axis while
+    // unrelated mandatory clearances already make the baseline invalid.
+    const baselineReport=createPlacementReport(input,saved.placements);
+    assert.equal(baselineReport.ok,false);
+    assert.ok(baselineReport.overlaps.length>0, 'capture must exercise the current clearance guard');
     const result=refineBoardAlignment(input,saved.roots,saved.placements);
     const pair=result.after.find(p=>[p.anchorA,p.anchorB].includes('U1')&&[p.anchorA,p.anchorB].includes('U2'))!;
-    assert.ok(pair.error<=.15);
+    assert.ok(pair, 'the U1/U2 structural pair must still be considered');
+    assert.ok(result.evaluated>0, 'alignment candidates must be evaluated');
+    assert.ok(result.rejected.geometry>0, 'unsafe candidates must reach the geometry guard');
+    assert.equal(result.moves.length,0);
+    assert.deepEqual(result.placements,saved.placements);
     const before=new Map(saved.placements.map(p=>[p.designator,p]));
     const after=new Map(result.placements.map(p=>[p.designator,p]));
     for(const axis of ['x','y'] as const)
         assert.ok(Math.abs((before.get('C9')![axis]-before.get('U2')![axis])-(after.get('C9')![axis]-after.get('U2')![axis]))<.001);
-    assert.equal(createPlacementReport(input,result.placements).ok,true);
-    assert.ok(alignmentHardHintsNoWorse(createPlacementReport(input,saved.placements),createPlacementReport(input,result.placements)));
+    const report=createPlacementReport(input,result.placements);
+    assert.deepEqual(report.overlaps,baselineReport.overlaps);
+    assert.ok(alignmentHardHintsNoWorse(baselineReport,report));
     assert.equal(boardElectricalRegression(boardElectricalQuality(input,saved.placements),boardElectricalQuality(input,result.placements)),undefined);
     for(const c of input.components.filter(c=>c.pcb.fixedPlacement)) assert.deepEqual(after.get(c.designator),before.get(c.designator));
 });

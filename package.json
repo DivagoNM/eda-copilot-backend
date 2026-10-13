@@ -1,6 +1,6 @@
 {
   "name": "eda-copilot-backend",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "Component search, schematic layout and PCB placement for EDA Copilot integrations",
   "type": "module",
   "license": "MIT",
@@ -49,6 +49,7 @@
     "native:build": "node scripts/build-native.mjs",
     "test": "node scripts/test.mjs",
     "test:pcb": "node scripts/test.mjs pcb-",
+    "test:recovery": "node --import tsx --test --test-concurrency=1 --test-name-pattern=\"failure|recovery|disabled|absent|allocation|empty|unsupported|runtime selection|driver|unavailable|do not initialize\" tests/pcb-block-gpu.test.ts tests/pcb-board-gpu.test.ts tests/pcb-post-place-refiner.test.ts",
     "test:pcb-layout": "node scripts/test-pcb-layout.mjs",
     "debug:pcb-layout": "node --import tsx scripts/debug-pcb-layout.mjs",
     "debug:pcb-validation": "node --import tsx scripts/debug-pcb-validation.mjs",

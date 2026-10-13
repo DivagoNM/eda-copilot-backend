@@ -253,7 +253,7 @@ function gpuRefine(problem: object, backend: string, options: Record<string,stri
     const addon = resolve(process.env.PCB_BOARD_PACKER_NATIVE_PATH ?? resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename()));
     const child = spawnSync(process.execPath, ['-e',
         'const a=require(process.argv[1]),p=JSON.parse(require("node:fs").readFileSync(0,"utf8"));const r=a.refinePostPlacement(p);console.log(JSON.stringify({result:r,valid:a.validatePlacementChange(p,r.placements)}));', addon], {
-        input: JSON.stringify(problem), encoding: 'utf8', windowsHide: true,
+        input: JSON.stringify(problem), encoding: 'utf8', windowsHide: true, timeout: 60_000,
         env: { ...process.env, PCB_POST_PLACE_BACKEND: backend, ...options },
     });
     if (boundaryError) {
@@ -324,7 +324,7 @@ test('post-place GPU chunk boundaries and worker budgets preserve the complete s
     }
 });
 
-test('post-place auto and zero timeout stay CPU; disabled GPU preserves the original result', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
+test('post-place auto and zero timeout stay CPU; disabled GPU preserves the original result', () => {
     const problem=encodeNativePostPlaceRefineProblem(pairInput(),pairPlacements(),1);
     const cpu=gpuRefine(problem,'cpu');
     const auto=gpuRefine(problem,'auto');
@@ -360,7 +360,7 @@ test('post-place idle and failed owners release the GPU while their process stay
     }finally{owner.kill();}
 });
 
-test('post-place GPU guards and absent Vulkan driver replay the original CPU input', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
+test('post-place GPU guards and absent Vulkan driver replay the original CPU input', () => {
     const original=encodeNativePostPlaceRefineProblem(pairInput(),pairPlacements(),1);
     const cases: [string, typeof original, Record<string,string>][]=[];
     const negative=structuredClone(original);negative.nets[0].weight=-1;
@@ -377,6 +377,7 @@ test('post-place GPU guards and absent Vulkan driver replay the original CPU inp
     layer.hints.push({kind:'prefer_layer',source:{kind:'component',component:0},target:{kind:'missing'},all:false,weight:1,layer:'inner'});
     cases.push(['unsupported post-place layer',layer,{}]);
     cases.push(['no compatible F32 Vulkan GPU',original,{PCB_GPU_RUNTIME:'vulkan',VK_DRIVER_FILES:resolve('debugging/nonexistent-vulkan-driver.json')}]);
+    cases.push(['no compatible F32 Vulkan GPU',original,{PCB_GPU_RUNTIME:'auto',PCB_GPU_CUDA_DISABLED:'1',VK_DRIVER_FILES:resolve('debugging/nonexistent-vulkan-driver.json')}]);
     for(const [reason,problem,environment] of cases) {
         const cpu=gpuRefine(problem,'cpu');
         const gpu=gpuRefine(problem,'cubecl',environment);
