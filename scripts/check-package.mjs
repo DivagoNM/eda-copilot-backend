@@ -55,7 +55,7 @@ const backendRoot = join(process.cwd(), 'node_modules/eda-copilot-backend');
 const native = nativeRequire(join(backendRoot, 'native/pcb-board-packer/index.cjs'));
 assert.equal(native.postPlaceRefineContractVersion(), 3, 'Installed package must contain the F32 Rust refiner');
 assert.equal(native.numericContract(), 'f32-rte-ftz-v1');
-assert.equal(native.placementScoreContractVersion(), 12);
+assert.equal(native.placementScoreContractVersion(), 13);
 assert.equal(typeof native.refinePostPlacement, 'function');
 const transport = installEasyEdaFixture();
 try {

@@ -430,11 +430,18 @@ impl Engine {
         engine.pack_static(context);
         engine
     }
-    fn frame_primitive(&self, p: &WorkingPrimitive, context: &Context) -> Prim {
+    fn frame_primitive(&self, p: &WorkingPrimitive, _context: &Context) -> Prim {
         let template =
             self.templates[p.source_index * 4 + normalize_rotation(p.rotation) as usize / 90];
-        let a = box_center(&context.problem.primitives[p.source_index].bbox);
-        let b = box_center(&p.primitive.bbox);
+        // Use the transported placement origin, just like solution(). A rounded
+        // bbox center can differ by 1 um for half-grid edges, even at rotation 0.
+        let (a, b) = if let Some(pose) = p.primitive.placements.first() {
+            let source = self.cp[(template.cp + template.nc) as usize];
+            (Point { x: source.x, y: source.y }, Point { x: pose.x, y: pose.y })
+        } else {
+            (box_center(&Box2 { left: template.bbox.l, right: template.bbox.r,
+                top: template.bbox.t, bottom: template.bbox.b }), box_center(&p.primitive.bbox))
+        };
         Prim {
             bbox: p.primitive.bbox.into(),
             body: p.components[0].1.body_box.into(),
@@ -805,18 +812,20 @@ impl Engine {
         pack_conditions(current,context,&mut fi,&mut ff);
         // Archived proposals are relative to the current moving primitive.
         // GPU templates are resident in the original coordinate frame.
-        let source = box_center(&context.problem.primitives[current[moving].source_index].bbox);
-        let now = box_center(&current[moving].primitive.bbox);
-        let shift = Point {
-            x: round_placement(now.x - source.x),
-            y: round_placement(now.y - source.y),
-        };
+        // Rotation quantization can move a template's rounded center by 1 um.
+        // Restore each orientation from its own frame, including the moving pose.
+        let shifts: Vec<_> = (0..4).map(|rotation| {
+            let rotated = rotate_primitive(&current[moving],
+                normalize_rotation(rotation * 90 - current[moving].rotation));
+            self.frame_primitive(&rotated, context)
+        }).collect();
         let pf: Vec<f32> = poses
             .iter()
             .flat_map(|p| {
+                let shift = shifts[p.template_index as usize % 4];
                 [
-                    round_placement(p.dx + shift.x),
-                    round_placement(p.dy + shift.y),
+                    round_placement(p.dx + shift.pad_dx),
+                    round_placement(p.dy + shift.pad_dy),
                 ]
             })
             .collect();

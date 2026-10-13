@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { addOrdinaryBus, minimalProblem } from './helpers/native-board-problem.ts';
 import type { NativeBlockSolveProblemV4, NativeBlockSolveSolutionV4 } from '../src/pcb-layout/pcb-auto-place-v2/native/contract.ts';
@@ -9,6 +10,19 @@ import type { NativeBlockSolveProblemV4, NativeBlockSolveSolutionV4 } from '../s
 const require = createRequire(import.meta.url);
 const addon = resolve('native/pcb-board-packer', require('../native/pcb-board-packer/platform.cjs').nativeFilename());
 const gpuEnabled = process.env.PCB_BLOCK_GPU_TESTS === '1';
+
+test('USB half-grid bounds retain actual placement origins in CPU/GPU search', { skip: !gpuEnabled }, () => {
+    const captured = JSON.parse(readFileSync(new URL('./fixtures/block-placement/Telemetry/block-23.json', import.meta.url), 'utf8'));
+    const p = { ...captured.problem, version: 4, searchWidth: 1, experiments: {} } as NativeBlockSolveProblemV4;
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_BLOCK_GPU_VERIFY: '1' });
+    assert.match(gpu.log, /"backend":"cubecl"/);
+    assert.doesNotMatch(gpu.log, /block-gpu-fallback|validation failed/);
+    checkGeometry(p, cpu.solution);
+    checkGeometry(p, gpu.solution);
+    assert.deepEqual(gpu.solution.checkpoints.map(c => c.stage), ['beam', 'singles', 'pairs']);
+    assert.ok(gpu.solution.rank.score <= cpu.solution.rank.score * 1.01 + .01);
+});
 
 test('geometric route GPU is used by block search and failures replay the full CPU call', { skip: !gpuEnabled }, () => {
     const p = problem();

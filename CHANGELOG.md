@@ -4,6 +4,7 @@
 
 ### Release validation
 
+- Build the RF signal-path test footprint through the actual EasyEDA importer, retaining its original body/pads and success/clearance assertions. The old manual footprint bounds excluded protruding pads.
 - Compare bounded USB experiment moves with the current native baseline instead of a historical F64 rank, retaining an independent zero-hard-violation check for that baseline. Update the saved Telemetry alignment check to verify rejection of unsafe moves under current assembly clearances; retain USB profile hard-legality and RF clearance checks.
 - Update stale tests for the F32 physical tolerance, required component roles and native refiner contract v3. Check experiment opt-in behavior against the current solver rather than exact legacy F64 poses; retain independent quality and hard-constraint regressions.
 - Add mandatory CPU recovery checks with GPU disabled or CUDA/Vulkan unavailable, including empty and locked boards and installed-package workers. Bound native test subprocesses and expose focused recovery checks through `test:recovery`.
@@ -15,6 +16,7 @@
 
 ### PCB layout
 
+- Keep USB clearance boundary classification stable through centering: compare F32 gaps with the existing 0.001 mm tolerance and the rounding allowance of the clearance subtraction, preserving full violation severity. Align placement reports with the shared native CPU/GPU predicate. Restore GPU block coordinates from each rotated template's rounded frame, including moving candidates. Placement score contract v13 rejects older native binaries.
 - Keep empty and fully locked Board calls on CPU even when CubeCL is explicitly requested. Skip GPU control/phase cleanup when there are no movable primitives, retaining the complete CPU result and locked poses.
 
 - Add independent `solver({ previewBlock })` and `block(..., { fixed: { reference, x, y, rotate } })`, both with or without `localLayout`. Preview resolves and fully solves only the selected block family, skips board/global stages, returns coordinates/SVG/diagnostics without a board assembly, and marks unaccepted recovery layouts as failures. Fixed root families use ordinary local search, then retain all transformed component poses through board packing and refinement, including explicit refine groups. Scope preview local-layout metadata and retain internal signal-path segments. See [block preview and fixation](docs/pcb-block-preview-fixed.md).

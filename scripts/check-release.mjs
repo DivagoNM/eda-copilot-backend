@@ -44,7 +44,7 @@ assert.deepEqual(staleBinaries, [], 'Legacy release binaries must be rebuilt on 
 const require = createRequire(import.meta.url);
 const native = require(join(root, 'native/pcb-board-packer/index.cjs'));
 assert.equal(native.numericContract(), 'f32-rte-ftz-v1', 'Host numeric contract');
-assert.equal(native.placementScoreContractVersion(), 12, 'Host score contract');
+assert.equal(native.placementScoreContractVersion(), 13, 'Host score contract');
 assert.equal(native.postPlaceRefineContractVersion(), 3, 'Host refiner contract');
 if (process.env.GITHUB_REF?.startsWith('refs/tags/')) {
   assert.equal(process.env.GITHUB_REF, `refs/tags/v${pkg.version}`, 'Tag/package version mismatch');

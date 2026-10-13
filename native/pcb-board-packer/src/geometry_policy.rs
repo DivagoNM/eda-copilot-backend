@@ -38,11 +38,16 @@ pub fn overlap(
     bb: f32,
     clearance: f32,
 ) -> f32 {
-    let x1 = ar + clearance - bl;
-    let x2 = br + clearance - al;
-    let y1 = ab + clearance - bt;
-    let y2 = bb + clearance - at;
-    violation(x1.min(x2).min(y1.min(y2)))
+    // Compare the gap before calculating severity: adding clearance to an
+    // absolute edge can flip a boundary after centering. Allow the F32 rounding
+    // of the clearance subtraction (one relative machine epsilon, not mm).
+    let gap = (bl - ar).max(al - br).max((bt - ab).max(at - bb));
+    let mut result = 0.0;
+    let roundoff = clearance.abs() * f32::EPSILON;
+    if gap < (clearance - epsilon()) - roundoff {
+        result = clearance - gap;
+    }
+    result
 }
 
 #[cfg_attr(feature = "gpu", cube)]
@@ -158,6 +163,18 @@ mod tests {
                 assert_eq!(x, y);
                 assert_eq!(x > 0.0, gap < 0.199);
             }
+        }
+    }
+    #[test]
+    fn usb_tolerance_boundary_is_legal_before_and_after_centering() {
+        for (ar, bl) in [(2.180000067, 2.529000044), (-2.319999933, -1.970999956)] {
+            assert_eq!(overlap(ar - 4.359, ar, -2.179, 2.179,
+                bl, bl + 3.928, -0.679, 1.179, 0.35), 0.0);
+            assert!(overlap(ar - 4.359, ar, -2.179, 2.179,
+                bl - 0.0000002, bl + 3.928, -0.679, 1.179, 0.35) > epsilon());
+            let depth = overlap(ar - 4.359, ar, -2.179, 2.179,
+                bl - 0.001, bl + 3.927, -0.679, 1.179, 0.35);
+            assert!(depth > 0.0019 && depth < 0.0021);
         }
     }
     #[test]

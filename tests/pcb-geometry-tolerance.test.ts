@@ -55,6 +55,29 @@ test('placement distance tolerance agrees across native and TS contract', () => 
     assert.equal(PLACEMENT_EPSILON, PCB_PLACEMENT_EPSILON);
 });
 
+test('USB tolerance boundary survives centering in native Block, Board and reports', () => {
+    for (const dx of [0, -4.5]) for (const extraShortfall of [0, .001]) {
+        const p = touchingPair();
+        const boxes = [
+            { left: -2.177999973 + dx, right: 2.180000067 + dx, top: -2.178999901, bottom: 2.178999901 },
+            { left: 2.529000044 + dx - extraShortfall, right: 6.456999779 + dx - extraShortfall, top: -.679000020, bottom: 1.179000020 },
+        ];
+        boxes.forEach((box, i) => {
+            p.primitives[i].bbox = p.components[i].bodyBox = box;
+            p.primitives[i].collisionBoxes = [box];
+        });
+        const board = native.evaluateBoardQuality(p);
+        const block = native.evaluateBlockQuality({ ...p, version: 4,
+            collisionMode: 'components', hardCollisionMode: 'components', candidateBoxMode: 'bbox',
+            components: p.components.map(c => ({ ...c, pinCount: 2, role: 'passive', powerComponent: false })),
+            experiments: { routingMetric: 'off' },
+        });
+        assert.equal(board.rank.hardCount, extraShortfall > 0 ? 1 : 0);
+        assert.equal(block.score > 1_000_000, extraShortfall > 0);
+        assert.equal(overlaps(boxes[0], boxes[1], p.clearance), extraShortfall > 0);
+    }
+});
+
 test('Block and Board ignore F32 boundary noise but preserve real clearance violations', () => {
     for (const shortfall of [0, .0005, .002]) {
         const p = touchingPair(shortfall);

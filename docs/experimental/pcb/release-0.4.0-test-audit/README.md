@@ -1,5 +1,12 @@
 # Remaining 0.4.0 placement tests — 2026-10-13
 
+This is the historical audit before checkpoint `bc03b47`. A subsequent importer
+and Git-history check corrected the RF classification: the manually supplied
+U1 footprint excluded protruding pads, whereas the actual importer includes
+them and the same body/pads pass the RF placement test. The following USB
+findings describe the old binary. User-authorized minimal corrections and new
+validation are recorded in [the follow-up](../release-0.4.0-minimal-fix/README.md).
+
 Scope: classify USB, RF and Telemetry failures and update stale tests. No
 placement/scoring code or fixture/DSL input changes. The previously authorized
 empty/locked Board GPU guard is unchanged. No release publication.

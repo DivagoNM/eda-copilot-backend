@@ -232,7 +232,8 @@ export function rotatedSize(footprint: FootprintSpec, rotate: number) {
 }
 
 export function overlaps(a: Box, b: Box, clearance: number) {
-    return fp.sub(clearance, boxClearanceGap(a, b)) > PLACEMENT_EPSILON;
+    const roundoff = fp.mul(fp.abs(clearance), 2 ** -23);
+    return boxClearanceGap(a, b) < fp.sub(fp.sub(clearance, PLACEMENT_EPSILON), roundoff);
 }
 
 export function boxGap(a: Box, b: Box) {

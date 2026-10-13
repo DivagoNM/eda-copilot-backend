@@ -9,6 +9,7 @@ import { runPcbLayoutDsl } from '../src/pcb-layout/pcb-layout-dsl/spec.ts';
 import { buildPlacementInput, validatePlacementRulesForCircuit } from '../src/pcb-layout/placement-input.ts';
 import type { ExplainCircuit } from '../src/types/circuit.ts';
 import type { FootprintSpec, PlacementInput, PlacementRelation } from '../src/types/pcb/layout-model.ts';
+import { parseEasyEdaFootprintDataStr } from '../src/devices/footprints/easyeda-footprint.ts';
 
 test.describe('ordered signal-path placement', () => {
     test('accepts a same-pad waypoint and preserves both external segments', async () => {
@@ -352,16 +353,22 @@ function twoPinFootprint(name: string): FootprintSpec {
 }
 
 function icFootprint(): FootprintSpec {
-    return {
-        name: 'U1',
-        width: 4,
-        height: 3,
-        pads: [
+    // Import the same 4 x 3 mm body and pads as a real library footprint.
+    // The old hand-written width excluded the pads extending past that body.
+    const mil = 39.37007874015748;
+    const pads = [
             { pin_number: '1', x: -2, y: 0, width: 0.5, height: 0.8 },
             { pin_number: '2', x: 0, y: 1.5, width: 0.5, height: 0.8 },
             { pin_number: '3', x: 2, y: 0, width: 0.5, height: 0.8 },
-        ],
-    };
+    ];
+    const shapes = [
+        ['DOCTYPE', 'FOOTPRINT'],
+        ['POLY', 'body', 0, '', 48, 0,
+            [-2*mil, -1.5*mil, 2*mil, -1.5*mil, 2*mil, 1.5*mil, -2*mil, 1.5*mil, -2*mil, -1.5*mil], 0],
+        ...pads.map(p => ['PAD', `p${p.pin_number}`, 0, '', 1, p.pin_number, -p.x*mil, p.y*mil,
+            0, null, ['RECT', p.width*mil, p.height*mil, 0], [], 0, 0, 0, 1, 0, null, null, null, null, 0]),
+    ];
+    return parseEasyEdaFootprintDataStr(shapes.map(s => JSON.stringify(s)).join('\n'), 'U1');
 }
 
 function pathPrimitive(id: string, points: Array<[number, number]>, startOrder = 0): PlacementPrimitive {
