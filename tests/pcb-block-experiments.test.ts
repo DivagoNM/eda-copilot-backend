@@ -41,10 +41,14 @@ test('pair continuation resumes singles without repeating beam and preserves the
     assert.throws(() => addon.solveBlockPrimitives({ ...locked, pairSeed: seed }), /locked/);
 });
 
-test('experiments are opt-in: captured USB baseline remains identical', () => {
-    const { checkpoints, ...result } = solve();
-    assert.deepEqual(result, { ...usb.solution, version: NATIVE_BLOCK_SOLVE_CONTRACT_VERSION });
-    assert.equal(checkpoints.length, 3);
+test('experiments are opt-in: omitted and explicitly disabled flags preserve the current result', () => {
+    // The saved USB solution predates F32 and the current score contract.
+    // Keep it for the independent quality checks below, not exact pose parity.
+    const implicit = addon.solveBlockPrimitives({ ...structuredClone(usb.problem), searchWidth: 1 } as NativeBlockSolveProblemV4);
+    assert.deepEqual(solve(), implicit);
+    assert.deepEqual(solve({ netCandidates: false, extraPasses: false, pairSwaps: false, reinsertPair: false }), implicit);
+    assert.equal(implicit.numericFrame?.precision, 'f32-rte-ftz-v1');
+    assert.equal(implicit.checkpoints.length, 3);
 });
 
 test('ignored ordinary nets produce no extra candidates (case insensitive)', () => {

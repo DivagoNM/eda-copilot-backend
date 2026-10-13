@@ -14,7 +14,7 @@ assert.ok(npmCli, 'Run this check with npm run test:package');
 const require = createRequire(import.meta.url);
 const cleanEnv = { ...process.env };
 for (const key of Object.keys(cleanEnv)) {
-  if (/^(?:EASYEDA_COPILOT_SERVER_URL|KICAD_COPILOT_SERVER_URL|PCB_BOARD_PACKER_NATIVE_PATH|NODE_PATH|NODE_OPTIONS|OPENAI_API_KEY|ANTHROPIC_API_KEY|COPILOT_ROUTER_.*|KICAD_ROUTING_TOOLS_DIR|KICAD_PYTHON|PYTHONPATH|PYTHONHOME)$/i.test(key)) delete cleanEnv[key];
+  if (/^(?:EASYEDA_COPILOT_SERVER_URL|KICAD_COPILOT_SERVER_URL|PCB_.*|VK_DRIVER_FILES|VK_ICD_FILENAMES|NODE_PATH|NODE_OPTIONS|OPENAI_API_KEY|ANTHROPIC_API_KEY|COPILOT_ROUTER_.*|KICAD_ROUTING_TOOLS_DIR|KICAD_PYTHON|PYTHONPATH|PYTHONHOME)$/i.test(key)) delete cleanEnv[key];
 }
 function run(args, cwd, env = process.env, timeout = 180_000) {
   const result = spawnSync(process.execPath, args, { cwd, encoding: 'utf8', env, windowsHide: true, timeout });
@@ -53,7 +53,9 @@ import { installEasyEdaFixture, schematicInput, pcbInput } from './fixtures.mjs'
 const nativeRequire = createRequire(import.meta.url);
 const backendRoot = join(process.cwd(), 'node_modules/eda-copilot-backend');
 const native = nativeRequire(join(backendRoot, 'native/pcb-board-packer/index.cjs'));
-assert.equal(native.postPlaceRefineContractVersion(), 2, 'Installed package must contain the budget-aware Rust refiner');
+assert.equal(native.postPlaceRefineContractVersion(), 3, 'Installed package must contain the F32 Rust refiner');
+assert.equal(native.numericContract(), 'f32-rte-ftz-v1');
+assert.equal(native.placementScoreContractVersion(), 12);
 assert.equal(typeof native.refinePostPlacement, 'function');
 const transport = installEasyEdaFixture();
 try {
@@ -72,6 +74,15 @@ try {
 console.log('Installed backend: component search, schematic, native PCB worker and assets passed.');
 `);
 process.stdout.write(run([join(consumer, 'smoke.mjs')], consumer, cleanEnv));
+console.log('Checking the installed archive with GPU disabled and with both GPU drivers unavailable...');
+for (const options of [
+  { PCB_BLOCK_GPU_DISABLED: '1' },
+  { PCB_GPU_RUNTIME: 'auto', PCB_GPU_CUDA_DISABLED: '1', VK_DRIVER_FILES: join(consumer, 'nonexistent-vulkan-driver.json') },
+]) {
+  process.stdout.write(run([join(consumer, 'smoke.mjs')], consumer, {
+    ...cleanEnv, PCB_BLOCK_BACKEND: 'cubecl', PCB_BOARD_BACKEND: 'cubecl', PCB_POST_PLACE_BACKEND: 'cubecl', ...options,
+  }));
+}
 writeFileSync(join(consumer, 'consumer.ts'), `
 import { componentSearch, extractCircuit, makePcbLayout, getPcbComponentSizes, disposeBackend } from 'eda-copilot-backend';
 import type { CircuitMod, FootprintSpec } from 'eda-copilot-backend/types';

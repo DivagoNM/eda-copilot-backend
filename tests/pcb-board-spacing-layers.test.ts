@@ -13,10 +13,10 @@ test('board comfort and final score use each side of a top-mounted display', () 
         { designator: 'U6', footprint: { name: 'DISPLAY', width: 60, height: 60,
             bodyBox: { left: -30, right: 30, top: -30, bottom: 30 },
             pads: [{ pin_number: '1', x: -28, y: -28, width: 1, height: 1, mount: 'through_hole' }] },
-            pcb: { allowedLayers: ['top'], allowedRotations: [0] } },
+            pcb: { role: 'main_ic', allowedLayers: ['top'], allowedRotations: [0] } },
         { designator: 'R1', footprint: { name: 'R', width: 2, height: 1,
             pads: [{ pin_number: '1', x: 0, y: 0, width: 0.5, height: 0.5 }] },
-            pcb: { allowedLayers: ['bottom'], allowedRotations: [0] } },
+            pcb: { role: 'passive', allowedLayers: ['bottom'], allowedRotations: [0] } },
     ] as PcbComponent[];
     const input = { board: { coordinateSystem: 'centered', outline: { type: 'rect', width: 100, height: 100 },
         defaultLayer: 'bottom', allowedLayers: ['top', 'bottom'], clearances: { component: 0.35, edge: 0.5 } },
@@ -40,7 +40,7 @@ test('board route input preserves pad sides inside one mixed component', () => {
         { pin_number: '1', x: -1, y: 0, width: 1, height: 1, layer: 'top' },
         { pin_number: '2', x: 1, y: 0, width: 1, height: 1, layer: 'bottom' },
     ] }, pins: [{ pin_number: '1', signal_name: 'A' }, { pin_number: '2', signal_name: 'B' }],
-    pcb: { allowedLayers: ['top'], allowedRotations: [0] } } as PcbComponent;
+    pcb: { role: 'main_ic', allowedLayers: ['top'], allowedRotations: [0] } } as PcbComponent;
     const input = { board: { coordinateSystem: 'centered', outline: { width: 20, height: 20 },
         defaultLayer: 'top', allowedLayers: ['top', 'bottom'], clearances: { component: 0.35, edge: 0.5 } },
         components: [component], blocks: [], modules: [], hints: [], constraintRegions: [],

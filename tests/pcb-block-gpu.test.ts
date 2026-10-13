@@ -96,12 +96,26 @@ function problem(): NativeBlockSolveProblemV4 {
 function run(p: NativeBlockSolveProblemV4, backend: string, env: Record<string, string> = {}) {
     const child = spawnSync(process.execPath, ['--input-type=commonjs', '-e',
         'const fs=require("fs"),addon=require(process.argv[1]);console.log(JSON.stringify(addon.solveBlockPrimitives(JSON.parse(fs.readFileSync(0,"utf8")))));', addon], {
-        input: JSON.stringify(p), encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024,
+        input: JSON.stringify(p), encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024, timeout: 60_000,
         env: { ...process.env, PCB_BLOCK_BACKEND: backend, PCB_BLOCK_SOLVER_PROFILE: '1', ...env },
     });
     assert.equal(child.status, 0, child.stderr || String(child.error));
     return { solution: JSON.parse(child.stdout) as NativeBlockSolveSolutionV4, log: child.stderr };
 }
+
+test('block completes on CPU with both GPU drivers unavailable or GPU disabled', () => {
+    const p = problem();
+    const cpu = run(p, 'cpu');
+    checkGeometry(p, cpu.solution);
+    for (const backend of ['auto', 'cubecl']) for (const options of [
+        { PCB_GPU_RUNTIME: 'auto', PCB_GPU_CUDA_DISABLED: '1', VK_DRIVER_FILES: resolve('debugging/nonexistent-vulkan-driver.json') },
+        { PCB_BLOCK_GPU_DISABLED: '1' },
+    ]) {
+        const result = run(p, backend, options);
+        assert.deepEqual(result.solution, cpu.solution);
+        assert.doesNotMatch(result.log, /\[block-gpu-runtime\]/);
+    }
+});
 
 function checkGeometry(p: NativeBlockSolveProblemV4, s: NativeBlockSolveSolutionV4) {
     assert.equal(s.rank.hardCount, 0);

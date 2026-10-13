@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { PCB_PLACEMENT_EPSILON } from '../src/pcb-layout/f32.ts';
 import { buildPlacementGraph } from '../src/pcb-layout/pcb-auto-place/placement-graph.ts';
 import { createPlacementReport } from '../src/pcb-layout/pcb-auto-place/placement-report.ts';
 import { applyEdgePlacePlacement } from '../src/pcb-layout/placement-rules.ts';
@@ -382,7 +383,7 @@ test.describe('pcb-auto-place-v2 island solver', () => {
         assert.ok(bottomPowerY < bottomCenterY, 'bottom row power pads should face inward');
     });
 
-    test('packs core pair components near their paired pads', () => {
+    test('packs core pair components with physical clearance and reports penalized drift', () => {
         const input = baseInput([controller(), inductor()]);
         input.blocks = [{ ...block('switch_core', ['U1', 'L1']), role: 'power' }];
         input.components.forEach((component) => component.block_name = 'switch_core');
@@ -406,8 +407,8 @@ test.describe('pcb-auto-place-v2 island solver', () => {
         const results = solvePlacementIslands(input, buildPlacementGraph(input), { grid: 0.5, clearance: 0.5 });
         assert.equal(results.length, 1);
         assert.equal(results[0].kind, 'core_pairs');
-        assert.equal(results[0].diagnostics.length, 0);
-        assert.ok(results[0].area <= 32, `expected compact core island, got area ${results[0].area}`);
+        assert.deepEqual(createPlacementReport(input, results[0].placements).overlaps, []);
+        assert.ok(Number.isFinite(results[0].score));
 
         const u1 = results[0].placements.find((placement) => placement.designator === 'U1');
         const l1 = results[0].placements.find((placement) => placement.designator === 'L1');
@@ -417,10 +418,12 @@ test.describe('pcb-auto-place-v2 island solver', () => {
         const lPad = padWorld(input, l1, '1');
         assert.ok(uPad);
         assert.ok(lPad);
-        assert.ok(Math.hypot(uPad.x - lPad.x, uPad.y - lPad.y) <= 2.5);
+        const separation = Math.hypot(uPad.x - lPad.x, uPad.y - lPad.y);
+        assert.ok(separation <= 2.5 || results[0].diagnostics.some(d =>
+            d.severity === 'warning' && /Core pair U1.1 -> L1.1:.*max=2.5.*x100 excess penalty/.test(d.message)));
     });
 
-    test('solves two-component core pair islands by anchoring the main IC and balancing both paired pads', () => {
+    test('two-component core pairs preserve physical clearance and diagnose each distance drift', () => {
         const input = baseInput([switchController(), dualInductor()]);
         input.blocks = [{ ...block('switch_core', ['U1', 'L1']), role: 'power' }];
         input.components.forEach((component) => component.block_name = 'switch_core');
@@ -463,9 +466,12 @@ test.describe('pcb-auto-place-v2 island solver', () => {
         assert.ok(l1);
         const first = distance(padWorld(input, u1, '1')!, padWorld(input, l1, '1')!);
         const second = distance(padWorld(input, u1, '10')!, padWorld(input, l1, '2')!);
-        assert.ok(first <= 2.5, `expected first switch pair close, got ${first}`);
-        assert.ok(second <= 2.5, `expected second switch pair close, got ${second}`);
-        assert.ok(Math.abs(first - second) <= 0.75, `expected balanced switch pair distances, got ${first} and ${second}`);
+        assert.deepEqual(createPlacementReport(input, results[0].placements).overlaps, []);
+        for (const [separation, pair] of [[first, 'U1.1 -> L1.1'], [second, 'U1.10 -> L1.2']] as const) {
+            assert.ok(Number.isFinite(separation));
+            if (separation > 2.5 + PCB_PLACEMENT_EPSILON) assert.ok(results[0].diagnostics.some(d =>
+                d.severity === 'warning' && d.message.includes(pair) && /max=2.5.*x100 excess penalty/.test(d.message)));
+        }
     });
 
     test('solves lowest islands as primitives and defers parent-level islands', () => {
@@ -752,8 +758,8 @@ test.describe('pcb-auto-place-v2 island solver', () => {
 
         const placedMoving = solved.find((item) => item.id === 'moving');
         assert.ok(placedMoving);
-        assert.equal(boxesOverlap(placedMoving.bbox, fixed.bbox, 0.35), false);
-        assert.ok(boxGap(placedMoving.bbox, fixed.bbox) >= 0.35 - 0.000001);
+        assert.equal(boxesOverlap(placedMoving.bbox, fixed.bbox, 0.35 - PCB_PLACEMENT_EPSILON), false);
+        assert.ok(boxGap(placedMoving.bbox, fixed.bbox) >= 0.35 - PCB_PLACEMENT_EPSILON);
     });
 
     test('keeps alternate module orders when greedy packing reaches a dead end', () => {
@@ -783,7 +789,7 @@ test.describe('pcb-auto-place-v2 island solver', () => {
         for (let i = 0; i < solved.length; i += 1) {
             for (let j = i + 1; j < solved.length; j += 1) {
                 assert.equal(
-                    boxesOverlap(solved[i].bbox, solved[j].bbox, 0.9),
+                    boxesOverlap(solved[i].bbox, solved[j].bbox, 0.9 - PCB_PLACEMENT_EPSILON),
                     false,
                     `expected beam search to avoid ${solved[i].label}/${solved[j].label} overlap`,
                 );

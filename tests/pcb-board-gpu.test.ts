@@ -92,7 +92,7 @@ function run(problem: NativeBoardPackProblemV7, backend: string | undefined, opt
     const child = spawnSync(process.execPath, ['--input-type=commonjs', '-e',
         'const fs=require("node:fs");const addon=require(process.argv[1]);const inputs=JSON.parse(fs.readFileSync(0,"utf8"));'
         + 'console.log(JSON.stringify(inputs.map(p=>addon.solveBoardPacked(p))));', addonPath], {
-        input: JSON.stringify([problem]), encoding: 'utf8', windowsHide: true,
+        input: JSON.stringify([problem]), encoding: 'utf8', windowsHide: true, timeout: 60_000,
         env: { ...process.env, PCB_BOARD_BACKEND: backend, PCB_BOARD_PACKER_THREADS: '1',
             PCB_BOARD_PACKER_PROFILE: '1', PCB_BLOCK_SOLVER_PROFILE: '1', ...options },
     });
@@ -370,13 +370,27 @@ test('production GPU shortlist preserves polygon/edge decisions, ties and chunk 
 });
 
 
-test('board GPU has no-device recovery without changing the CPU result', { skip: !gpuEnabled }, () => {
+test('board GPU has no-device recovery without changing the CPU result', () => {
     const p = minimalProblem();
     const cpu = run(p, 'cpu');
     const gpu = run(p, 'cubecl', { PCB_GPU_RUNTIME: 'vulkan', VK_DRIVER_FILES: resolve('debugging/nonexistent-vulkan-driver.json') });
     assert.deepEqual(gpu.solution, cpu.solution);
     assert.match(gpu.log, /no compatible F32 Vulkan GPU/);
     assert.doesNotMatch(gpu.log, /"backend":"cubecl"/);
+});
+
+test('board completes on CPU with both GPU drivers unavailable or GPU disabled', () => {
+    const p = minimalProblem();
+    const cpu = run(p, 'cpu');
+    for (const backend of ['auto', 'cubecl']) for (const options of [
+        { PCB_GPU_RUNTIME: 'auto', PCB_GPU_CUDA_DISABLED: '1', VK_DRIVER_FILES: resolve('debugging/nonexistent-vulkan-driver.json') },
+        { PCB_BLOCK_GPU_DISABLED: '1' },
+    ]) {
+        const result = run(p, backend, options);
+        assert.deepEqual(result.solution, cpu.solution);
+        assert.doesNotMatch(result.log, /\[block-gpu-runtime\]/);
+        assert.match(result.log, /"backend":"cpu"/);
+    }
 });
 
 test('block -> board -> block share one runtime and keep their buffers independent', { skip: !gpuEnabled }, () => {
@@ -513,6 +527,23 @@ test('empty and fully locked calls report CPU without GPU initialization', () =>
         assert.deepEqual(gpu.solution, cpu.solution);
         assert.doesNotMatch(gpu.log, /\[block-gpu-runtime\]/);
         assert.match(gpu.log, /"backend":"cpu"/);
+    }
+});
+
+test('empty and fully locked boards complete on CPU when both GPU drivers are unavailable', () => {
+    const locked = minimalProblem();locked.primitives[0].locked = true;
+    const empty = { ...locked, primitives: [], components: [], componentConflict: [], componentPairClearance: [] };
+    for (const input of [locked, empty]) {
+        const cpu = run(input, 'cpu');
+        for (const backend of ['auto', 'cubecl']) {
+            const fallback = run(input, backend, {
+                PCB_GPU_RUNTIME: 'auto', PCB_GPU_CUDA_DISABLED: '1',
+                VK_DRIVER_FILES: resolve('debugging/nonexistent-vulkan-driver.json'),
+            });
+            assert.deepEqual(fallback.solution, cpu.solution);
+            assert.doesNotMatch(fallback.log, /\[block-gpu-runtime\]/);
+            assert.match(fallback.log, /"backend":"cpu"/);
+        }
     }
 });
 

@@ -36,13 +36,15 @@ The repository contains its own `src/types`. `component.ts`, `circuit.ts`, `lcsc
 
 `npm run test:package` builds a local npm archive from existing build outputs, installs only that archive into an isolated consumer with install scripts disabled, and exercises public APIs, declarations, workers, assets and the native solver. API calls use local fixtures. It does not publish anything.
 
+`npm run test:recovery` selects native CPU/GPU recovery checks, including GPU-disabled calls and unavailable CUDA/Vulkan drivers. Hardware fault-injection checks require the matching `PCB_BLOCK_GPU_TESTS`, `PCB_BOARD_GPU_TESTS`, `PCB_POST_PLACE_GPU_TESTS` and `PCB_CUDA_GPU_TESTS` flags set to `1` on a compatible GPU host; otherwise they are skipped. Failures remain visible rather than updating quality references to accept them. The installed-archive check also exercises PCB workers with GPU disabled and with both GPU drivers unavailable.
+
 Real board examples are in `tests/pcb-layout`; run `npm run test:pcb-layout -- --list`, selected fixture names, or `--all`. These optional examples query the public footprint catalogue and require network access.
 
 ## Native releases
 
 `.github/workflows/ci.yml` builds and tests Windows x64, Linux x64 on Ubuntu 22.04 (glibc 2.35 baseline), macOS Intel and macOS arm64 on Node 20/24. `.github/workflows/publish.yml` runs only on a `v*` tag. It waits for CI, collects all four `.node` binaries into one package, runs `npm run check:release` and tests the archive before publishing. There is no install-time Rust compilation.
 
-`npm run check:release` deliberately fails in a checkout containing only its host binary. It verifies all four binaries, dependency independence, declarations and the release tag/version. `npm pack` is available for local single-platform development archives, but those are not universal releases.
+`npm run check:release` deliberately fails in a checkout containing only its host binary or known legacy binaries. It checks all four binaries for current native API names, executes the host's numeric/score/refiner contracts, and verifies dependency independence and the release tag/version. Foreign contract values and runtime behavior require target-platform CI; installed declarations are checked by `test:package`. `npm pack` is available for local single-platform development archives, but those are not universal releases.
 
 Releases are published on [npm](https://www.npmjs.com/package/eda-copilot-backend). npm Trusted Publishing (OIDC) is configured for `biosshot/eda-copilot-backend`, workflow `publish.yml`. Version `0.1.0` was published manually; subsequent versions are published from matching `v*` tags after the portability matrix, archive checks and release checks pass. npm versions are immutable, so bump the package and lockfile versions before creating a new tag. No tag or publish command is needed for local development. Linux/macOS support is conditional on successful CI, not inferred from a Windows test. Windows ARM64, Linux ARM64 and Alpine/musl are not currently part of the supported complete Copilot stack.
 

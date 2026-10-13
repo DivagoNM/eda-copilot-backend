@@ -1,0 +1,62 @@
+name: Native 0.4.0 preflight
+on:
+  push:
+    branches: [codex/release-0.4.0-native-check]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: rustup default stable
+      - name: Install macOS Vulkan build SDK
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          sdk_version=1.4.335.1
+          sdk_root="$RUNNER_TEMP/vulkan-sdk"
+          installer_root="$RUNNER_TEMP/vulkan-installer"
+          curl --fail --location --retry 3 "https://sdk.lunarg.com/sdk/download/$sdk_version/mac/vulkansdk-macos-$sdk_version.zip" -o "$RUNNER_TEMP/vulkan-sdk.zip"
+          unzip -q "$RUNNER_TEMP/vulkan-sdk.zip" -d "$installer_root"
+          sudo "$installer_root/vulkansdk-macOS-$sdk_version.app/Contents/MacOS/vulkansdk-macOS-$sdk_version" --root "$sdk_root" --accept-licenses --default-answer --confirm-command install com.lunarg.vulkan.core
+          test -d "$sdk_root/macOS"
+          echo "VULKAN_SDK=$sdk_root/macOS" >> "$GITHUB_ENV"
+      - run: npm run native:build
+        id: native
+      - run: cargo test --manifest-path native/pcb-board-packer/Cargo.toml --lib
+      - name: Check native runtime dependencies
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            dependencies=$(ldd native/pcb-board-packer/*.node)
+          else
+            dependencies=$(otool -L native/pcb-board-packer/*.node)
+          fi
+          printf '%s\n' "$dependencies"
+          if grep -Ei 'lib(cuda|nvrtc|vulkan|MoltenVK)|not found' <<< "$dependencies"; then
+            echo 'Native addon must load without GPU libraries installed.' >&2
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:recovery
+      - run: npm run test:package
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.native.conclusion == 'success'
+        with:
+          name: native-preflight-${{ matrix.os }}
+          path: native/pcb-board-packer/*.node
+          if-no-files-found: error
