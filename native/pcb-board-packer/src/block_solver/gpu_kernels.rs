@@ -48,6 +48,9 @@ pub const WORLD_OBSTACLE_I:usize=40;
 pub const WORLD_OBSTACLE_COUNT:usize=41;
 pub const CONDITIONS: usize = 43;
 pub const HEADER: usize = 44;
+// A collision envelope equal to the primitive bounds uses the current bounds,
+// not a second copy translated from the component's placement origin.
+pub const PRIMITIVE_BOUNDS: usize = 0xffff_ffff;
 
 #[derive(CubeLaunch, CubeType)]
 pub struct Input {
@@ -108,8 +111,15 @@ struct Component {
 }
 #[cube]
 fn geometry_box(d: &Input, p: Prim, index: usize) -> B {
-    let f = d.fi[GEOMETRY_F] as usize + index * 4;
-    B { l: rp(d.sf[f]+p.dx), r: rp(d.sf[f+1]+p.dx), t: rp(d.sf[f+2]+p.dy), b: rp(d.sf[f+3]+p.dy) }
+    let mut result = p.bbox;
+    if index != PRIMITIVE_BOUNDS {
+        let f = d.fi[GEOMETRY_F] as usize + index * 4;
+        result.l = rp(d.sf[f]+p.dx);
+        result.r = rp(d.sf[f+1]+p.dx);
+        result.t = rp(d.sf[f+2]+p.dy);
+        result.b = rp(d.sf[f+3]+p.dy);
+    }
+    result
 }
 #[cube]
 fn component(d: &Input, p: Prim, index: usize) -> Component {
@@ -456,12 +466,12 @@ fn load_prim(d: &Input, i: usize, candidate: usize) -> Prim {
         }
     }
     if moving {
-        let dx = d.poses[candidate * 2];
-        let dy = d.poses[candidate * 2 + 1];
-        v[0] = rp(v[0] + dx);
-        v[1] = rp(v[1] + dx);
-        v[2] = rp(v[2] + dy);
-        v[3] = rp(v[3] + dy);
+        let dx = d.poses[candidate * 6];
+        let dy = d.poses[candidate * 6 + 1];
+        v[0] = d.poses[candidate * 6 + 2];
+        v[1] = d.poses[candidate * 6 + 3];
+        v[2] = d.poses[candidate * 6 + 4];
+        v[3] = d.poses[candidate * 6 + 5];
         v[4] = rp(v[4] + dx);
         v[5] = rp(v[5] + dx);
         v[6] = rp(v[6] + dy);

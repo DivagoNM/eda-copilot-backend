@@ -319,7 +319,10 @@ impl Engine {
         };
         for original in &context.gpu_sources {
             for rotation in [0, 90, 180, 270] {
-                let p = rotate_primitive(original, rotation);
+                let mut p = rotate_primitive(original, rotation);
+                // A zero rotation returns the raw primitive. CPU materialization
+                // still rebuilds its component bounds before the final translation.
+                if rotation == 0 { rebuild_component_geometry(&mut p); }
                 let cp = engine.cp.len() as u32;
                 let pad = engine.pads.len() as u32;
                 for (i, v) in p.primitive.connection_points.iter().enumerate() {
@@ -388,9 +391,14 @@ impl Engine {
                     for row in &component.access_rows {let b=row.box_;engine.geometry.extend([b.left,b.right,b.top,b.bottom,row.weight,0.0,0.0,0.0]);}
                     engine.component_data.extend([*index as i32,layer(Some(&component.layer)),component.pin_count as i32,role,component.power_component as i32,body,through,component.through_hole_boxes.len() as i32,rows,component.access_rows.len() as i32]);
                 }
-                let boxes = (engine.geometry.len() / 4) as u32;
                 let collision = primitive_collision_boxes(&p, context);
-                for b in collision { engine.geometry.extend([b.left,b.right,b.top,b.bottom]); }
+                let boxes = if collision == [p.primitive.bbox] {
+                    k::PRIMITIVE_BOUNDS as u32
+                } else {
+                    let start = (engine.geometry.len() / 4) as u32;
+                    for b in collision { engine.geometry.extend([b.left,b.right,b.top,b.bottom]); }
+                    start
+                };
                 let ports=(engine.ports.len()/4) as u32;
                 for q in p.primitive.path_ports.iter() {engine.ports.extend([q.x,q.y,q.normal.x,q.normal.y]);}
                 let (ci, c) = &p.components[0];
@@ -430,13 +438,15 @@ impl Engine {
         engine.pack_static(context);
         engine
     }
-    fn frame_primitive(&self, p: &WorkingPrimitive, _context: &Context) -> Prim {
+    fn frame_primitive(&self, p: &WorkingPrimitive, context: &Context) -> Prim {
         let template =
             self.templates[p.source_index * 4 + normalize_rotation(p.rotation) as usize / 90];
         // Use the transported placement origin, just like solution(). A rounded
         // bbox center can differ by 1 um for half-grid edges, even at rotation 0.
         let (a, b) = if let Some(pose) = p.primitive.placements.first() {
-            let source = self.cp[(template.cp + template.nc) as usize];
+            // nc excludes @hint points; origins follow every stored point.
+            let source = self.cp[template.cp as usize
+                + context.gpu_sources[p.source_index].primitive.connection_points.len()];
             (Point { x: source.x, y: source.y }, Point { x: pose.x, y: pose.y })
         } else {
             (box_center(&Box2 { left: template.bbox.l, right: template.bbox.r,
@@ -592,6 +602,37 @@ fn prim_f(p: Prim) -> [f32; 10] {
         p.pad_dy,
     ]
 }
+fn pose_f(p: Pose, frame: Prim) -> [f32; 6] {
+    // CPU materialization translates the primitive bounds independently of
+    // rebuilt component geometry. Their rounded origins need not coincide.
+    [
+        round_placement(p.dx + frame.pad_dx),
+        round_placement(p.dy + frame.pad_dy),
+        round_placement(frame.bbox.l + p.dx),
+        round_placement(frame.bbox.r + p.dx),
+        round_placement(frame.bbox.t + p.dy),
+        round_placement(frame.bbox.b + p.dy),
+    ]
+}
+fn cheap_hull_capacity(prims: &[Prim], moving: usize, geometry: &[f32]) -> usize {
+    let fixed_boxes: Vec<_> = prims.iter().enumerate().filter(|(i, _)| *i != moving)
+        .flat_map(|(_, p)| (0..p.box_count).map(|index| {
+            // Match geometry_box on GPU: the sentinel is a BBOX reference,
+            // never an index into the resident geometry array.
+            if p.boxes == k::PRIMITIVE_BOUNDS as u32 {
+                return Box2 { left: p.bbox.l, right: p.bbox.r, top: p.bbox.t, bottom: p.bbox.b };
+            }
+            let f = (p.boxes as usize + index as usize) * 4;
+            Box2 {
+                left: round_placement(geometry[f] + p.pad_dx),
+                right: round_placement(geometry[f + 1] + p.pad_dx),
+                top: round_placement(geometry[f + 2] + p.pad_dy),
+                bottom: round_placement(geometry[f + 3] + p.pad_dy),
+            }
+        })).collect();
+    (convex_hull_vertices(&fixed_boxes).0.len() + prims[moving].box_count as usize * 4)
+        .max(64).next_power_of_two()
+}
 fn prim_i(p: Prim) -> [i32; 15] {
     [
         p.cp as i32,
@@ -703,7 +744,7 @@ impl Engine {
     fn evaluate(&mut self,current:&[WorkingPrimitive],moving:usize,poses:&[Pose],diverse:bool,origin:Point,context:&Context,force_no_prune:bool)->Result<Vec<Row>,String> {
         let fixed=(self.sf.len()+self.si.len())*4+self.pads.len()*16+self.hull_capacity*8;
         let batch_limit=gpu_runtime::with_session(GPU_REQUIREMENTS,|session|
-            session.batch_capacity(fixed,36,self.batch_limit)).map_err(|e|e.to_string())?;
+            session.batch_capacity(fixed,52,self.batch_limit)).map_err(|e|e.to_string())?;
         if poses.len()<=batch_limit {return self.evaluate_batch(current,moving,poses,diverse,origin,context,force_no_prune);}
         let mut rows=Vec::new();
         for (chunk,part) in poses.chunks(batch_limit).enumerate() {
@@ -736,13 +777,7 @@ impl Engine {
             prepare(self, current, moving, poses, context);
         // Size the private candidate hull from the invariant parent hull, using
         // exactly the rounded template coordinates consumed by frame_hull.
-        let fixed_boxes:Vec<_>=prims.iter().enumerate().filter(|(i,_)|*i!=moving)
-            .flat_map(|(_,p)|(p.boxes..p.boxes+p.box_count).map(|index| {
-                let f=index as usize*4;
-                Box2 {left:round_placement(self.geometry[f]+p.pad_dx),right:round_placement(self.geometry[f+1]+p.pad_dx),
-                    top:round_placement(self.geometry[f+2]+p.pad_dy),bottom:round_placement(self.geometry[f+3]+p.pad_dy)}
-            })).collect();
-        let cheap_capacity=(convex_hull_vertices(&fixed_boxes).0.len()+prims[moving].box_count as usize*4).max(64).next_power_of_two();
+        let cheap_capacity = cheap_hull_capacity(&prims, moving, &self.geometry);
         let mut ff = vec![c.clearance, origin.x, origin.y];
         for &p in &prims {
             ff.extend(prim_f(p));
@@ -821,13 +856,7 @@ impl Engine {
         }).collect();
         let pf: Vec<f32> = poses
             .iter()
-            .flat_map(|p| {
-                let shift = shifts[p.template_index as usize % 4];
-                [
-                    round_placement(p.dx + shift.pad_dx),
-                    round_placement(p.dy + shift.pad_dy),
-                ]
-            })
+            .flat_map(|p| pose_f(*p, shifts[p.template_index as usize % 4]))
             .collect();
         let pi: Vec<u32> = poses
             .iter()
@@ -1130,12 +1159,7 @@ impl Engine {
                 }
                 let cpu = evaluate(&variant, context);
                 let tolerance = crate::f32_policy::diagnostic_tolerance(cpu.score, scores[i]);
-                assert_eq!(
-                    cpu.hard_violations,
-                    tags[i * 3] as usize,
-                    "GPU hard candidate {i}"
-                );
-                if (cpu.score - scores[i]).abs() > tolerance {
+                if cpu.hard_violations != tags[i * 3] as usize || (cpu.score - scores[i]).abs() > tolerance {
                     if let Some(path) = std::env::var_os("PCB_BLOCK_GPU_FAILURE_CAPTURE") {
                         let geometry = gpu_runtime::with_session(GPU_REQUIREMENTS, |session| { crate::compute::client::with_client!(session.client.clone(), |client,WgpuRuntime| {
 
@@ -1169,17 +1193,17 @@ impl Engine {
                             Ok(f32::from_bytes(&bytes).to_vec())
                         }) })
                         .unwrap();
-                        let dump = serde_json::json!({"gpuGeometry":geometry,"candidate":i,"cpu":cpu.score,"gpu":scores[i],"phase":*context.trace_phase.borrow(),
+                        let dump = serde_json::json!({"gpuGeometry":geometry,"candidate":i,"cpu":cpu.score,"gpu":scores[i],"cpuHard":cpu.hard_violations,"gpuHard":tags[i*3],"phase":*context.trace_phase.borrow(),
                             "sf":self.sf,"si":self.si,"ff":ff,"fi":fi,"poses":pf,"ids":pi,
                             "cpuParts":super::trace::parts(&variant,context),"cpuDense":dense_ic_access_penalty(&variant,context),"cpuComponents":variant.iter().flat_map(|p|p.components.iter().map(|(_,c)|c)).collect::<Vec<_>>(),"cpuBoxes":variant.iter().map(|p|p.primitive.bbox).collect::<Vec<_>>()});
                         std::fs::write(path, serde_json::to_vec(&dump).unwrap())
                             .expect("write numerical failure capture");
                     }
                     panic!(
-                        "GPU score candidate {i}: CPU={} GPU={} phase={}",
+                        "GPU score candidate {i}: CPU={} GPU={} phase={} hard CPU={} GPU={}",
                         cpu.score,
                         scores[i],
-                        context.trace_phase.borrow()
+                        context.trace_phase.borrow(), cpu.hard_violations, tags[i*3]
                     );
                 }
             }
@@ -1218,9 +1242,9 @@ pub(super) fn init(context: &Context) -> Result<Engine, String> {
         engine.max_allocation=session.allocation_limit();
         engine.shared_limit=props.hardware.max_shared_memory_size;
         let static_bytes=(engine.sf.len()+engine.si.len())*4;
-        // Per candidate: pose + IDs + score + tags + mask = 36 bytes.
+        // Per candidate: pose/bounds + IDs + score + tags + mask = 52 bytes.
         engine.batch_limit=4096.min(props.hardware.max_cube_count.0 as usize).max(1);
-        session.batch_capacity(static_bytes,36,engine.batch_limit)?;
+        session.batch_capacity(static_bytes,52,engine.batch_limit)?;
         if let Ok(limit)=std::env::var("PCB_BLOCK_GPU_BATCH_SIZE").unwrap_or_default().parse::<usize>() {engine.batch_limit=engine.batch_limit.min(limit.max(1));}
         if std::env::var_os("PCB_BLOCK_SOLVER_PROFILE").is_some() {eprintln!("[block-gpu-memory] {}",serde_json::json!({"components":context.problem.components.len(),"primitives":context.problem.primitives.len(),"residentBytes":static_bytes,"batchLimit":engine.batch_limit,"allocationBudgetBytes":engine.max_allocation,"sharedLimitBytes":engine.shared_limit,"hullPoints":engine.hull_capacity,"netEndpoints":engine.net_capacity,"segments":engine.segment_capacity,"movingPads":engine.pad_capacity,"sharedBytes":engine.segment_capacity*36+engine.pad_capacity*16+512}));}
         Ok(())
@@ -1351,4 +1375,37 @@ fn pack_conditions(fixed:&[WorkingPrimitive],context:&Context,fi:&mut Vec<u32>,f
         }
     }}}
     fi[k::CONDITIONS]=crate::conditions::pack(&conditions,fi,ff);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn large_hull_capacity_includes_bbox_aliases_and_stored_boxes() {
+        let mut prims: Vec<_> = (-32..32).map(|i| {
+            let x = (i * 3) as f32;
+            let y = (i * i) as f32;
+            Prim { bbox: B { l: x - 0.5, r: x + 0.5, t: y - 0.5, b: y + 0.5 },
+                boxes: k::PRIMITIVE_BOUNDS as u32, box_count: 1, ..Default::default() }
+        }).collect();
+        let moving = prims.len();
+        // This containing box must be excluded from the fixed hull.
+        prims.push(Prim { bbox: B { l: -2000.0, r: 2000.0, t: -2000.0, b: 2000.0 },
+            boxes: k::PRIMITIVE_BOUNDS as u32, box_count: 1, ..Default::default() });
+        let mut geometry = Vec::new();
+        // The fixed hull has 68 vertices; the moving box adds four more.
+        assert_eq!(cheap_hull_capacity(&prims, moving, &geometry), 128);
+        for parity in [0, 1] {
+            for p in prims[..moving].iter_mut().skip(parity).step_by(2) {
+                p.boxes = (geometry.len() / 4) as u32;
+                p.pad_dx = 2.25;
+                p.pad_dy = -3.5;
+                geometry.extend([p.bbox.l - p.pad_dx, p.bbox.r - p.pad_dx,
+                    p.bbox.t - p.pad_dy, p.bbox.b - p.pad_dy]);
+            }
+            // Mixed and fully stored representations must give the same size.
+            assert_eq!(cheap_hull_capacity(&prims, moving, &geometry), 128);
+        }
+    }
 }

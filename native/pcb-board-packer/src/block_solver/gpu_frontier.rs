@@ -83,7 +83,8 @@ pub(in crate::block_solver) fn scarcity(
             }
             ranges.extend([start as u32, poses.len() as u32]);
         }
-        let floats: Vec<_> = poses.iter().flat_map(|p| [p.dx, p.dy]).collect();
+        let floats: Vec<_> = poses.iter()
+            .flat_map(|p| pose_f(*p, engine.templates[p.template_index as usize])).collect();
         let ids: Vec<_> = poses
             .iter()
             .enumerate()
@@ -113,7 +114,7 @@ pub(in crate::block_solver) fn scarcity(
         fail("unsupported numeric range in GPU frontier".into());
     }
     let count = frame.poses.len();
-    if count.saturating_mul(40)>engine.max_allocation {fail("GPU frontier exceeds memory budget".into());}
+    if count.saturating_mul(56)>engine.max_allocation {fail("GPU frontier exceeds memory budget".into());}
     let sources = context.problem.primitives.len();
     let counts = gpu_runtime::with_session(GPU_REQUIREMENTS, |session| { crate::compute::client::with_client!(session.client.clone(), |client,WgpuRuntime| {
         if engine.handles.is_none() {

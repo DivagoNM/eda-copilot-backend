@@ -24,6 +24,32 @@ test('USB half-grid bounds retain actual placement origins in CPU/GPU search', {
     assert.ok(gpu.solution.rank.score <= cpu.solution.rank.score * 1.01 + .01);
 });
 
+test('GPU hull buffers cover more than 64 points with BBOX collision aliases', { skip: !gpuEnabled }, () => {
+    const source = minimalProblem().primitives[0];
+    const primitives = Array.from({ length: 65 }, (_, i) => {
+        const x = i < 64 ? (i - 32) * 3 : 0;
+        const y = i < 64 ? (i - 32) ** 2 : -5;
+        const bbox = { left: x - .5, right: x + .5, top: y - .5, bottom: y + .5 };
+        return { ...structuredClone(source), id: `primitive:C${i}`, label: `C${i}`,
+            sourceNodeId: `tree:component:C${i}`, sourceNodeIds: [`tree:component:C${i}`],
+            locked: i < 64, canRotate: false, allowedOrientations: [0],
+            bbox, collisionBoxes: [bbox], width: 1, height: 1, connectionPoints: [],
+            placements: [{ designator: `C${i}`, x, y, rotate: 0, layer: 'top' as const, score: 0 }] };
+    });
+    const p: NativeBlockSolveProblemV4 = { ...problem(), primitives,
+        components: primitives.map(v => ({ designator: v.label, primitiveId: v.id, blockName: v.label,
+            layer: 'top', bodyBox: v.bbox, throughHoleBoxes: [], pinCount: 0, powerComponent: false, role: 'passive' })),
+        relations: [], experiments: { routingMetric: 'geometric' },
+        componentConflict: Array.from({ length: 65 * 65 }, (_, i) => Number(Math.floor(i / 65) !== i % 65)),
+        componentPairClearance: Array.from({ length: 65 * 65 }, (_, i) => Math.floor(i / 65) === i % 65 ? 0 : .25) };
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_BLOCK_GPU_VERIFY_PRUNE: '1' });
+    assert.match(gpu.log, /"backend":"cubecl"/);
+    assert.doesNotMatch(gpu.log, /block-gpu-fallback|panicked/);
+    checkGeometry(p, gpu.solution);
+    assert.deepEqual(gpu.solution, cpu.solution);
+});
+
 test('geometric route GPU is used by block search and failures replay the full CPU call', { skip: !gpuEnabled }, () => {
     const p = problem();
     const cpu = run(p, 'cpu');

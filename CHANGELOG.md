@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 - Unreleased
+## 0.4.0 - 2026-10-14
 
 ### Release validation
 
@@ -16,7 +16,8 @@
 
 ### PCB layout
 
-- Keep USB clearance boundary classification stable through centering: compare F32 gaps with the existing 0.001 mm tolerance and the rounding allowance of the clearance subtraction, preserving full violation severity. Align placement reports with the shared native CPU/GPU predicate. Restore GPU block coordinates from each rotated template's rounded frame, including moving candidates. Placement score contract v13 rejects older native binaries.
+- Account for collision envelopes that alias primitive BBOX bounds when sizing GPU candidate hull buffers. Prevent integer overflow and undersized buffers on large hulls; retain collision rules, clearances and scoring. Cover alias, stored and mixed bounds in Rust and a greater-than-64-point hull on real GPU against CPU.
+- Keep USB clearance boundary classification stable through centering: compare F32 gaps with the existing 0.001 mm tolerance and the rounding allowance of the clearance subtraction, preserving full violation severity. Align placement reports with the shared native CPU/GPU predicate. Restore GPU block coordinates from resident placement origins, including moving candidates and origins following `@hint:` points. Match CPU rounding of zero-rotation component templates; transport candidate BBOX bounds independently and reuse them for identical collision envelopes. Strict USB CPU/GPU verification passes without relaxing tolerances. Placement score contract v13 rejects older native binaries; see the [pre-release review](docs/experimental/pcb/release-0.4.0-minimal-fix/README.md).
 - Keep empty and fully locked Board calls on CPU even when CubeCL is explicitly requested. Skip GPU control/phase cleanup when there are no movable primitives, retaining the complete CPU result and locked poses.
 
 - Add independent `solver({ previewBlock })` and `block(..., { fixed: { reference, x, y, rotate } })`, both with or without `localLayout`. Preview resolves and fully solves only the selected block family, skips board/global stages, returns coordinates/SVG/diagnostics without a board assembly, and marks unaccepted recovery layouts as failures. Fixed root families use ordinary local search, then retain all transformed component poses through board packing and refinement, including explicit refine groups. Scope preview local-layout metadata and retain internal signal-path segments. See [block preview and fixation](docs/pcb-block-preview-fixed.md).
