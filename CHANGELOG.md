@@ -5,6 +5,7 @@
 ### PCB layout
 
 - Honor explicit `PCB_LAYOUT_SUBTREE_WORKERS`, `PCB_BOARD_PACKER_THREADS` and `PCB_POST_PLACE_THREADS` values up to the number of logical cores, in TypeScript and in the native board packer and post-placement refiner. The default stays at half the logical cores, at most 8. On H743 (18-core host, CPU build) poses are identical and 8 / 16 / 16 reduced wall time from 112 s to 93 s; see [thread overrides](docs/experimental/pcb/thread-overrides-2026-10-17/README.md).
+- Solve the block pair neighbourhood speculatively on the block's thread budget: consecutive pairs run on worker contexts against one state, the first accepted pair in order wins and later pairs are solved again, so results equal the serial loop. Single hypotheses use the batch API when more than one thread is available. On H743 the MCU pair call took 8.8 s instead of 28.8 s with 8 threads, with byte-identical solutions; see [parallel pair neighbourhood](docs/experimental/pcb/parallel-pair-improve-2026-10-17/README.md).
 
 ## 0.4.0 - 2026-10-14
 
