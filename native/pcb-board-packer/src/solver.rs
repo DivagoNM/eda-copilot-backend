@@ -141,10 +141,11 @@ struct Context {
 pub fn solve(mut problem: BoardPackProblem) -> Result<BoardPackSolution, String> {
     attach_block_relation_points(&mut problem)?;
     let available = std::thread::available_parallelism().map_or(1, |n| n.get());
+    // Default to half the logical cores (at most 8); an explicit override may use every core.
     let limit = (available / 2).clamp(1, 8);
     let threads = std::env::var("PCB_BOARD_PACKER_THREADS")
         .ok().and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(limit).clamp(1, limit);
+        .map_or(limit, |value| value.clamp(1, available.max(1)));
     let backend=std::env::var("PCB_BOARD_BACKEND").unwrap_or_else(|_|"auto".into());
     if !matches!(backend.as_str(),"cpu"|"cubecl"|"auto") {return Err(format!("unsupported PCB_BOARD_BACKEND {backend}"));}
     #[cfg(feature = "gpu")]

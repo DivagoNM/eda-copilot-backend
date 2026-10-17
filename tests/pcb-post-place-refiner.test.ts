@@ -491,14 +491,14 @@ test('whole refinement crosses the native boundary once and preserves caller dat
     } finally { Object.assign(addon, original); }
 });
 
-test('refinement caps oversized thread configuration at half CPUs and eight', async () => {
+test('refinement caps oversized thread configuration at the logical CPU count', async () => {
     const previous = process.env.PCB_POST_PLACE_THREADS;
     process.env.PCB_POST_PLACE_THREADS = '1000';
     try {
         const input = pairInput();
         input.solverOptions.localImproveIterations = 0;
         const result = await refinePostPlacementAsync(input, pairPlacements());
-        assert.equal(result.profile.workers, Math.max(1, Math.min(8, Math.floor(availableParallelism() / 2))));
+        assert.equal(result.profile.workers, availableParallelism());
     } finally {
         if (previous === undefined) delete process.env.PCB_POST_PLACE_THREADS;
         else process.env.PCB_POST_PLACE_THREADS = previous;
