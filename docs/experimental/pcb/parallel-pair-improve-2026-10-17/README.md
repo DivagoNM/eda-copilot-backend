@@ -40,3 +40,24 @@ All 118 poses (x, y, rotation, layer) are identical in all six runs. The 8 / 8 /
 ## Tests
 
 `tests/pcb-block-*.test.ts`, `pcb-relaxed-block-groups` and `pcb-board-packer-native`: 66/66 pass before and after. `cargo test --no-default-features`: 77 pass; `interval::tests::outward_bounds_survive_ftz_and_cancellation` fails identically on `9dd04c8`. Not measured: the GPU build (the parallel path is disabled while a GPU engine is active) and other fixtures. Detail profile counters of worker contexts are not merged into `[block-detail]`.
+
+## Shared reference counts (2026-10-18)
+
+Fifteen-board run (all `tests/pcb-layout` fixtures with a saved input, 2 / 16 / 16, default-feature build, CPU backend because no F32 Vulkan device was present). Configurations were interleaved and repeated three times because single runs of the same input differed by up to ±3 s, which is larger than some of the effects. Medians: `main` 604.9 s, this change 558.9 s (−7.6 %), with identical final poses on every board and pass. `rp2040_base` was slower, though: 22.5 s → 27.2 s.
+
+The loss came from its four 8-primitive blocks, not the small ones. A temporary per-worker timer showed each pair taking about 2.5× longer inside a worker than on the calling thread (60 → 158 ms per pair on a 5-primitive block, 287 → 730 ms on the 8-primitive blocks). A fresh context on the calling thread costs the same as the warm one, so cold caches were not the cause. Wasted speculation was not either: a block with no accepted pair did not get faster. Every `WorkingPrimitive` clone increments about 20 `Arc` counters shared by all workers. Giving each job an unshared deep copy of the block (`unshared`, commit `69467da`) removes that contention. Deep-copying the worker's problem as well brought no further gain, so it is not done.
+
+Five boards, same settings, median of two interleaved passes (native SHA-256 prefixes: `main` `e66e7da4f8ddc4f5`, this branch `cbe172198dac56a6`):
+
+| Fixture | main | pairs, shared copy | pairs, unshared copy |
+|---|---:|---:|---:|
+| rp2040_base | 22.9 s | 25.8 s | 22.0 s |
+| H743 | 91.3 s | 75.1 s | 75.0 s |
+| ThunderF722 | 92.5 s | 72.4 s | 71.4 s |
+| ICM20948_v2 | 68.0 s | 60.9 s | 56.3 s |
+| dc-dc | 5.9 s | 6.0 s | 5.7 s |
+| Total | 280.7 s | 240.3 s (−14.4 %) | 230.4 s (−17.9 %) |
+
+Final poses are hash-identical across the three configurations and both passes; no board is slower than `main`. `Portable_AC_DC_Telemetry`, `STEPPER_CONTROLLER` and `esp32c3` exit with code 1 from their own fixture checks on `main` and on this branch alike.
+
+Verdict: keep the unshared copy. Tests: `tests/pcb-block-pair-parallel.test.ts`, `npm run test:pcb` (481 pass, 0 fail) and `cargo test --manifest-path native/pcb-board-packer/Cargo.toml` with default features (100 pass, 4 ignored).
