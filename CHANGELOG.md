@@ -5,6 +5,7 @@
 ### PCB layout
 
 - Honor explicit `PCB_LAYOUT_SUBTREE_WORKERS`, `PCB_BOARD_PACKER_THREADS` and `PCB_POST_PLACE_THREADS` values up to the number of logical cores, in TypeScript and in the native board packer and post-placement refiner. The default stays at half the logical cores, at most 8. On H743 (18-core host, CPU build) poses are identical and 8 / 16 / 16 reduced wall time from 112 s to 93 s; see [thread overrides](docs/experimental/pcb/thread-overrides-2026-10-17/README.md).
+- Use the CPU's nominal primitive size in the GPU long-net scale. The GPU took the extent of the rounded bbox, which differs for off-grid boxes (STEPPER_CONTROLLER `pd_controller`) and could select another pose. The GPU primitive record grows to 16 ints and the frame header to 45 slots. CPU placement is unchanged.
 
 ## 0.4.0 - 2026-10-14
 
