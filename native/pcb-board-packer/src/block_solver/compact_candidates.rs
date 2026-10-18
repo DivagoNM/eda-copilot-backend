@@ -48,9 +48,16 @@ fn move_box_center(p: &WorkingPrimitive, b: &Box2, center: Point, grid: f32) -> 
         snap(center.y - origin.y, grid),
     )
 }
+// Same arithmetic as the native fit_to_bounds, applied to the compact box.
+// Callers such as `scarcity` also reach this with problem bounds set.
 fn fit_to_bounds(p: Compact, c: &Context) -> Compact {
-    assert!(c.problem.bounds.is_none());
-    p
+    let Some(bounds) = c.problem.bounds else { return p };
+    let dx = if p.bbox.left < bounds.left { bounds.left - p.bbox.left }
+        else if p.bbox.right > bounds.right { bounds.right - p.bbox.right } else { 0.0 };
+    let dy = if p.bbox.top < bounds.top { bounds.top - p.bbox.top }
+        else if p.bbox.bottom > bounds.bottom { bounds.bottom - p.bbox.bottom } else { 0.0 };
+    let (dx, dy) = (round_placement(dx), round_placement(dy));
+    Compact { pose: Pose { dx: round_placement(p.pose.dx + dx), dy: round_placement(p.pose.dy + dy), ..p.pose }, bbox: translate_box(&p.bbox, dx, dy) }
 }
 fn dedupe_primitives(v: Vec<Compact>) -> Vec<Compact> {
     let mut seen = FxHashSet::default();
