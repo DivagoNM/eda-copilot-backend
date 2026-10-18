@@ -413,7 +413,7 @@ test('Rust threads match serial Rust moves and scores', async () => {
             for (let repeat = 0; repeat < 2; repeat++) {
                 const { profile, ...parallel } = await refinePostPlacementAsync(input, before);
                 assert.deepEqual(parallel, serial);
-                assert.equal(profile.workers, Math.max(1, Math.min(3, Math.floor(availableParallelism() / 2))));
+                assert.equal(profile.workers, Math.max(1, Math.min(3, availableParallelism())));
                 assert.deepEqual(profile.iterations.map(i => i.candidates), serialProfile.iterations.map(i => i.candidates));
             }
             input.solverOptions.localImproveIterations = 0;
@@ -580,7 +580,7 @@ test('native timeout stops serial and parallel search and leaves a reusable vali
     const addon = loadNativeBoardPacker();
     const { profile: serialProfile, ...serial } = addon.refinePostPlacement(encodeNativePostPlaceRefineProblem(input, poses, 1));
     const { profile: parallelProfile, ...parallel } = addon.refinePostPlacement(encodeNativePostPlaceRefineProblem(input, poses, 3));
-    assert.equal(parallelProfile.workers, Math.max(1, Math.min(3, Math.floor(availableParallelism() / 2))));
+    assert.equal(parallelProfile.workers, Math.max(1, Math.min(3, availableParallelism())));
     assert.ok(parallelProfile.iterations.length > 0);
     assert.deepEqual(parallel, serial);
 });
