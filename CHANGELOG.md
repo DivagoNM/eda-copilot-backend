@@ -5,6 +5,7 @@
 ### PCB layout
 
 - Honor explicit `PCB_LAYOUT_SUBTREE_WORKERS`, `PCB_BOARD_PACKER_THREADS` and `PCB_POST_PLACE_THREADS` values up to the number of logical cores, in TypeScript and in the native board packer and post-placement refiner. The default stays at half the logical cores, at most 8. On H743 (18-core host, CPU build) poses are identical and 8 / 16 / 16 reduced wall time from 112 s to 93 s; see [thread overrides](docs/experimental/pcb/thread-overrides-2026-10-17/README.md).
+- Add an opt-in persistent layer to the native solve cache (`PCB_NATIVE_SOLVE_CACHE_DIR`), bound to the exact native binary and backend selection. Rerunning H743 unchanged took 8.6 s instead of 91.0 s, and 38.9 s instead of 92.3 s after changing one block, with identical poses; see [persistent solve cache](docs/experimental/pcb/persistent-solve-cache-2026-10-18/README.md).
 
 ## 0.4.0 - 2026-10-14
 

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NativeSolveCache, cachedNativeSolve } from '../src/pcb-layout/pcb-auto-place-v2/native/solve-cache.ts';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DiskSolveCache, NativeSolveCache, cachedNativeSolve } from '../src/pcb-layout/pcb-auto-place-v2/native/solve-cache.ts';
 
 const solution = () => ({ version: 3, states: [], rank: { hardCount: 0, hardSeverity: 0, score: 123 } });
 
@@ -76,4 +79,23 @@ test('native solve cache is scoped to the loaded addon', () => {
     cachedNativeSolve({}, 'board', {}, solve);
     cachedNativeSolve({}, 'board', {}, solve);
     assert.equal(calls, 2);
+});
+
+test('persistent solve cache is shared by processes, keeps signed zero and is bound to the native binary', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pcb-solve-cache-'));
+    try {
+        let calls = 0;
+        const solve = () => { calls++; return { ...solution(), states: [{ x: -0 }] } as unknown as ReturnType<typeof solution>; };
+        const problem = { geometry: [1, 2], x: -0 };
+        new NativeSolveCache(64, 16 * 1024 * 1024, new DiskSolveCache(dir, 'build-a')).solve('block', problem, solve);
+        // A fresh memory cache stands for another run or subtree process.
+        const hit = new NativeSolveCache(64, 16 * 1024 * 1024, new DiskSolveCache(dir, 'build-a')).solve('block', structuredClone(problem), solve);
+        assert.equal(calls, 1);
+        assert.ok(Object.is((hit.states[0] as unknown as { x: number }).x, -0));
+        new NativeSolveCache(64, 16 * 1024 * 1024, new DiskSolveCache(dir, 'build-b')).solve('block', problem, solve);
+        new NativeSolveCache(64, 16 * 1024 * 1024, new DiskSolveCache(dir, 'build-a')).solve('block', { ...problem, x: 0 }, solve);
+        assert.equal(calls, 3);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 });

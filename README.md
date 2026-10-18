@@ -52,7 +52,7 @@ Releases are published on [npm](https://www.npmjs.com/package/eda-copilot-backen
 
 Place this repository beside `easyeda-copilot` and `copilot-router`. In EasyEDA Copilot, `npm run deps:local` selects sibling file dependencies; `npm run deps:release` selects pinned published versions. MCP does not bundle this package or duplicate its runtime dependencies. Read EasyEDA Copilot's `docs/local-development.md` for the full workflow.
 
-`PCB_BOARD_PACKER_NATIVE_PATH` is an optional developer override. Normal assets resolve relative to this package, independently of the current directory. Always call `disposeBackend()` when the host shuts down to close worker pools. `PCB_LAYOUT_WORKERS`, `PCB_LAYOUT_WORKER_QUEUE_SIZE`, `PCB_LAYOUT_WORKER_TIMEOUT_MS` and `EDA_BACKEND_LOG_LEVEL` configure runtime behavior.
+`PCB_NATIVE_SOLVE_CACHE_DIR` (unset by default) keeps native block and board solutions on disk between runs and subtree processes; entries are keyed by the complete problem and the exact native binary, and are never evicted, so clear the directory when it grows. `PCB_BOARD_PACKER_NATIVE_PATH` is an optional developer override. Normal assets resolve relative to this package, independently of the current directory. Always call `disposeBackend()` when the host shuts down to close worker pools. `PCB_LAYOUT_WORKERS`, `PCB_LAYOUT_WORKER_QUEUE_SIZE`, `PCB_LAYOUT_WORKER_TIMEOUT_MS` and `EDA_BACKEND_LOG_LEVEL` configure runtime behavior.
 
 `PCB_BOARD_PACKER_THREADS` controls native board-level beam-search parallelism
 (default and maximum: half the available logical CPUs, rounded down, capped at eight, minimum one; `1` selects serial execution). Independent
