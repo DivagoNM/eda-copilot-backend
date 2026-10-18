@@ -1317,7 +1317,8 @@ fn pair_improve(mut current: Vec<WorkingPrimitive>, context: &Context) -> Vec<Wo
 /// against one state on worker contexts; the first accepted pair in input order
 /// wins, and every later pair of that batch is solved again from the new state.
 /// The contexts' caches are memoization only, so a fresh context per worker
-/// yields the same evaluations as the caller's context.
+/// yields the same evaluations as the caller's context. Each job works on an
+/// unshared copy of the block, which changes no value.
 fn pair_improve_speculative(
     mut current: Vec<WorkingPrimitive>,
     pairs: &[(usize, usize)],
@@ -1343,7 +1344,7 @@ fn pair_improve_speculative(
                     let job = job_rx.lock().map_err(|_| ()).and_then(|rx| rx.recv().map_err(|_| ()));
                     let Ok(Some((slot, i, j, base))) = job else { break };
                     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
-                        improve_pair(&base, i, j, &worker))).map_err(|_| ());
+                        improve_pair(&unshared(&base), i, j, &worker))).map_err(|_| ());
                     if outcome_tx.send((slot, outcome)).is_err() { break; }
                 }
             });
@@ -1379,6 +1380,31 @@ fn pair_improve_speculative(
         if let Some(updated) = improve_pair(&current, i, j, context) { current = updated; }
     }
     current
+}
+
+/// Deep copy with fresh reference counts. Worker threads that clone a shared
+/// block contend on the same atomic counters; an owned copy keeps them apart.
+fn unshared(items: &[WorkingPrimitive]) -> Vec<WorkingPrimitive> {
+    fn s(v: &Arc<str>) -> Arc<str> { Arc::from(&**v) }
+    fn v<T: Clone>(x: &Arc<Vec<T>>) -> Arc<Vec<T>> { Arc::new((**x).clone()) }
+    fn strs(x: &Arc<Vec<Arc<str>>>) -> Arc<Vec<Arc<str>>> { Arc::new(x.iter().map(s).collect()) }
+    items.iter().map(|w| {
+        let p = &w.primitive;
+        WorkingPrimitive {
+            id: w.id, source_index: w.source_index, rotation: w.rotation,
+            primitive: Primitive { id: s(&p.id), kind: s(&p.kind), label: s(&p.label), source_node_id: s(&p.source_node_id),
+                source_node_ids: strs(&p.source_node_ids), locked: p.locked, can_rotate: p.can_rotate,
+                allowed_orientations: v(&p.allowed_orientations), bbox: p.bbox.clone(), collision_boxes: v(&p.collision_boxes),
+                collision_box_layers: strs(&p.collision_box_layers), width: p.width, height: p.height,
+                placements: v(&p.placements), connection_points: v(&p.connection_points),
+                connection_point_layers: strs(&p.connection_point_layers), path_ports: v(&p.path_ports),
+                edge_place: p.edge_place.clone() },
+            components: v(&w.components), source_components: v(&w.source_components),
+            source_placements: v(&w.source_placements),
+            source_node_ids: Arc::new(w.source_node_ids.iter().map(s).collect()),
+            point_net_ids: v(&w.point_net_ids),
+        }
+    }).collect()
 }
 
 /// One pair of the bounded pair neighbourhood. Returns the improved block, or
