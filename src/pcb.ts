@@ -65,8 +65,9 @@ export async function makePcbLayout(input: MakePcbLayoutInput, options: RunPcbLa
 
 export const disposeBackend = () => terminatePcbLayoutWorkerPool(true);
 export { validatePcbLayoutIntent } from './pcb-layout/intent-validation/validate.ts';
+export { pcbLayoutDslSkeleton } from './pcb-layout/intent-validation/schematic-declarations.ts';
 export { detectCircuitPatterns } from './pcb-layout/intent-validation/recognition/detect.ts';
-export type { ValidatePcbLayoutIntentInput, PcbIntentDiagnostic, PcbSchematicGroups } from './pcb-layout/intent-validation/types.ts';
+export type { ValidatePcbLayoutIntentInput, PcbIntentDiagnostic, PcbSchematicGroups, PcbSchematicBlockDeclarations } from './pcb-layout/intent-validation/types.ts';
 export type { CircuitPatternMatch, CircuitPatternRequirement, CircuitPinRef, DetectCircuitPatternsInput } from './pcb-layout/intent-validation/recognition/types.ts';
 export type { PcbLayoutProgress, PcbLayoutProgressReporter } from './pcb-layout/progress.ts';
 export type { RunPcbLayoutQueuedOptions as PcbLayoutOptions } from './pcb-layout/run-pcb-layout-pool.ts';
