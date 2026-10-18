@@ -6,6 +6,13 @@ import type { PcbIntentDiagnostic, PcbSchematicBlockDeclarations } from './types
 
 type Declarations = PcbSchematicBlockDeclarations | undefined;
 
+/** A component in several declared blocks fits none of them. */
+function sharedComponents(blocks: PcbSchematicBlockDeclarations['blocks']) {
+    const owners = new Map<string, string[]>();
+    for (const block of blocks) for (const name of new Set(block.components)) owners.set(name, [...(owners.get(name) ?? []), block.name]);
+    return new Map([...owners].filter(([, names]) => names.length > 1));
+}
+
 /** Contradictions between the DSL and the schematic declarations are warnings,
  * never errors; any failure of this check is reported and skipped. */
 export function checkSchematicDeclarations(declarations: Declarations, rules: PlacementRules,
@@ -26,8 +33,12 @@ export function checkSchematicDeclarations(declarations: Declarations, rules: Pl
         const declared = new Set(declarations.blocks.map(block => block.name));
         const warn = (code: string, message: string, members: readonly string[]) => diagnostics.push({ code, severity: 'warning', message,
             ...(members.length ? { context: { components: [...members].sort(stableCompare) } } : {}) });
+        const shared = sharedComponents(declarations.blocks);
+        for (const [name, blocks] of [...shared].sort(([a], [b]) => stableCompare(a, b))) if (present.has(name))
+            warn('PCB_SCHEMATIC_DECLARED_BLOCK_CONFLICT', 'Component ' + name + ' is declared in several PCB blocks (' +
+                [...blocks].sort(stableCompare).join(', ') + '); a DSL block holds each component once, so its declaration is ignored.', [name]);
         for (const block of declarations.blocks) {
-            const members = block.components.filter(name => present.has(name));
+            const members = block.components.filter(name => present.has(name) && !shared.has(name));
             if (!members.length) continue; // Outside a placement preview or not in this circuit.
             if (members.length > MAX_BLOCK_COMPONENTS) warn('PCB_SCHEMATIC_DECLARED_BLOCK_SIZE',
                 'Declared PCB block ' + block.name + ' has ' + members.length + ' components; a DSL block holds at most ' + MAX_BLOCK_COMPONENTS + '.', members);
@@ -60,7 +71,12 @@ export function checkSchematicDeclarations(declarations: Declarations, rules: Pl
 export function pcbLayoutDslSkeleton(declarations: Declarations): { code: string; diagnostics: PcbIntentDiagnostic[] } {
     const diagnostics: PcbIntentDiagnostic[] = [];
     try {
-        const blocks = [...(declarations?.blocks ?? [])].filter(block => block.components.length).sort((a, b) => stableCompare(a.name, b.name));
+        const shared = sharedComponents(declarations?.blocks ?? []);
+        for (const [name, owners] of [...shared].sort(([a], [b]) => stableCompare(a, b))) diagnostics.push({ code: 'PCB_SCHEMATIC_DECLARED_BLOCK_CONFLICT',
+            severity: 'warning', message: 'Component ' + name + ' is declared in several PCB blocks (' + [...owners].sort(stableCompare).join(', ') +
+                '); it is left out of the skeleton.', context: { components: [name] } });
+        const blocks = [...(declarations?.blocks ?? [])].map(block => ({ ...block, components: block.components.filter(name => !shared.has(name)) }))
+            .filter(block => block.components.length).sort((a, b) => stableCompare(a.name, b.name));
         const names = new Set(blocks.map(block => block.name));
         const lines = blocks.map(block => {
             const role = block.role && (PCB_BLOCK_ROLES as readonly string[]).includes(block.role) ? block.role : 'generic';

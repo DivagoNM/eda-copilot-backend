@@ -74,3 +74,16 @@ test('the skeleton reports unusable roles and attachments and never throws', () 
     assert.equal(broken.code, '');
     assert.equal(broken.diagnostics[0].code, 'PCB_SCHEMATIC_DECLARATION_CHECK');
 });
+
+test('a component declared in several blocks gets one conflict warning and stays out of the skeleton', () => {
+    const blocks = [{ name: 'ldo', components: ['U1', 'C1'] }, { name: 'ldo_caps', components: ['C1', 'C2'] }, { name: 'load', components: ['C3', 'U2'] }];
+    const findings = own(declared(blocks));
+    assert.deepEqual(findings.map(d => d.code), ['PCB_SCHEMATIC_DECLARED_BLOCK_CONFLICT']);
+    assert.ok(findings.every(d => d.severity === 'warning'));
+    assert.deepEqual(findings[0].context?.components, ['C1']);
+    const skeleton = pcbLayoutDslSkeleton({ blocks });
+    assert.ok(!skeleton.code.includes('"C1"'));
+    assert.deepEqual(skeleton.diagnostics.map(d => d.code), ['PCB_SCHEMATIC_DECLARED_BLOCK_CONFLICT']);
+    const result = validatePcbLayoutIntent({ code: skeleton.code, circuit: { components: circuit.components.filter(c => c.designator !== 'C1') } });
+    assert.equal(result.some(d => d.severity === 'error'), false);
+});
