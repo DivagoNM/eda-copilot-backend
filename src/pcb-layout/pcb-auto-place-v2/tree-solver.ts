@@ -298,11 +298,19 @@ async function solveNodeAsync(
         for (const placement of passivePrimitive.placements) coveredComponents.add(placement.designator);
     }
 
-    const childTasks = node.children
+    const children = node.children
         .filter((child) => child.kind !== 'island')
-        .filter((child) => child.kind !== 'component' || !coveredComponents.has(child.label))
-        .map(async (child) => solveChildNodeAsync(context, node, child, effectiveClearance));
-    childPrimitives.push(...await Promise.all(childTasks));
+        .filter((child) => child.kind !== 'component' || !coveredComponents.has(child.label));
+    // Queue every worker subtree before solving the others on this thread:
+    // synchronous solves would otherwise delay each later dispatch. Results
+    // keep the child order.
+    const queued = children.map(child => shouldSolveChildInWorker(node, child)
+        ? solveChildNodeAsync(context, node, child, effectiveClearance) : undefined);
+    // One macrotask lets the pool start its processes and send the inputs
+    // before this thread blocks.
+    if (queued.some(Boolean)) await new Promise(resolve => setImmediate(resolve));
+    childPrimitives.push(...await Promise.all(children.map((child, i) =>
+        queued[i] ?? solveChildNodeAsync(context, node, child, effectiveClearance))));
 
     let arranged: PlacementPrimitive[];
     if (node.kind === 'board') {
@@ -400,7 +408,8 @@ function shouldSolveChildInWorker(parent: PlacementTreeNode, child: PlacementTre
     if (child.kind !== 'module' && child.kind !== 'block') return false;
     const config = getPcbSubtreeWorkerPoolConfig();
     if (config.maxWorkers <= 0) return false;
-    if (hasFixedOrEdgeDescendant(child)) return false;
+    // Fixed and edge families are solved in the board frame from the complete
+    // input, which the worker receives as well; only their parent stays here.
     return countComponentDescendants(child) >= config.minComponents;
 }
 

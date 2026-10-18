@@ -11,6 +11,7 @@
 - Give the pair-search GPU kernel loops (`insert`, `convex`, `full`, `rank`) a single structured exit. CubeCL lowered their inner `break`s to unstructured SPIR-V that `spirv-val` and strict drivers reject. Kernel values and the CPU path are unchanged.
 - Reuse existing `u32`, `bool` and vector types when `enforce_modes` adds the explicit FTZ sequence to strict F32 SPIR-V. Duplicate non-aggregate type declarations are invalid SPIR-V, and a strict driver (Mesa KosmicKrisp on Apple Silicon) rejected four kernels. The emitted arithmetic is unchanged.
 - Accept optional schematic block declarations in `PcbSchematicGroups` (`PCB Block`, `PCB Module`, `PCB Attach`, `PCB Role` properties) and warn when the DSL contradicts them; without declarations, results are unchanged and every failure of the new checks is reported as info. Export `pcbLayoutDslSkeleton()` for the declared `block()`/`module()` structure; see [intent validation](docs/pcb-intent-validation.md).
+- Queue every subtree worker task before solving the other board children on the calling thread, and allow fixed and edge families in workers. Synchronous children used to delay each later dispatch, so worker children of Portable_AC_DC_Telemetry started 17.9 s into the block phase. Over the 15 layout fixtures, poses are identical and the total is 566.5 s instead of 610.4 s at 4 / 16 / 16 with `PCB_LAYOUT_SUBTREE_MIN_COMPONENTS=4`; see [subtree dispatch](docs/experimental/pcb/subtree-dispatch-2026-10-18/README.md).
 
 ## 0.4.0 - 2026-10-14
 
