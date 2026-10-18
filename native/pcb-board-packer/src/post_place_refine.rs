@@ -1339,12 +1339,11 @@ pub fn solve(p: RefineProblem) -> Result<Value, String> {
 }
 fn solve_inner(p:&RefineProblem,started:Instant,#[cfg(feature="gpu")] engine:&mut Option<gpu::Engine>) -> Result<Value,String> {
     let deadline = started + Duration::from_millis(p.timeout_ms);
+    // The caller chooses the thread count; never exceed the logical cores.
     let threads = p.threads.max(1).min(
-        (thread::available_parallelism()
+        thread::available_parallelism()
             .map(|n| n.get())
-            .unwrap_or(1)
-            / 2)
-        .clamp(1, 8),
+            .unwrap_or(1),
     );
     let mut current = p.world(&p.placements)?;
     let initial_started = Instant::now();

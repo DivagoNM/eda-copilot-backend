@@ -33,9 +33,11 @@ export function refinePostPlacement(input: PlacementInput, placements: Placement
 
 export async function refinePostPlacementAsync(input: PlacementInput, placements: Placement[], onIteration?: (message: string) => void): Promise<PostPlaceRefineResult> {
     const raw = process.env.PCB_POST_PLACE_THREADS ?? process.env.PCB_BOARD_PACKER_THREADS ?? process.env.PCB_LAYOUT_SUBTREE_WORKERS;
-    const limit = Math.max(1, Math.min(8, Math.floor(availableParallelism() / 2)));
+    // Default to half the logical cores (at most 8); an explicit override may use every core.
+    const cores = availableParallelism();
+    const limit = Math.max(1, Math.min(8, Math.floor(cores / 2)));
     const configured = raw === undefined ? limit : Number(raw);
-    const threads = Math.min(limit, Number.isFinite(configured) ? Math.max(1, Math.floor(configured)) : limit);
+    const threads = Math.min(cores, Number.isFinite(configured) ? Math.max(1, Math.floor(configured)) : limit);
     const budget = postPlaceBudget(input);
     onIteration?.(`Post-placement refinement in Rust: up to ${threads} native threads, ${budget.iterations} passes, 30 s budget (${budget.componentCount} components, ${budget.pinCount} pads).`);
     const result = run(input, placements, threads);
