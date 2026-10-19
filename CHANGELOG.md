@@ -6,6 +6,11 @@
 
 - Honor explicit `PCB_LAYOUT_SUBTREE_WORKERS`, `PCB_BOARD_PACKER_THREADS` and `PCB_POST_PLACE_THREADS` values up to the number of logical cores, in TypeScript and in the native board packer and post-placement refiner. The default stays at half the logical cores, at most 8. On H743 (18-core host, CPU build) poses are identical and 8 / 16 / 16 reduced wall time from 112 s to 93 s; see [thread overrides](docs/experimental/pcb/thread-overrides-2026-10-17/README.md).
 - Use the CPU's nominal primitive size in the GPU long-net scale. The GPU took the extent of the rounded bbox, which differs for off-grid boxes (STEPPER_CONTROLLER `pd_controller`) and could select another pose. The GPU primitive record grows to 16 ints and the frame header to 45 slots. CPU placement is unchanged.
+- Apply the native bounds clamp in the compact `fit_to_bounds` instead of asserting an unbounded problem. GPU frontier scarcity reached it for bounded blocks (STEPPER_CONTROLLER, ESpower), and the whole block was replayed on CPU. CPU placement is unchanged.
+- Recover bounded compact GPU poses from the native candidate box edges instead of rounding the centre difference. Half-tick centres (H743 `usb_power`) rebuilt boxes 0.001 mm away from the native candidates, so GPU and CPU searched different candidates. CPU placement is unchanged.
+- Give the pair-search GPU kernel loops (`insert`, `convex`, `full`, `rank`) a single structured exit. CubeCL lowered their inner `break`s to unstructured SPIR-V that `spirv-val` and strict drivers reject. Kernel values and the CPU path are unchanged.
+- Reuse existing `u32`, `bool` and vector types when `enforce_modes` adds the explicit FTZ sequence to strict F32 SPIR-V. Duplicate non-aggregate type declarations are invalid SPIR-V, and a strict driver (Mesa KosmicKrisp on Apple Silicon) rejected four kernels. The emitted arithmetic is unchanged.
+- Accept optional schematic block declarations in `PcbSchematicGroups` (`PCB Block`, `PCB Module`, `PCB Attach`, `PCB Role` properties) and warn when the DSL contradicts them; without declarations, results are unchanged and every failure of the new checks is reported as info. Export `pcbLayoutDslSkeleton()` for the declared `block()`/`module()` structure; see [intent validation](docs/pcb-intent-validation.md).
 
 ## 0.4.0 - 2026-10-14
 

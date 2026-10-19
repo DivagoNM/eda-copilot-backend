@@ -48,9 +48,16 @@ fn move_box_center(p: &WorkingPrimitive, b: &Box2, center: Point, grid: f32) -> 
         snap(center.y - origin.y, grid),
     )
 }
+// Same arithmetic as the native fit_to_bounds, applied to the compact box.
+// Callers such as `scarcity` also reach this with problem bounds set.
 fn fit_to_bounds(p: Compact, c: &Context) -> Compact {
-    assert!(c.problem.bounds.is_none());
-    p
+    let Some(bounds) = c.problem.bounds else { return p };
+    let dx = if p.bbox.left < bounds.left { bounds.left - p.bbox.left }
+        else if p.bbox.right > bounds.right { bounds.right - p.bbox.right } else { 0.0 };
+    let dy = if p.bbox.top < bounds.top { bounds.top - p.bbox.top }
+        else if p.bbox.bottom > bounds.bottom { bounds.bottom - p.bbox.bottom } else { 0.0 };
+    let (dx, dy) = (round_placement(dx), round_placement(dy));
+    Compact { pose: Pose { dx: round_placement(p.pose.dx + dx), dy: round_placement(p.pose.dy + dy), ..p.pose }, bbox: translate_box(&p.bbox, dx, dy) }
 }
 fn dedupe_primitives(v: Vec<Compact>) -> Vec<Compact> {
     let mut seen = FxHashSet::default();
@@ -77,8 +84,17 @@ pub(super) fn generate(
         // The compact path remains allocation-light for ordinary unbounded blocks.
         return super::super::block_candidates(p,placed,c).into_iter().enumerate().map(|(ordinal,q)| {
             let rotated=rotate_primitive(p,normalize_rotation(q.rotation-p.rotation));
-            let a=box_center(&rotated.primitive.bbox);let b=box_center(&q.primitive.bbox);
-            Pose{template_index:(q.source_index*4+normalize_rotation(q.rotation) as usize/90) as u32,ordinal:ordinal as u32,dx:round_placement(b.x-a.x),dy:round_placement(b.y-a.y)}
+            // Recover the translation from the box edges, not the centres: a
+            // centre on a half tick rounds the difference to the wrong tick and
+            // the materialized pose then misses the scored candidate by 0.001.
+            let (from,to)=(rotated.primitive.bbox,q.primitive.bbox);
+            let axis=|a:f32,b:f32,c:f32,d:f32| {
+                let guess=round_placement(c-a);
+                [guess,round_placement(guess-0.001),round_placement(guess+0.001)].into_iter()
+                    .find(|&t| round_placement(a+t)==c && round_placement(b+t)==d).unwrap_or(guess)
+            };
+            Pose{template_index:(q.source_index*4+normalize_rotation(q.rotation) as usize/90) as u32,ordinal:ordinal as u32,
+                dx:axis(from.left,from.right,to.left,to.right),dy:axis(from.top,from.bottom,to.top,to.bottom)}
         }).collect();
     }
     let variants = orientation_variants(p);
