@@ -1434,4 +1434,31 @@ mod tests {
             assert_eq!(cheap_hull_capacity(&prims, moving, &geometry), 128);
         }
     }
+
+    /// H743 `usb_cc` block, captured from a real run, has problem bounds. The
+    /// compact scarcity candidates must accept them and rebuild exactly the
+    /// native candidates used by CPU frontier_scarcity.
+    #[test]
+    fn bounded_scarcity_poses_match_native_candidates() {
+        let mut problem: crate::model::BlockSolveProblem =
+            serde_json::from_str(include_str!("../../tests/fixtures/h743-usb-cc-bounded-block.json")).unwrap();
+        super::super::attach_group_relation_points(&mut problem).unwrap();
+        let (primitives, context) = super::super::prepare_context(problem, false);
+        assert!(context.problem.bounds.is_some());
+        for moving in 0..primitives.len() {
+            if primitives[moving].primitive.locked { continue; }
+            let cores: Vec<_> = primitives.iter().enumerate().filter(|(i, _)| *i != moving).map(|(_, p)| p.clone()).collect();
+            let native = super::super::dedupe_primitives(super::super::orientation_variants(&primitives[moving]).iter()
+                .flat_map(|v| super::super::net_anchored_candidates(v, &cores, &context)).collect());
+            let poses = candidates::scarcity(&primitives[moving], &cores, &context);
+            assert_eq!(poses.len(), native.len());
+            for pose in &poses {
+                assert_eq!(
+                    primitive_pose_key(&materialize(&primitives[moving], *pose)),
+                    primitive_pose_key(&native[pose.ordinal as usize]),
+                    "moving {moving}, candidate {}", pose.ordinal,
+                );
+            }
+        }
+    }
 }
