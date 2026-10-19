@@ -5,6 +5,7 @@
 ### PCB layout
 
 - Honor explicit `PCB_LAYOUT_SUBTREE_WORKERS`, `PCB_BOARD_PACKER_THREADS` and `PCB_POST_PLACE_THREADS` values up to the number of logical cores, in TypeScript and in the native board packer and post-placement refiner. The default stays at half the logical cores, at most 8. On H743 (18-core host, CPU build) poses are identical and 8 / 16 / 16 reduced wall time from 112 s to 93 s; see [thread overrides](docs/experimental/pcb/thread-overrides-2026-10-17/README.md).
+- Accept optional schematic block declarations in `PcbSchematicGroups` (`PCB Block`, `PCB Module`, `PCB Attach`, `PCB Role` properties) and warn when the DSL contradicts them; without declarations, results are unchanged and every failure of the new checks is reported as info. Export `pcbLayoutDslSkeleton()` for the declared `block()`/`module()` structure; see [intent validation](docs/pcb-intent-validation.md).
 
 ## 0.4.0 - 2026-10-14
 
