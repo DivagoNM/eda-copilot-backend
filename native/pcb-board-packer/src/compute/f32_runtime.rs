@@ -113,12 +113,19 @@ fn enforce_modes(words: &[u32]) -> Vec<u32> {
     let mut instructions = Vec::new(); let mut offset = 5;
     let mut entries = Vec::new(); let mut float_shapes = BTreeMap::new();
     let mut glsl = None;
+    // Existing u32/bool scalar and vector types. SPIR-V forbids duplicate
+    // non-aggregate type declarations, so reuse them instead of redeclaring.
+    let mut existing_uint = None; let mut existing_bool = None;
+    let mut existing_vectors = BTreeMap::new();
     while offset < words.len() {
         let length = (words[offset] >> 16) as usize; let opcode = words[offset] & 0xffff;
         assert!(length > 0 && offset+length <= words.len(), "invalid SPIR-V instruction");
         let instruction = words[offset..offset+length].to_vec();
         assert_ne!(opcode,4427,"explicit core Fma is not part of the PCB contract");
         if opcode == 15 { entries.push(instruction[2]); }
+        if opcode == 21 && length == 4 && instruction[2] == 32 && instruction[3] == 0 { existing_uint.get_or_insert(instruction[1]); }
+        if opcode == 20 && length == 2 { existing_bool.get_or_insert(instruction[1]); }
+        if opcode == 23 && length == 4 { existing_vectors.entry((instruction[2], instruction[3])).or_insert(instruction[1]); }
         if opcode == 22 {
             assert_eq!(instruction[2], 32, "non-F32 shader in PCB solver");
             float_shapes.insert(instruction[1], 1u32);
@@ -144,9 +151,10 @@ fn enforce_modes(words: &[u32]) -> Vec<u32> {
     }
     let mut next = words[3];
     let mut alloc = || { let id = next; next += 1; id };
-    let uint = alloc(); let boolean = alloc(); let zero = alloc(); let exponent = alloc(); let sign = alloc();
     let mut declarations = Vec::new();
-    emit(&mut declarations, 21, &[uint,32,0]); emit(&mut declarations, 20, &[boolean]);
+    let uint = existing_uint.unwrap_or_else(|| { let id = alloc(); emit(&mut declarations, 21, &[id,32,0]); id });
+    let boolean = existing_bool.unwrap_or_else(|| { let id = alloc(); emit(&mut declarations, 20, &[id]); id });
+    let zero = alloc(); let exponent = alloc(); let sign = alloc();
     emit(&mut declarations, 43, &[uint,zero,0]);
     emit(&mut declarations, 43, &[uint,exponent,0x7f800000]);
     emit(&mut declarations, 43, &[uint,sign,0x80000000]);
@@ -154,8 +162,10 @@ fn enforce_modes(words: &[u32]) -> Vec<u32> {
     for (&float, &width) in &float_shapes {
         if width == 1 { shapes.insert(float,(uint,boolean,zero,exponent,sign)); }
         else {
-            let u = alloc(); let b = alloc();
-            emit(&mut declarations,23,&[u,uint,width]); emit(&mut declarations,23,&[b,boolean,width]);
+            let mut vector = |component: u32| *existing_vectors.entry((component, width)).or_insert_with(|| {
+                let id = alloc(); emit(&mut declarations,23,&[id,component,width]); id
+            });
+            let u = vector(uint); let b = vector(boolean);
             let mut constants = Vec::new();
             for scalar in [zero,exponent,sign] {
                 let id = alloc(); let mut args = vec![u,id]; args.extend(vec![scalar;width as usize]);
@@ -267,6 +277,22 @@ mod tests {
         }
         assert_eq!(output.iter().filter(|i|i[0]&0xffff==169).count(),2);
         for mode in [4461,4462] {assert!(output.iter().any(|i|i[0]&0xffff==16 && i[2]==mode && i[3]==32));}
+    }
+    #[test]
+    fn reuses_existing_u32_bool_and_vector_types() {
+        // Strict drivers reject duplicate OpTypeInt/OpTypeBool/OpTypeVector declarations.
+        let mut words=vec![0x07230203,0x00010400,0,64,0];
+        emit(&mut words,17,&[1]);emit(&mut words,14,&[0,1]);emit(&mut words,15,&[5,10,0]);
+        emit(&mut words,19,&[1]);emit(&mut words,22,&[2,32]);emit(&mut words,23,&[3,2,2]);
+        emit(&mut words,21,&[6,32,0]);emit(&mut words,20,&[7]);emit(&mut words,23,&[8,6,2]);
+        emit(&mut words,43,&[2,4,1]);emit(&mut words,54,&[1,10,0,11]);
+        emit(&mut words,248,&[12]);emit(&mut words,129,&[2,13,4,4]);
+        emit(&mut words,148,&[3,14,20,21]);emit(&mut words,253,&[]);emit(&mut words,56,&[]);
+        let output=instructions(&enforce_modes(&words));
+        assert_eq!(output.iter().filter(|i|i[0]&0xffff==21 && i[2]==32 && i[3]==0).count(),1);
+        assert_eq!(output.iter().filter(|i|i[0]&0xffff==20).count(),1);
+        assert_eq!(output.iter().filter(|i|i[0]&0xffff==23 && i[2]==6 && i[3]==2).count(),1);
+        assert_eq!(output.iter().filter(|i|i[0]&0xffff==23 && i[2]==7 && i[3]==2).count(),1);
     }
     #[test]
     fn rejects_lower_precision_and_fast_math() {
