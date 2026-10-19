@@ -68,7 +68,8 @@ export function solveBlockHypothesesRust(hypotheses: BlockSolveParams[], stage: 
         : [];
     const solveStarted = process.env.PCB_LAYOUT_DEBUG_DIR ? performance.now() : 0;
     const solutions = cachedNativeSolveMany(addon, 'block', preparedHypotheses.map(p => p.problem), misses =>
-        threads > 1 && misses.length > 1 && addon.solveBlockPrimitivesBatch
+        // A single hypothesis also uses the batch API so its pair stage can use the threads.
+        threads > 1 && addon.solveBlockPrimitivesBatch
             ? addon.solveBlockPrimitivesBatch(misses, threads)
             : misses.map(problem => addon.solveBlockPrimitives(problem)));
     if (solveStarted) {
