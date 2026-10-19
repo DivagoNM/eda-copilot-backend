@@ -138,6 +138,8 @@ struct Context {
     evaluation_cache: RefCell<FxHashMap<Vec<PrimitivePoseKey>, Evaluation>>,
     net_scoring_scratch: RefCell<NetScoringScratch>,
     validate_incremental_scoring: bool,
+    /// Worker threads for the pair neighbourhood; 1 keeps it on the calling thread.
+    pair_threads: usize,
 }
 
 struct EscapeEntry {
@@ -211,7 +213,12 @@ enum CompiledEndpoint {
     Missing,
 }
 
-pub fn solve_block(mut problem: BlockSolveProblem) -> Result<crate::model::BlockSolveSolution, String> {
+pub fn solve_block(problem: BlockSolveProblem) -> Result<crate::model::BlockSolveSolution, String> {
+    solve_block_with_threads(problem, 1)
+}
+
+/// `pair_threads` only parallelizes the pair neighbourhood; the result does not depend on it.
+pub fn solve_block_with_threads(mut problem: BlockSolveProblem, pair_threads: usize) -> Result<crate::model::BlockSolveSolution, String> {
     attach_group_relation_points(&mut problem)?;
     #[cfg(feature = "gpu")]
     {
@@ -223,7 +230,7 @@ pub fn solve_block(mut problem: BlockSolveProblem) -> Result<crate::model::Block
             else {requested=="auto" && problem.primitives.len()>=1 && (substantial || gpu_runtime::ready())};
         if use_gpu {
             let original=problem.clone();let started=std::time::Instant::now();
-            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(||solve_block_inner(problem,true))) {
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(||solve_block_inner(problem,true,pair_threads))) {
                 Ok(result)=>return result,
                 Err(payload)=>{
                     let expected=payload.downcast_ref::<cubecl::GpuFailure>();
@@ -233,7 +240,7 @@ pub fn solve_block(mut problem: BlockSolveProblem) -> Result<crate::model::Block
                     let validating=["PCB_BLOCK_GPU_VERIFY","PCB_BLOCK_GPU_VERIFY_PRUNE","PCB_BLOCK_GPU_VERIFY_FRONTIER"].iter().any(|key|std::env::var_os(key).is_some());
                     if expected.is_none() && validating {return Err(reason);}
                     let failed_ms=started.elapsed().as_secs_f64()*1000.0;
-                    let result=solve_block_inner(original,false);
+                    let result=solve_block_inner(original,false,pair_threads);
                     if requested=="cubecl" || std::env::var_os("PCB_BLOCK_SOLVER_PROFILE").is_some() {
                         eprintln!("[block-gpu-fallback] {}",serde_json::json!({"requested":requested,"actual":"cpu","precision":"f32","reason":reason,"gpuAttemptMs":failed_ms,"totalMs":started.elapsed().as_secs_f64()*1000.0}));
                     }
@@ -242,7 +249,7 @@ pub fn solve_block(mut problem: BlockSolveProblem) -> Result<crate::model::Block
             }
         }
     }
-    solve_block_inner(problem,false)
+    solve_block_inner(problem,false,pair_threads)
 }
 pub(crate) fn attach_group_relation_points(problem: &mut BlockSolveProblem) -> Result<(), String> {
     crate::group_endpoints::attach(&mut problem.primitives, &problem.relations, &Default::default(),
@@ -365,12 +372,14 @@ fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<Worki
         }),
         validate_incremental_scoring: std::env::var_os("PCB_NATIVE_VALIDATE_INCREMENTAL_SCORING")
             .is_some_and(|value| value == "1"),
+        pair_threads: 1,
     };
     (primitives, context)
 }
 
-fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool) -> Result<crate::model::BlockSolveSolution, String> {
-    let (primitives, context) = prepare_context(problem, _gpu_enabled);
+fn solve_block_inner(problem: BlockSolveProblem, _gpu_enabled:bool, pair_threads: usize) -> Result<crate::model::BlockSolveSolution, String> {
+    let (primitives, mut context) = prepare_context(problem, _gpu_enabled);
+    context.pair_threads = pair_threads.max(1);
     #[cfg(feature = "gpu")]
     if _gpu_enabled {
         let engine=cubecl::init(&context).unwrap_or_else(|reason|cubecl::fail(reason));
@@ -1285,58 +1294,170 @@ fn long_local_net_penalty(primitives: &[WorkingPrimitive], context: &Context) ->
 fn pair_improve(mut current: Vec<WorkingPrimitive>, context: &Context) -> Vec<WorkingPrimitive> {
     // Bounded block-only neighbourhood. Fixed primitives and board postrefine are untouched.
     if current.len() > 12 { return current; }
-    for i in 0..current.len() {
-        if current[i].primitive.locked { continue; }
-        for j in i + 1..current.len() {
-            if current[j].primitive.locked { continue; }
-            let fixed: Vec<_> = current.iter().enumerate().filter(|(k,_)| *k != i && *k != j)
-                .map(|(_, p)| p.clone()).collect();
-            let mut variants = Vec::new();
-            if context.problem.experiments.pair_swaps {
-                for a in orientation_variants(&current[i]) {
-                    for b in orientation_variants(&current[j]) {
-                        let mut v = current.clone();
-                        v[i] = move_primitive_center_exact(a.clone(), box_center(&current[j].primitive.bbox));
-                        v[j] = move_primitive_center_exact(b, box_center(&current[i].primitive.bbox));
-                        variants.push(v);
-                    }
+    let pairs: Vec<(usize, usize)> = (0..current.len())
+        .filter(|&i| !current[i].primitive.locked)
+        .flat_map(|i| (i + 1..current.len()).map(move |j| (i, j)))
+        .filter(|&(_, j)| !current[j].primitive.locked)
+        .collect();
+    let threads = context.pair_threads.min(pairs.len());
+    #[cfg(feature = "gpu")]
+    let gpu_active = context.gpu_engine.borrow().is_some();
+    #[cfg(not(feature = "gpu"))]
+    let gpu_active = false;
+    if threads > 1 && !context.trace && !gpu_active {
+        return pair_improve_speculative(current, &pairs, threads, context);
+    }
+    for &(i, j) in &pairs {
+        if let Some(next) = improve_pair(&current, i, j, context) { current = next; }
+    }
+    current
+}
+
+/// Same result as the serial pair loop. A batch of consecutive pairs is solved
+/// against one state on worker contexts; the first accepted pair in input order
+/// wins, and every later pair of that batch is solved again from the new state.
+/// The contexts' caches are memoization only, so a fresh context per worker
+/// yields the same evaluations as the caller's context. Each job works on an
+/// unshared copy of the block, which changes no value.
+fn pair_improve_speculative(
+    mut current: Vec<WorkingPrimitive>,
+    pairs: &[(usize, usize)],
+    threads: usize,
+    context: &Context,
+) -> Vec<WorkingPrimitive> {
+    use std::sync::{mpsc, Arc, Mutex};
+    type Job = (usize, usize, usize, Arc<Vec<WorkingPrimitive>>);
+    type Outcome = (usize, Result<Option<Vec<WorkingPrimitive>>, ()>);
+    let problem = &context.problem;
+    let (job_tx, job_rx) = mpsc::channel::<Option<Job>>();
+    let job_rx = Mutex::new(job_rx);
+    let (outcome_tx, outcome_rx) = mpsc::channel::<Outcome>();
+    let mut next = 0;
+    std::thread::scope(|scope| {
+        for _ in 0..threads {
+            let outcome_tx = outcome_tx.clone();
+            let job_rx = &job_rx;
+            scope.spawn(move || {
+                let _float_env = crate::float_env::Guard::enter();
+                let (_, worker) = prepare_context(problem.clone(), false);
+                loop {
+                    let job = job_rx.lock().map_err(|_| ()).and_then(|rx| rx.recv().map_err(|_| ()));
+                    let Ok(Some((slot, i, j, base))) = job else { break };
+                    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
+                        improve_pair(&unshared(&base), i, j, &worker))).map_err(|_| ());
+                    if outcome_tx.send((slot, outcome)).is_err() { break; }
+                }
+            });
+        }
+        drop(outcome_tx);
+        while next < pairs.len() {
+            let batch = &pairs[next..(next + threads).min(pairs.len())];
+            let base = Arc::new(current.clone());
+            for (slot, &(i, j)) in batch.iter().enumerate() {
+                if job_tx.send(Some((slot, i, j, base.clone()))).is_err() { break; }
+            }
+            let mut outcomes: Vec<Option<Result<Option<Vec<WorkingPrimitive>>, ()>>> = vec![None; batch.len()];
+            for _ in 0..batch.len() {
+                let Ok((slot, outcome)) = outcome_rx.recv() else { break };
+                outcomes[slot] = Some(outcome);
+            }
+            let mut advanced = batch.len();
+            let mut failed = false;
+            for (slot, outcome) in outcomes.into_iter().enumerate() {
+                match outcome {
+                    Some(Ok(Some(updated))) => { current = updated; advanced = slot + 1; break; }
+                    Some(Ok(None)) => {}
+                    // A worker failed: finish from this pair on the caller's context.
+                    _ => { advanced = slot; failed = true; break; }
                 }
             }
-            if context.problem.experiments.reinsert_pair {
-                let initial = incremental_evaluation(&fixed, context);
-                // Both insertion orders; narrow local beam, capped independently of global beam.
-                for (a, b) in [(i, j), (j, i)] {
-                    for first in ranked_block_candidates(&current[a], &fixed, &initial, 0.0, 2, context) {
-                        let mut partial = fixed.clone(); partial.push(first.primitive.clone());
-                        for second in ranked_block_candidates(&current[b], &partial, &first.incremental, 0.0, 2, context) {
-                            let mut v = current.clone(); v[a] = first.primitive.clone(); v[b] = second.primitive;
-                            variants.push(v);
-                        }
-                    }
-                }
+            next += advanced;
+            if failed { break; }
+        }
+        for _ in 0..threads { let _ = job_tx.send(None); }
+    });
+    for &(i, j) in &pairs[next..] {
+        if let Some(updated) = improve_pair(&current, i, j, context) { current = updated; }
+    }
+    current
+}
+
+/// Deep copy with fresh reference counts. Worker threads that clone a shared
+/// block contend on the same atomic counters; an owned copy keeps them apart.
+fn unshared(items: &[WorkingPrimitive]) -> Vec<WorkingPrimitive> {
+    fn s(v: &Arc<str>) -> Arc<str> { Arc::from(&**v) }
+    fn v<T: Clone>(x: &Arc<Vec<T>>) -> Arc<Vec<T>> { Arc::new((**x).clone()) }
+    fn strs(x: &Arc<Vec<Arc<str>>>) -> Arc<Vec<Arc<str>>> { Arc::new(x.iter().map(s).collect()) }
+    items.iter().map(|w| {
+        let p = &w.primitive;
+        WorkingPrimitive {
+            id: w.id, source_index: w.source_index, rotation: w.rotation,
+            primitive: Primitive { id: s(&p.id), kind: s(&p.kind), label: s(&p.label), source_node_id: s(&p.source_node_id),
+                source_node_ids: strs(&p.source_node_ids), locked: p.locked, can_rotate: p.can_rotate,
+                allowed_orientations: v(&p.allowed_orientations), bbox: p.bbox.clone(), collision_boxes: v(&p.collision_boxes),
+                collision_box_layers: strs(&p.collision_box_layers), width: p.width, height: p.height,
+                placements: v(&p.placements), connection_points: v(&p.connection_points),
+                connection_point_layers: strs(&p.connection_point_layers), path_ports: v(&p.path_ports),
+                edge_place: p.edge_place.clone() },
+            components: v(&w.components), source_components: v(&w.source_components),
+            source_placements: v(&w.source_placements),
+            source_node_ids: Arc::new(w.source_node_ids.iter().map(s).collect()),
+            point_net_ids: v(&w.point_net_ids),
+        }
+    }).collect()
+}
+
+/// One pair of the bounded pair neighbourhood. Returns the improved block, or
+/// `None` when no variant is accepted.
+fn improve_pair(base: &[WorkingPrimitive], i: usize, j: usize, context: &Context) -> Option<Vec<WorkingPrimitive>> {
+    let fixed: Vec<_> = base.iter().enumerate().filter(|(k,_)| *k != i && *k != j)
+        .map(|(_, p)| p.clone()).collect();
+    let mut variants = Vec::new();
+    if context.problem.experiments.pair_swaps {
+        for a in orientation_variants(&base[i]) {
+            for b in orientation_variants(&base[j]) {
+                let mut v = base.to_vec();
+                v[i] = move_primitive_center_exact(a.clone(), box_center(&base[j].primitive.bbox));
+                v[j] = move_primitive_center_exact(b, box_center(&base[i].primitive.bbox));
+                variants.push(v);
             }
-            let route_pair = |v: &[WorkingPrimitive]| block_layout_route(&v.iter().collect::<Vec<_>>(), context);
-            let old = evaluate(&current, context);
-            let mut best_score = old.score + route_pair(&current);
-            let mut best_hard = old.hard_violations;
-            let mut ranked: Vec<_> = variants.into_iter().map(|v| { let e = evaluate(&v, context); (v,e) }).collect();
-            ranked.sort_by(|a,b| a.1.hard_violations.cmp(&b.1.hard_violations).then_with(|| compare_f32(a.1.score,b.1.score)));
-            for (v,e) in ranked.into_iter().take(4) {
-                if e.hard_violations > best_hard || (e.hard_violations == best_hard && e.score >= best_score) { continue; }
-                let score = e.score + route_pair(&v);
-                if e.hard_violations < best_hard || (e.hard_violations == best_hard && score + 0.001 < best_score) {
-                    if context.trace && (trace::is_target(&current[i]) || trace::is_target(&current[j])) {
-                        trace::emit(context,"pair_accepted",serde_json::json!({"pair":[current[i].primitive.label,current[j].primitive.label],
-                            "before":trace::poses(&current),"after":trace::poses(&v),
-                            "beforeParts":trace::parts(&current,context),"afterParts":trace::parts(&v,context),
-                            "beforeEffective":best_score,"afterEffective":score}));
-                    }
-                    current = v; best_hard = e.hard_violations; best_score = score;
+        }
+    }
+    if context.problem.experiments.reinsert_pair {
+        let initial = incremental_evaluation(&fixed, context);
+        // Both insertion orders; narrow local beam, capped independently of global beam.
+        for (a, b) in [(i, j), (j, i)] {
+            for first in ranked_block_candidates(&base[a], &fixed, &initial, 0.0, 2, context) {
+                let mut partial = fixed.clone(); partial.push(first.primitive.clone());
+                for second in ranked_block_candidates(&base[b], &partial, &first.incremental, 0.0, 2, context) {
+                    let mut v = base.to_vec(); v[a] = first.primitive.clone(); v[b] = second.primitive;
+                    variants.push(v);
                 }
             }
         }
     }
-    current
+    let route_pair = |v: &[WorkingPrimitive]| block_layout_route(&v.iter().collect::<Vec<_>>(), context);
+    let old = evaluate(base, context);
+    let mut best_score = old.score + route_pair(base);
+    let mut best_hard = old.hard_violations;
+    let mut accepted: Option<Vec<WorkingPrimitive>> = None;
+    let mut ranked: Vec<_> = variants.into_iter().map(|v| { let e = evaluate(&v, context); (v,e) }).collect();
+    ranked.sort_by(|a,b| a.1.hard_violations.cmp(&b.1.hard_violations).then_with(|| compare_f32(a.1.score,b.1.score)));
+    for (v,e) in ranked.into_iter().take(4) {
+        if e.hard_violations > best_hard || (e.hard_violations == best_hard && e.score >= best_score) { continue; }
+        let score = e.score + route_pair(&v);
+        if e.hard_violations < best_hard || (e.hard_violations == best_hard && score + 0.001 < best_score) {
+            let current = accepted.as_deref().unwrap_or(base);
+            if context.trace && (trace::is_target(&current[i]) || trace::is_target(&current[j])) {
+                trace::emit(context,"pair_accepted",serde_json::json!({"pair":[current[i].primitive.label,current[j].primitive.label],
+                    "before":trace::poses(current),"after":trace::poses(&v),
+                    "beforeParts":trace::parts(current,context),"afterParts":trace::parts(&v,context),
+                    "beforeEffective":best_score,"afterEffective":score}));
+            }
+            accepted = Some(v); best_hard = e.hard_violations; best_score = score;
+        }
+    }
+    accepted
 }
 
 fn adjacent_centers(width: f32, height: f32, anchor: &Box2, clearance: f32) -> [Point; 8] {
@@ -3769,7 +3890,7 @@ mod candidate_tests {
             evaluation_cache: RefCell::new(FxHashMap::default()),
             net_scoring_scratch: RefCell::new(NetScoringScratch {
                 accumulators: vec![], signal_order: vec![], ground_order: vec![] }),
-            validate_incremental_scoring: false };
+            validate_incremental_scoring: false, pair_threads: 1 };
         (resistor, ic, context)
     }
 

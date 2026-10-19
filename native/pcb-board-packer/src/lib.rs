@@ -326,8 +326,11 @@ pub fn solve_block_primitives_batch(problems: Vec<Value>, threads: u32) -> Resul
     }).collect::<Result<Vec<_>>>()?;
     let count = problems.len();
     if count == 0 { return Ok(Vec::new()); }
-    let workers = (threads as usize).max(1).min(8).min(count)
-        .min(std::thread::available_parallelism().map_or(1, |n| n.get()));
+    let available = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let workers = (threads as usize).max(1).min(8).min(count).min(available);
+    // Threads left over when there are fewer hypotheses than threads go to each
+    // hypothesis' pair neighbourhood. This does not change any result.
+    let pair_threads = ((threads as usize).max(1).min(available) / count).max(1);
     #[cfg(feature="gpu")]
     let cpu_budget=compute::cpu::Budget::new(workers);
     // At most eight additional stacks may wait for GPU. Active CPU execution
@@ -347,7 +350,7 @@ pub fn solve_block_primitives_batch(problems: Vec<Value>, threads: u32) -> Resul
             loop {
                 let job = jobs.lock().expect("block job queue poisoned").next();
                 let Some((index, (problem,frame))) = job else { break; };
-                let result = block_solver::solve_block(problem)
+                let result = block_solver::solve_block_with_threads(problem, pair_threads)
                     .and_then(|solution| serde_json::to_value(solution).map_err(|e| e.to_string()))
                     .and_then(|solution| frame.finish_block(solution));
                 completed.push((index, result));
