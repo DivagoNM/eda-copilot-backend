@@ -887,6 +887,68 @@ impl Pass {
 
 fn elapsed(started: Instant) -> f64 { started.elapsed().as_secs_f64() * 1000.0 }
 
+/// Outcomes of one pair's candidates, all against the layout at the start of
+/// the pair. Serially, each objective limit is the exact running one. In
+/// parallel, a worker uses the limit of the resolved prefix, which is never
+/// tighter than the exact one, so any rejection it makes is also a serial
+/// rejection; `select` then applies the exact limits in candidate order.
+fn evaluate_pair(pass: &Pass, routes: &Routes, current: &World, scratch: &mut Scratch, candidates: &[Candidate], score: f32,
+    penalty_limit: f64, threads: usize, timing: &mut Timing) -> Result<Vec<Outcome>, String> {
+    let limit_after = |best: Option<f32>| ts::sub(best.unwrap_or(score) as f64, 1e-6);
+    if threads <= 1 || candidates.len() < 2 {
+        let mut best = None;
+        return candidates.iter().map(|candidate| {
+            let outcome = pass.evaluate(routes, scratch, candidate, limit_after(best), penalty_limit, timing)?;
+            if outcome.stage == Stage::Accepted { best = Some(outcome.next); }
+            Ok(outcome)
+        }).collect();
+    }
+    use std::sync::{atomic::{AtomicU64, AtomicUsize, Ordering}, Mutex, OnceLock};
+    let slots: Vec<OnceLock<Outcome>> = (0..candidates.len()).map(|_| OnceLock::new()).collect();
+    let next = AtomicUsize::new(0);
+    let limit = AtomicU64::new(limit_after(None).to_bits());
+    let prefix = Mutex::new((0usize, None::<f32>));
+    let workers = threads.min(candidates.len());
+    let timings = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers).map(|_| scope.spawn(|| -> Result<Timing, String> {
+            let _float_env = crate::float_env::Guard::enter();
+            let mut scratch = Scratch { world: current.clone(), change: pass.check.scratch() };
+            let mut timing = Timing::default();
+            loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                if i >= candidates.len() { break; }
+                let bound = f64::from_bits(limit.load(Ordering::Acquire));
+                let outcome = pass.evaluate(routes, &mut scratch, &candidates[i], bound, penalty_limit, &mut timing)?;
+                let _ = slots[i].set(outcome);
+                let mut resolved = prefix.lock().map_err(|_| "board alignment prefix poisoned")?;
+                while let Some(outcome) = slots.get(resolved.0).and_then(OnceLock::get) {
+                    if outcome.stage == Stage::Accepted && (outcome.next as f64) < limit_after(resolved.1) {
+                        resolved.1 = Some(outcome.next);
+                        limit.store(limit_after(resolved.1).to_bits(), Ordering::Release);
+                    }
+                    resolved.0 += 1;
+                }
+            }
+            Ok(timing)
+        })).collect();
+        handles.into_iter().map(|h| h.join().map_err(|_| "board alignment worker panicked".to_string())?).collect::<Result<Vec<_>, String>>()
+    })?;
+    for t in &timings { timing.add(t); }
+    slots.into_iter().map(|slot| slot.into_inner().ok_or_else(|| "board alignment candidate was not evaluated".to_string())).collect()
+}
+
+/// Serial acceptance with the exact running objective limit.
+fn select(outcomes: &[Outcome], score: f32, counters: &mut Counters) -> Option<(usize, f32)> {
+    let mut best: Option<(usize, f32)> = None;
+    for (index, outcome) in outcomes.iter().enumerate() {
+        let limit = ts::sub(best.map_or(score, |b| b.1) as f64, 1e-6);
+        let stage = if outcome.stage == Stage::Objective || outcome.next as f64 >= limit { Stage::Objective } else { outcome.stage };
+        counters.count(stage);
+        if stage == Stage::Accepted { best = Some((index, outcome.next)); }
+    }
+    best
+}
+
 /// JS-number geometry of `pcb-auto-place/geometry.ts` used by the report.
 mod geometry {
     use super::{ts, BoxD, PointD};
@@ -1011,17 +1073,11 @@ pub fn solve(mut problem: Value) -> Result<Value, String> {
             let candidates = pass.candidates(&current, pair);
             let current_penalty = pass.penalty(&current);
             let penalty_limit = ts::sub(current_penalty as f64, 1e-6);
+            evaluated += candidates.len();
             let started = Instant::now();
-            let mut best: Option<(usize, f32)> = None;
-            for (index, candidate) in candidates.iter().enumerate() {
-                evaluated += 1;
-                let limit = ts::sub(best.map_or(score, |b| b.1) as f64, 1e-6);
-                let outcome = pass.evaluate(&routes, &mut scratch, candidate, limit, penalty_limit, &mut timing)?;
-                counters.count(outcome.stage);
-                if outcome.stage == Stage::Accepted { best = Some((index, outcome.next)); }
-            }
+            let outcomes = evaluate_pair(&pass, &routes, &current, &mut scratch, &candidates, score, penalty_limit, threads, &mut timing)?;
             wall_ms += elapsed(started);
-            let Some((index, next)) = best else { continue };
+            let Some((index, next)) = select(&outcomes, score, &mut counters) else { continue };
             let candidate = &candidates[index];
             moves.push(json!({"blocks":[pass.p.roots[pair.a as usize].label.as_ref(),pass.p.roots[pair.b as usize].label.as_ref()],
                 "axis":if candidate.axis == 0 {"x"} else {"y"},"shifts":candidate.shifts,"perpendicularShifts":candidate.perpendicular,
