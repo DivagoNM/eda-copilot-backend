@@ -1381,6 +1381,32 @@ fn pack_conditions(fixed:&[WorkingPrimitive],context:&Context,fi:&mut Vec<u32>,f
 mod tests {
     use super::*;
 
+    /// H743 `usb_cc` block, captured from a real run: bounded, with the moving
+    /// primitive centred on a half tick. Every compact pose must rebuild exactly
+    /// the native candidate that the CPU scores.
+    #[test]
+    fn bounded_compact_poses_materialize_native_candidates() {
+        let mut problem: crate::model::BlockSolveProblem =
+            serde_json::from_str(include_str!("../../tests/fixtures/h743-usb-cc-bounded-block.json")).unwrap();
+        super::super::attach_group_relation_points(&mut problem).unwrap();
+        let (primitives, context) = super::super::prepare_context(problem, false);
+        assert!(context.problem.bounds.is_some());
+        for moving in 0..primitives.len() {
+            if primitives[moving].primitive.locked { continue; }
+            let fixed: Vec<_> = primitives.iter().enumerate().filter(|(i, _)| *i != moving).map(|(_, p)| p.clone()).collect();
+            let native = block_candidates(&primitives[moving], &fixed, &context);
+            let poses = candidates::generate(&primitives[moving], &fixed, &context);
+            assert_eq!(poses.len(), native.len());
+            for pose in &poses {
+                assert_eq!(
+                    primitive_pose_key(&materialize(&primitives[moving], *pose)),
+                    primitive_pose_key(&native[pose.ordinal as usize]),
+                    "moving {moving}, candidate {}", pose.ordinal,
+                );
+            }
+        }
+    }
+
     #[test]
     fn large_hull_capacity_includes_bbox_aliases_and_stored_boxes() {
         let mut prims: Vec<_> = (-32..32).map(|i| {
