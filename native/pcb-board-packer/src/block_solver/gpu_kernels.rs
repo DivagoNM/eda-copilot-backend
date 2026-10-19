@@ -556,17 +556,31 @@ fn ep(d: &Input, ri: usize, side: usize, candidate: usize) -> P {
     }
     result
 }
+/// `k - by`, or 0 when `k < by`. Keeps indices in a combined loop condition in range.
+#[cube]
+fn below(k: usize, by: usize) -> usize {
+    let mut r = 0usize;
+    if k >= by {
+        r = k - by;
+    }
+    r
+}
+/// Whether the point before `k` sorts after `p`. Loops below exit only through
+/// their condition: strict SPIR-V drivers reject CubeCL's lowering of a second
+/// `break` inside the body (unstructured loop exit).
+#[cube]
+fn insert_shifts(points: &Array<f32>, k: usize, p: P) -> bool {
+    let i = below(k, 1) * 2;
+    let x = points[i];
+    let y = points[i + 1];
+    x > p.x || (x == p.x && y > p.y)
+}
 #[cube]
 fn insert(points: &mut Array<f32>, n: usize, p: P) {
     let mut k = n;
-    while k > 0 {
-        let x = points[(k - 1) * 2];
-        let y = points[(k - 1) * 2 + 1];
-        if !(x > p.x || (x == p.x && y > p.y)) {
-            break;
-        }
-        points[k * 2] = x;
-        points[k * 2 + 1] = y;
+    while k > 0 && insert_shifts(points, k, p) {
+        points[k * 2] = points[(k - 1) * 2];
+        points[k * 2 + 1] = points[(k - 1) * 2 + 1];
         k -= 1;
     }
     points[k * 2] = p.x;
@@ -815,7 +829,9 @@ pub fn full(
                             meta[s + v] = local_t[j * 4 + v];
                         }
                         let mut cost = d.fi[net] as i32 * 0i32 - 1i32;
-                        for other in 0usize..count - 1 {
+                        let mut other = 0usize;
+                        let mut found = false;
+                        while other < count - 1 && !found {
                             let target = d.fi[net + 6] as usize + other;
                             let mut same = true;
                             for v in 0usize..4usize {
@@ -827,8 +843,9 @@ pub fn full(
                             }
                             if same {
                                 cost = fixed_costs[target];
-                                break;
+                                found = true;
                             }
+                            other += 1;
                         }
                         cached[k] = cost;
                     } else {
@@ -945,7 +962,9 @@ pub fn rank(
             let mut gr = 0u32;
             let mut br = 0u32;
             let bucket = tags[i * 3 + 2];
-            for j in 0usize..d.fi[COUNT] as usize {
+            let mut j = 0usize;
+            let mut stop = false;
+            while j < d.fi[COUNT] as usize && !stop {
                 if completed == 0 || tags[j * 3 + 1] != 0 {
                     if before(tags[j * 3], scores[j], j, tags[i * 3], scores[i], i) {
                         gr += 1;
@@ -954,9 +973,10 @@ pub fn rank(
                         }
                     }
                     if gr >= cap && (!diverse || br >= 4) {
-                        break;
+                        stop = true;
                     }
                 }
+                j += 1;
             }
             if gr < cap {
                 best[gr as usize] = i as u32;
@@ -1122,15 +1142,9 @@ fn convex(points: &mut Array<f32>, length: usize, hull: &mut Array<f32>) -> usiz
         count = n;
     } else {
         for i in 0usize..n {
-            while count >= 2 {
-                if cross(
-                    point(hull, count - 2),
-                    point(hull, count - 1),
-                    point(points, i),
-                ) > 0.0
-                {
-                    break;
-                }
+            while count >= 2
+                && !(cross(point(hull, below(count, 2)), point(hull, below(count, 1)), point(points, i)) > 0.0)
+            {
                 count -= 1;
             }
             hull[count * 2] = points[i * 2];
@@ -1142,15 +1156,9 @@ fn convex(points: &mut Array<f32>, length: usize, hull: &mut Array<f32>) -> usiz
         let mut i = n;
         while i > 0 {
             i -= 1;
-            while count - lower >= 2 {
-                if cross(
-                    point(hull, count - 2),
-                    point(hull, count - 1),
-                    point(points, i),
-                ) > 0.0
-                {
-                    break;
-                }
+            while count - lower >= 2
+                && !(cross(point(hull, below(count, 2)), point(hull, below(count, 1)), point(points, i)) > 0.0)
+            {
                 count -= 1;
             }
             hull[count * 2] = points[i * 2];
