@@ -434,6 +434,18 @@ struct Pass {
 /// Per-thread mutable state for candidate evaluation.
 struct Scratch { world: World, change: ChangeScratch }
 
+/// Route plans of the current layout, one per native frame in use. A
+/// candidate in the same frame only re-evaluates the terms it changes.
+struct Routes { caches: Vec<([f64; 2], crate::fast_route::RouteCache)> }
+impl Routes {
+    fn route(&self, origin: [f64; 2], problem: &PostPlaceScoreProblem) -> f32 {
+        match self.caches.iter().find(|(o, _)| *o == origin) {
+            Some((_, cache)) => cache.evaluate(problem),
+            None => crate::post_place::route_plan(problem).cpu(),
+        }
+    }
+}
+
 const PERPENDICULARS: [[f64; 2]; 13] = [[0.0, 0.0], [-0.5, -0.5], [0.5, 0.5], [-1.0, -1.0], [1.0, 1.0], [0.0, -0.5], [0.0, 0.5],
     [-0.5, 0.0], [0.5, 0.0], [0.0, -1.0], [0.0, 1.0], [-1.0, 0.0], [1.0, 0.0]];
 
@@ -476,7 +488,7 @@ impl Pass {
         let mut pass = Self { p, check, check_origin: frame.origin(), base, base_electrical: ElectricalQuality { score: 0.0, lengths: vec![] } };
         let world = pass.world();
         let full = pass.score_problem(&world, true);
-        pass.base_electrical = pass.electrical(&world, &full)?;
+        pass.base_electrical = pass.electrical(&world, &full, &Routes { caches: vec![] })?;
         Ok(pass)
     }
 
@@ -553,9 +565,13 @@ impl Pass {
         }
         b.origin()
     }
-    fn score_problem(&self, w: &World, full: bool) -> PostPlaceScoreProblem {
-        let t = &self.p.score;
+    fn score_problem(&self, w: &World, full: bool) -> PostPlaceScoreProblem { self.framed_problem(w, full).1 }
+    fn framed_problem(&self, w: &World, full: bool) -> ([f64; 2], PostPlaceScoreProblem) {
         let o = self.score_frame(w, full);
+        (o, self.problem_in(w, full, o))
+    }
+    fn problem_in(&self, w: &World, full: bool, o: [f64; 2]) -> PostPlaceScoreProblem {
+        let t = &self.p.score;
         let point = |(c, pad): (usize, usize)| lp(w.geo[c].pad_points[pad], o);
         PostPlaceScoreProblem {
             route_clearance: t.route_clearance,
@@ -606,9 +622,18 @@ impl Pass {
         }
     }
     /// `boardElectricalQuality`: routing-only score and net lengths.
-    fn electrical(&self, w: &World, full: &PostPlaceScoreProblem) -> Result<ElectricalQuality, String> {
-        let wiring = self.score_problem(w, false);
-        Ok(ElectricalQuality { score: crate::post_place::score(&wiring)?, lengths: full.nets.iter().map(crate::post_place::net_length).collect() })
+    fn electrical(&self, w: &World, full: &PostPlaceScoreProblem, routes: &Routes) -> Result<ElectricalQuality, String> {
+        let (o, wiring) = self.framed_problem(w, false);
+        Ok(ElectricalQuality { score: crate::post_place::score_with_route(&wiring, |p| routes.route(o, p))?,
+            lengths: full.nets.iter().map(crate::post_place::net_length).collect() })
+    }
+    fn routes(&self, w: &World) -> Routes {
+        let mut caches: Vec<([f64; 2], crate::fast_route::RouteCache)> = Vec::new();
+        for full in [true, false] {
+            let (o, problem) = self.framed_problem(w, full);
+            if !caches.iter().any(|(c, _)| *c == o) { caches.push((o, crate::fast_route::RouteCache::new(&problem))); }
+        }
+        Routes { caches }
     }
 
     // ---- `boardSpacingPenalty` ----
@@ -661,9 +686,9 @@ impl Pass {
         crate::solver::alignment_score(primitives.iter(), &policy)
     }
 
-    fn objective(&self, w: &World) -> Result<(f32, f32, PostPlaceScoreProblem), String> {
-        let full = self.score_problem(w, true);
-        let global = crate::post_place::score(&full)?;
+    fn objective(&self, w: &World, routes: &Routes) -> Result<(f32, f32, PostPlaceScoreProblem), String> {
+        let (o, full) = self.framed_problem(w, true);
+        let global = crate::post_place::score_with_route(&full, |p| routes.route(o, p))?;
         let penalty = self.penalty(w);
         let score = [global, self.spacing(w), penalty].iter().copied().sum::<f32>();
         if !score.is_finite() { return Err("non-finite placement score".into()); }
@@ -822,25 +847,25 @@ impl Pass {
 
     /// Every check of one candidate, in the original order. `limit` only
     /// decides the objective stage; later stages never depend on it.
-    fn evaluate(&self, scratch: &mut Scratch, candidate: &Candidate, limit: f64, penalty_limit: f64, timing: &mut Timing) -> Result<Outcome, String> {
+    fn evaluate(&self, routes: &Routes, scratch: &mut Scratch, candidate: &Candidate, limit: f64, penalty_limit: f64, timing: &mut Timing) -> Result<Outcome, String> {
         let saved: Vec<_> = candidate.moved.iter().map(|&(i, _, _)| (i, scratch.world.geo[i].clone())).collect();
         let roots = self.roots_of(&candidate.moved);
         let saved_bbox: Vec<_> = roots.iter().map(|&r| (r, scratch.world.bbox[r])).collect();
         self.apply(&mut scratch.world, &candidate.moved);
-        let outcome = self.stages(scratch, candidate, limit, penalty_limit, timing);
+        let outcome = self.stages(routes, scratch, candidate, limit, penalty_limit, timing);
         for (i, g) in saved { scratch.world.geo[i] = g; }
         for (r, b) in saved_bbox { scratch.world.bbox[r] = b; }
         outcome
     }
-    fn stages(&self, scratch: &mut Scratch, candidate: &Candidate, limit: f64, penalty_limit: f64, timing: &mut Timing) -> Result<Outcome, String> {
+    fn stages(&self, routes: &Routes, scratch: &mut Scratch, candidate: &Candidate, limit: f64, penalty_limit: f64, timing: &mut Timing) -> Result<Outcome, String> {
         let w = &scratch.world;
         let started = Instant::now();
-        let (next, penalty, full) = self.objective(w)?;
+        let (next, penalty, full) = self.objective(w, routes)?;
         timing.objective += 1; timing.objective_ms += elapsed(started);
         let done = |stage| Ok(Outcome { next, stage });
         if next as f64 >= limit || penalty as f64 >= penalty_limit { return done(Stage::Objective); }
         let started = Instant::now();
-        let regression = electrical_regression(&self.base_electrical, &self.electrical(w, &full)?);
+        let regression = electrical_regression(&self.base_electrical, &self.electrical(w, &full, routes)?);
         timing.electrical += 1; timing.electrical_ms += elapsed(started);
         match regression { Some("wiring score") => return done(Stage::Electrical), Some(_) => return done(Stage::NetLength), None => {} }
         let started = Instant::now();
@@ -972,10 +997,12 @@ pub fn solve(mut problem: Value) -> Result<Value, String> {
     let threads = pass.p.threads.max(1).min(std::thread::available_parallelism().map_or(1, |n| n.get()));
     let mut current = pass.world();
     let mut scratch = Scratch { world: current.clone(), change: pass.check.scratch() };
-    let (mut score, _, _) = pass.objective(&current)?;
+    let mut routes = pass.routes(&current);
+    let (mut score, _, _) = pass.objective(&current, &routes)?;
     let mut counters = Counters::default();
     let mut timing = Timing::default();
     let mut evaluated = 0usize;
+    let mut wall_ms = 0.0;
     let mut moves = Vec::new();
     for _ in 0..pass.p.passes {
         let mut accepted = false;
@@ -984,14 +1011,16 @@ pub fn solve(mut problem: Value) -> Result<Value, String> {
             let candidates = pass.candidates(&current, pair);
             let current_penalty = pass.penalty(&current);
             let penalty_limit = ts::sub(current_penalty as f64, 1e-6);
+            let started = Instant::now();
             let mut best: Option<(usize, f32)> = None;
             for (index, candidate) in candidates.iter().enumerate() {
                 evaluated += 1;
                 let limit = ts::sub(best.map_or(score, |b| b.1) as f64, 1e-6);
-                let outcome = pass.evaluate(&mut scratch, candidate, limit, penalty_limit, &mut timing)?;
+                let outcome = pass.evaluate(&routes, &mut scratch, candidate, limit, penalty_limit, &mut timing)?;
                 counters.count(outcome.stage);
                 if outcome.stage == Stage::Accepted { best = Some((index, outcome.next)); }
             }
+            wall_ms += elapsed(started);
             let Some((index, next)) = best else { continue };
             let candidate = &candidates[index];
             moves.push(json!({"blocks":[pass.p.roots[pair.a as usize].label.as_ref(),pass.p.roots[pair.b as usize].label.as_ref()],
@@ -999,6 +1028,7 @@ pub fn solve(mut problem: Value) -> Result<Value, String> {
                 "scoreBefore":score,"scoreAfter":next}));
             pass.apply(&mut current, &candidate.moved);
             pass.apply(&mut scratch.world, &candidate.moved);
+            routes = pass.routes(&current);
             score = next;
             accepted = true;
         }
@@ -1010,7 +1040,7 @@ pub fn solve(mut problem: Value) -> Result<Value, String> {
         let initial = &pass.p.placements[c.pose_index];
         if g.x != initial.x || g.y != initial.y { positions[c.pose_index] = Some([g.x, g.y]); }
     }
-    let profile = json!({"threads":threads,"setupMs":setup_ms,"totalMs":elapsed(started),
+    let profile = json!({"threads":threads,"setupMs":setup_ms,"totalMs":elapsed(started),"evaluationWallMs":wall_ms,
         "objective":{"count":timing.objective,"ms":timing.objective_ms},"electrical":{"count":timing.electrical,"ms":timing.electrical_ms},
         "report":{"count":timing.report,"ms":timing.report_ms},"native":{"count":timing.native,"ms":timing.native_ms}});
     if std::env::var_os("PCB_BOARD_PACKER_PROFILE").is_some() { eprintln!("[pcb-board-alignment-native] {profile}"); }
