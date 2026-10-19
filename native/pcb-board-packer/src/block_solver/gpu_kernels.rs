@@ -47,7 +47,9 @@ pub const OUTLINE_COUNT:usize=39;
 pub const WORLD_OBSTACLE_I:usize=40;
 pub const WORLD_OBSTACLE_COUNT:usize=41;
 pub const CONDITIONS: usize = 43;
-pub const HEADER: usize = 44;
+/// ff offset of the moving primitive's nominal size for absolute rotations 0..3.
+pub const MOVING_SIZE_F: usize = 44;
+pub const HEADER: usize = 45;
 // A collision envelope equal to the primitive bounds uses the current bounds,
 // not a second copy translated from the component's placement origin.
 pub const PRIMITIVE_BOUNDS: usize = 0xffff_ffff;
@@ -94,6 +96,8 @@ pub struct Prim {
     pub box_count: usize,
     pub locked: u32,
     pub ports:usize,
+    /// max(width, height) as the CPU scales use it.
+    pub size: f32,
 }
 #[derive(Clone, Copy, CubeType)]
 pub struct Cp {
@@ -440,15 +444,15 @@ fn cross(a: P, b: P, c: P) -> f32 {
 #[cube]
 fn load_prim(d: &Input, i: usize, candidate: usize) -> Prim {
     let mut f = i * 10 + 3;
-    let mut t = d.fi[FIXED_I] as usize + i * 15;
+    let mut t = d.fi[FIXED_I] as usize + i * 16;
     let moving = i == d.fi[MOVING] as usize && candidate < d.fi[COUNT] as usize;
     if moving {
         let template = d.ids[candidate * 2] as usize;
         f = template * 10;
-        t = template * 15;
+        t = template * 16;
     }
     let mut v = Array::<f32>::new(10usize);
-    let mut tags = Array::<i32>::new(15usize);
+    let mut tags = Array::<i32>::new(16usize);
     #[unroll]
     for j in 0usize..10usize {
         if moving {
@@ -458,7 +462,7 @@ fn load_prim(d: &Input, i: usize, candidate: usize) -> Prim {
         }
     }
     #[unroll]
-    for j in 0usize..15usize {
+    for j in 0usize..16usize {
         if moving {
             tags[j] = d.si[t + j];
         } else {
@@ -504,7 +508,19 @@ fn load_prim(d: &Input, i: usize, candidate: usize) -> Prim {
         role: tags[7] as u32,
         power: tags[8] as u32,
         components: tags[9] as usize, component_count: tags[10] as usize, boxes: tags[11] as usize, box_count: tags[12] as usize, locked: tags[13] as u32,ports:tags[14] as usize,
+        size: moving_size(d, moving, candidate, tags[15]),
     }
+}
+/// The CPU recomputes width/height when a primitive rotates, so a moving
+/// candidate's size depends on the current state and its rotation template.
+#[cube]
+fn moving_size(d: &Input, moving: bool, candidate: usize, fixed_bits: i32) -> f32 {
+    let mut size = f32::from_bits(fixed_bits as u32);
+    if moving {
+        let template = d.ids[candidate * 2] as usize;
+        size = d.ff[d.fi[MOVING_SIZE_F] as usize + template % 4];
+    }
+    size
 }
 #[cube]
 fn cp_at(d: &Input, p: Prim, j: usize) -> Cp {
@@ -1485,7 +1501,9 @@ pub fn cheap(
                 let pa=load_prim(d,d.fi[d.fi[REF_I] as usize+ri*2] as usize,candidate);
                 let pb=load_prim(d,d.fi[d.fi[REF_I] as usize+(ri+1)*2] as usize,candidate);
                 let a=ref_cp(d,ri,candidate);let b=ref_cp(d,ri+1,candidate);
-                let scale=max(1.0,(max(pa.bbox.r-pa.bbox.l,pa.bbox.b-pa.bbox.t)+max(pb.bbox.r-pb.bbox.l,pb.bbox.b-pb.bbox.t))*0.5+d.ff[0]);
+                // The CPU scale uses each primitive's nominal width/height, not its
+                // rounded bbox extent; they differ for off-grid input boxes.
+                let scale=max(1.0,(pa.size+pb.size)*0.5+d.ff[0]);
                 let excess=max(0.0,distance(P{x:a.x,y:a.y},P{x:b.x,y:b.y})-scale);
                 long_penalty+=excess*excess/scale*12.0*choose((d.fi[net+7]&32)!=0,0.25,1.0);
             }

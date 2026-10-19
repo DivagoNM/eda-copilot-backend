@@ -145,7 +145,7 @@ test('Rust threads match serial Rust moves and scores', async () => {
             assert.deepEqual(parallel, serial);
             const { profile: nativeProfile, ...nativeSerial } = refinePostPlacement(input, before);
             assert.deepEqual(nativeSerial, serial);
-            assert.equal(profile.workers, Math.max(1, Math.min(3, Math.floor(availableParallelism() / 2))));
+            assert.equal(profile.workers, Math.max(1, Math.min(3, availableParallelism())));
             assert.deepEqual(profile.iterations.map(i => i.candidates), serialProfile.iterations.map(i => i.candidates));
         }
     } finally {
