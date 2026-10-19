@@ -19,7 +19,10 @@ pub(crate) fn layout_plan(primitives: &[&Primitive], obstacles: &[RouteObstacle]
 }
 
 pub(crate) fn nets_plan(nets: &[PostPlaceNet], obstacles: &[RouteObstacle], explicit: &[ExplicitConnection], external: &[Arc<str>], ignored: &[Arc<str>], clearance: f32, bounds: Box2) -> Plan {
-    let obstacles: Vec<_> = sorted_obstacles(obstacles).into_iter().map(|i| obstacles[i].clone()).collect();
+    // Stable accumulation order even when primitive insertion order changes.
+    let mut obstacles = obstacles.to_vec();
+    obstacles.sort_by(obstacle_order);
+    obstacles.dedup_by(|a,b| same_obstacle(a,b));
     let obstacles = obstacles.as_slice();
     let nets = route_nets(nets, ignored);
     let explicit = sorted_explicit(explicit);
@@ -44,16 +47,20 @@ pub(crate) fn nets_plan(nets: &[PostPlaceNet], obstacles: &[RouteObstacle], expl
     plan
 }
 
-/// Input indices of the obstacles in their stable accumulation order, without duplicates.
+fn obstacle_order(a: &RouteObstacle, b: &RouteObstacle) -> std::cmp::Ordering {
+    a.net.cmp(&b.net).then(a.layer.cmp(&b.layer)).then(a.reference.cmp(&b.reference))
+        .then(a.box_.left.total_cmp(&b.box_.left)).then(a.box_.right.total_cmp(&b.box_.right))
+        .then(a.box_.top.total_cmp(&b.box_.top)).then(a.box_.bottom.total_cmp(&b.box_.bottom))
+}
+fn same_obstacle(a: &RouteObstacle, b: &RouteObstacle) -> bool {
+    a.reference.is_some() && a.reference==b.reference && a.net==b.net && a.layer==b.layer
+        && a.box_.left==b.box_.left && a.box_.right==b.box_.right && a.box_.top==b.box_.top && a.box_.bottom==b.box_.bottom
+}
+/// Input indices of the obstacles in the same order and deduplication as `nets_plan`.
 pub(super) fn sorted_obstacles(obstacles: &[RouteObstacle]) -> Vec<usize> {
     let mut ids: Vec<usize> = (0..obstacles.len()).collect();
-    ids.sort_by(|&a,&b| { let (a,b)=(&obstacles[a],&obstacles[b]);
-        a.net.cmp(&b.net).then(a.layer.cmp(&b.layer)).then(a.reference.cmp(&b.reference))
-        .then(a.box_.left.total_cmp(&b.box_.left)).then(a.box_.right.total_cmp(&b.box_.right))
-        .then(a.box_.top.total_cmp(&b.box_.top)).then(a.box_.bottom.total_cmp(&b.box_.bottom)) });
-    ids.dedup_by(|a,b| { let (a,b)=(&obstacles[*a],&obstacles[*b]);
-        a.reference.is_some() && a.reference==b.reference && a.net==b.net && a.layer==b.layer
-        && a.box_.left==b.box_.left && a.box_.right==b.box_.right && a.box_.top==b.box_.top && a.box_.bottom==b.box_.bottom });
+    ids.sort_by(|&a,&b| obstacle_order(&obstacles[a],&obstacles[b]));
+    ids.dedup_by(|a,b| same_obstacle(&obstacles[*a],&obstacles[*b]));
     ids
 }
 /// Routed nets, in name order.

@@ -8,7 +8,7 @@
 //! falls back to the full plan.
 use super::arithmetic::{self, Path, P};
 use super::layout::{link_layer, route_links, route_nets, sorted_explicit, sorted_obstacles, spanning_segments};
-use super::plan::alternatives;
+use super::plan::{alternatives, excess};
 use super::*;
 use crate::model::{ExplicitConnection, PostPlaceNet, PostPlaceScoreProblem};
 use rustc_hash::FxHashMap;
@@ -75,7 +75,8 @@ impl View<'_> {
         arithmetic::crossing(alt.path, P { x: l.a.x, y: l.a.y }, P { x: l.b.x, y: l.b.y }, crate::relation_score::crossing_factor(link.class, l.class))
     }
     fn full(&self, link: &Link) -> Vec<Alternative> {
-        alternatives(link.a, link.b, self.clearance).into_iter().map(|(points, excess)| {
+        alternatives(link.a, link.b, self.clearance).into_iter().map(|points| {
+            let excess = excess(&points, link.a, link.b);
             let at = |i: usize| { let p = points[i.min(points.len() - 1)]; P { x: p.x, y: p.y } };
             let bounds = points.iter().fold(None, |b, p| union(b, segment_bounds(*p, *p))).unwrap();
             let mut alt = Alternative { path: Path { a: at(0), b: at(1), c: at(2), d: at(3), count: points.len() as u32 }, bounds, excess, obstacles: vec![], links: vec![] };

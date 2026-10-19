@@ -653,7 +653,7 @@ impl Pass {
             [layer(0), layer(1)]
         }).collect();
         let mut score = 0.0;
-        for &(a, b) in &s.pairs { score += crate::solver::spacing_term(&envelopes[a], &envelopes[b], s.clearance, s.gap); }
+        for &(a, b) in &s.pairs { score += crate::solver::spacing_term(|l| Some((envelopes[a][l]?, envelopes[b][l]?)), s.clearance, s.gap); }
         score
     }
 

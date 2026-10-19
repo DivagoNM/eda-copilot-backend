@@ -2799,13 +2799,25 @@ fn occupied_boxes_on_layer(primitive: &WorkingPrimitive, layer: &str) -> Vec<Box
     }).collect()
 }
 fn layer_envelope(primitive: &WorkingPrimitive, layer: &str) -> Option<Box2> {
+    let mut result: Option<Box2> = None;
+    let mut add = |box_: Box2| {
+        result = Some(match result {
+            Some(current) => Box2 { left: current.left.min(box_.left), right: current.right.max(box_.right),
+                top: current.top.min(box_.top), bottom: current.bottom.max(box_.bottom) },
+            None => box_,
+        });
+    };
     if primitive.components.is_empty() {
-        return envelope(packing_boxes(primitive).iter().copied());
+        for box_ in packing_boxes(primitive) { add(*box_); }
+    } else {
+        for (_, component) in primitive.components.iter() {
+            if component.layer.as_ref() == layer { add(component.body_box); }
+            else { for box_ in component.through_hole_boxes.iter() { add(*box_); } }
+        }
     }
-    envelope(primitive.components.iter().flat_map(|(_, component)| {
-        if component.layer.as_ref() == layer { vec![component.body_box] } else { component.through_hole_boxes.to_vec() }
-    }))
+    result
 }
+/// The same union as `layer_envelope`, for boxes already selected by layer.
 pub(crate) fn envelope(boxes: impl IntoIterator<Item = Box2>) -> Option<Box2> {
     boxes.into_iter().reduce(|current, box_| Box2 { left: current.left.min(box_.left), right: current.right.max(box_.right),
         top: current.top.min(box_.top), bottom: current.bottom.max(box_.bottom) })
@@ -2998,17 +3010,18 @@ fn soft_spacing_penalty(primitives: &[WorkingPrimitive], context: &Context) -> f
         if (a.primitive.locked && b.primitive.locked) || !primitive_can_conflict(a,b,context) { continue; }
         if spacing.exempt_pairs.iter().any(|p| (p[0]==a.primitive.id && p[1]==b.primitive.id)
             || (p[1]==a.primitive.id && p[0]==b.primitive.id)) { continue; }
-        let envelopes = |p| ["top", "bottom"].map(|layer| layer_envelope(p, layer));
-        score += spacing_term(&envelopes(a), &envelopes(b), context.problem.clearance, spacing.gap);
+        score += spacing_term(|layer| Some((layer_envelope(a, LAYERS[layer])?, layer_envelope(b, LAYERS[layer])?)),
+            context.problem.clearance, spacing.gap);
     }}
     score
 }
 
-/// Soft spacing deficit of one primitive pair from its top/bottom envelopes.
-pub(crate) fn spacing_term(a: &[Option<Box2>; 2], b: &[Option<Box2>; 2], clearance: f32, gap: f32) -> f32 {
+const LAYERS: [&str; 2] = ["top", "bottom"];
+/// Soft spacing deficit of one primitive pair; `envelopes(layer)` gives both
+/// primitives' envelopes on top (0) and bottom (1), when both occupy it.
+pub(crate) fn spacing_term(envelopes: impl Fn(usize) -> Option<(Box2, Box2)>, clearance: f32, gap: f32) -> f32 {
     let closest = (0..2).filter_map(|layer| {
-        let a = a[layer]?;
-        let b = b[layer]?;
+        let (a, b) = envelopes(layer)?;
         let dx = (a.left-b.right).max(b.left-a.right).max(0.0);
         let dy = (a.top-b.bottom).max(b.top-a.bottom).max(0.0);
         Some(crate::numerics::hypot(dx,dy))
