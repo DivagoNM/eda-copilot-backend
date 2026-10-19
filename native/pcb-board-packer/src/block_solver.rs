@@ -301,16 +301,26 @@ fn prepare_context(problem: BlockSolveProblem, _gpu_enabled: bool) -> (Vec<Worki
                     .map(|point| point.net.as_ref().and_then(|net| net_ids.get(net).copied()))
                     .collect(),
             );
-            let components = Arc::new(
+            let source_components = Arc::new(
                 components_by_primitive
                     .remove(&primitive.id)
                     .unwrap_or_default(),
             );
+            // Pad access rows are rounded to the placement grid whenever a component
+            // moves (rebuild_component_geometry) and on GPU (geometry_box). Round the
+            // working rows on load too, as a move to the authored pose would, so a
+            // component that never moves scores the same on CPU and GPU. Moves still
+            // rebuild from the authored rows: rounding a half tick before a rotation
+            // can land on the other tick.
+            let components = Arc::new(source_components.iter().cloned().map(|(index, mut component)| {
+                for row in &mut component.access_rows { row.box_ = translate_box(&row.box_, 0.0, 0.0); }
+                (index, component)
+            }).collect());
             WorkingPrimitive {
                 id: primitive_ids[&primitive.id],
                 source_index,
-                components: components.clone(),
-                source_components: components,
+                components,
+                source_components,
                 source_placements: primitive.placements.clone(),
                 primitive,
                 source_node_ids,
@@ -3861,6 +3871,59 @@ mod candidate_tests {
         let mcu = Box2 { left: -1.5, right: 4.3025, top: -1.8315, bottom: 3.7735 };
         let depth = overlap_depth(&mcu, &crystal, 1.125);
         assert!((depth - 0.0285).abs() < 0.001, "missed U1-X1 clearance: {depth}");
+    }
+
+    /// H743 `usb_cc`, captured from a real run: the fixed connector USB1 never
+    /// moves and arrives with off-grid pad access rows (-3.4999 instead of -3.5).
+    /// Loading must give it the rows that a move to its authored pose gives (and
+    /// that the GPU uploads) and keep that pose. Moves still rebuild the rows from
+    /// the authored input: a half tick rounded before a rotation can land on the
+    /// other tick (ELRS U1, 2.8025 at 270 degrees), so a second row adds one.
+    #[test]
+    fn unmoved_access_rows_match_moved_geometry_and_keep_fixed_pose() {
+        let mut raw: BlockSolveProblem = serde_json::from_str(&std::fs::read_to_string(
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/h743-usb-cc-bounded-block.json")
+        ).unwrap()).unwrap();
+        let usb_index = raw.components.iter().position(|c| &*c.designator == "USB1").unwrap();
+        let mut half_tick = raw.components[usb_index].access_rows[0].clone();
+        half_tick.box_ = Box2 { left: -14.9375, right: -14.4375, top: -0.5625, bottom: 0.0625 };
+        raw.components[usb_index].access_rows.push(half_tick);
+        let (primitives, _) = prepare_context(raw.clone(), false);
+        let usb = primitives.iter().find(|p| p.primitive.locked).unwrap();
+        let authored = &raw.primitives.iter().find(|p| p.locked).unwrap().placements[0];
+        let placed = &usb.primitive.placements[0];
+        assert_eq!((placed.designator.as_ref(), placed.x, placed.y, placed.rotate, placed.layer.as_ref()),
+            (authored.designator.as_ref(), authored.x, authored.y, authored.rotate, authored.layer.as_ref()));
+        let rows = |p: &WorkingPrimitive| p.components[0].1.access_rows.iter().map(|r| (r.box_, r.weight)).collect::<Vec<_>>();
+        let authored_rows: Vec<_> = raw.components[usb_index].access_rows.iter().map(|r| (r.box_, r.weight)).collect();
+        let weight = authored_rows[0].1;
+        assert_eq!(rows(usb), vec![
+            (Box2 { left: -14.357, right: -13.438, top: -3.5, bottom: 3.5 }, weight),
+            (Box2 { left: -14.937, right: -14.437, top: -0.562, bottom: 0.063 }, weight),
+        ]);
+        let mut unmoved = usb.clone();
+        rebuild_component_geometry(&mut unmoved);
+        assert_eq!(rows(&unmoved), rows(usb));
+        let source: Vec<_> = usb.source_components[0].1.access_rows.iter().map(|r| (r.box_, r.weight)).collect();
+        assert_eq!(source, authored_rows);
+        let origin = Point { x: authored.x, y: authored.y };
+        let mut rounding_first_differs = false;
+        for (x, y, rotate) in [(-18.19, 0.0, 270), (-17.0, 1.25, 270), (-16.5, -2.0, 0), (-15.25, 0.5, 90), (-19.0, 3.0, 180)] {
+            let mut target = authored.clone();
+            target.x = x;
+            target.y = y;
+            target.rotate = rotate;
+            let mut moved = usb.clone();
+            moved.primitive.placements = Arc::new(vec![target]);
+            rebuild_component_geometry(&mut moved);
+            let delta = crate::geometry::subtract_rotation(rotate, authored.rotate);
+            let (dx, dy) = (round_placement(x - authored.x), round_placement(y - authored.y));
+            let transform = |rows: &[(Box2, f32)]| rows.iter()
+                .map(|(b, w)| (translate_box(&rotate_box(b, &origin, delta), dx, dy), *w)).collect::<Vec<_>>();
+            assert_eq!(rows(&moved), transform(&authored_rows), "moved to ({x}, {y}, {rotate})");
+            rounding_first_differs |= transform(&rows(usb)) != transform(&authored_rows);
+        }
+        assert!(rounding_first_differs);
     }
 
     fn usb_fixture() -> (WorkingPrimitive, WorkingPrimitive, Context) {
