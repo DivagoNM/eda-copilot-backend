@@ -12,6 +12,7 @@ import { checkPattern } from './check-pattern.ts';
 import { circuitPatternRegistry } from './registry.ts';
 import type { PcbIntentDiagnostic, ValidatePcbLayoutIntentInput, PcbSchematicGroups } from './types.ts';
 import { checkSchematicGroups } from './schematic-groups.ts';
+import { checkSchematicDeclarations } from './schematic-declarations.ts';
 
 /** Offline validation: no device lookup, placement, native solver or input mutation. */
 export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput,
@@ -87,6 +88,7 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput,
         diagnostics.push(...(pattern.check ? pattern.check(match, context) : checkPattern(pattern, match, context)));
     }
     diagnostics.push(...checkSchematicGroups(schematicGroups, recognition));
+    diagnostics.push(...checkSchematicDeclarations(schematicGroups?.declarations, rules, effectiveCircuit.components.map(c => c.designator)));
     return finish(diagnostics);
 }
 function collectRefs(circuit: ValidatePcbLayoutIntentInput['circuit'], rules: PlacementRules): PcbIntentDiagnostic[] {
