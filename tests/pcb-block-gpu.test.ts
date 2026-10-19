@@ -322,3 +322,15 @@ test('semantic groups and clearance minima keep CPU/GPU block ranks including pa
     const resumed={...p,pairSeed:deferred.solution.pairSeed};
     assert.deepEqual(run(resumed,'cubecl',{PCB_BLOCK_GPU_VERIFY:'1'}).solution,run(resumed,'cpu').solution);
 });
+
+test('GPU long-net scales use the CPU nominal primitive size', { skip: !gpuEnabled }, () => {
+    // STEPPER_CONTROLLER pd_controller: off-grid input boxes whose rounded bbox
+    // extent (1.9393 -> 1.939 or 1.94) differs from the rotated width the CPU uses.
+    const captured = JSON.parse(readFileSync(new URL('./fixtures/block-placement/STEPPER_CONTROLLER/pd-controller.json', import.meta.url), 'utf8'));
+    const p = captured.problem as NativeBlockSolveProblemV4;
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_BLOCK_GPU_VERIFY: '1' });
+    assert.match(gpu.log, /"backend":"cubecl"/);
+    assert.doesNotMatch(gpu.log, /block-gpu-fallback|panicked/);
+    assert.deepEqual(gpu.solution, cpu.solution);
+});

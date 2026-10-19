@@ -422,7 +422,9 @@ impl Engine {
                         _ => 0,
                     },
                     power: c.power_component as u32,
-                    unused: 0,
+                    // Nominal size for scales that the CPU takes from width/height;
+                    // stored as f32 bits.
+                    unused: p.primitive.width.max(p.primitive.height).to_bits(),
                     components, component_count: p.components.len() as u32, boxes, box_count: collision.len() as u32, locked: p.primitive.locked as u32, ports,
                 });
             }
@@ -457,6 +459,8 @@ impl Engine {
             body: p.components[0].1.body_box.into(),
             pad_dx: round_placement(b.x - a.x),
             pad_dy: round_placement(b.y - a.y),
+            // Current nominal size; the CPU updates width/height on rotation.
+            unused: p.primitive.width.max(p.primitive.height).to_bits(),
             ..template
         }
     }
@@ -633,7 +637,7 @@ fn cheap_hull_capacity(prims: &[Prim], moving: usize, geometry: &[f32]) -> usize
     (convex_hull_vertices(&fixed_boxes).0.len() + prims[moving].box_count as usize * 4)
         .max(64).next_power_of_two()
 }
-fn prim_i(p: Prim) -> [i32; 15] {
+fn prim_i(p: Prim) -> [i32; 16] {
     [
         p.cp as i32,
         p.nc as i32,
@@ -645,6 +649,7 @@ fn prim_i(p: Prim) -> [i32; 15] {
         p.role as i32,
         p.power as i32,
         p.components as i32, p.component_count as i32, p.boxes as i32, p.box_count as i32, p.locked as i32, p.ports as i32,
+        p.unused as i32,
     ]
 }
 fn finite(values: &[f32]) -> bool {
@@ -845,6 +850,12 @@ impl Engine {
         fi.extend(eprefs);
         self.pack_topology(current,context,&mut ff,&mut fi);
         pack_conditions(current,context,&mut fi,&mut ff);
+        // Appended last: relation floats above are addressed by position.
+        fi[k::MOVING_SIZE_F] = ff.len() as u32;
+        for rotation in 0..4 {
+            let variant = super::rotate_primitive(&current[moving], normalize_rotation(rotation * 90 - current[moving].rotation));
+            ff.push(variant.primitive.width.max(variant.primitive.height));
+        }
         // Archived proposals are relative to the current moving primitive.
         // GPU templates are resident in the original coordinate frame.
         // Rotation quantization can move a template's rounded center by 1 um.
