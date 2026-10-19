@@ -1312,6 +1312,46 @@ pub fn validate_change(p: RefineProblem, placements: Vec<Placement>) -> Result<b
     Ok(p.violations(&after,&changed).is_subset(&p.violations(&before,&changed)))
 }
 
+/// `validate_change` for one baseline and many candidates that only move
+/// existing poses. Each thread owns a scratch world and reverts it per check.
+pub(crate) struct ChangeCheck { p: RefineProblem, before: World, distinct: bool }
+pub(crate) struct ChangeScratch(World);
+impl ChangeCheck {
+    pub(crate) fn new(p: RefineProblem) -> Result<Self, String> {
+        p.validate()?;
+        let distinct = p.placements.iter().map(|q| &q.designator).collect::<FxHashSet<_>>().len() == p.placements.len();
+        let before = p.world(&p.placements)?;
+        Ok(Self { p, before, distinct })
+    }
+    pub(crate) fn placements(&self) -> &[Placement] { &self.p.placements }
+    pub(crate) fn scratch(&self) -> ChangeScratch { ChangeScratch(self.before.clone()) }
+    /// Same result as `validate_change` for the baseline with `moved` poses
+    /// (pose index, local x, local y) replaced.
+    pub(crate) fn check(&self, scratch: &mut ChangeScratch, moved: &[(usize, f32, f32)]) -> Result<bool, String> {
+        if !self.distinct { return Ok(false); }
+        if moved.iter().any(|(_, x, y)| !x.is_finite() || !y.is_finite()) { return Ok(false); }
+        let mut changed = Vec::new();
+        for (i, c) in self.p.components.iter().enumerate() {
+            let Some(&(_, x, y)) = moved.iter().rev().find(|(pose, _, _)| *pose == c.pose_index) else { continue };
+            let before = self.p.pose(&self.before, i);
+            if before.x != x || before.y != y { changed.push((i, Placement { x, y, ..before.clone() })); }
+        }
+        let indices: Vec<_> = changed.iter().map(|(i, _)| *i).collect();
+        let mut result = Ok(true);
+        for (i, pose) in &changed {
+            if self.p.apply(&mut scratch.0, *i, pose).is_err() { result = Ok(false); break; }
+        }
+        if result == Ok(true) {
+            result = Ok(self.p.violations(&scratch.0, &indices).is_subset(&self.p.violations(&self.before, &indices)));
+        }
+        for (i, _) in &changed {
+            let pose = self.p.pose(&self.before, *i).clone();
+            self.p.apply(&mut scratch.0, *i, &pose)?;
+        }
+        result
+    }
+}
+
 pub fn solve(p: RefineProblem) -> Result<Value, String> {
     p.validate()?;
     let backend=std::env::var("PCB_POST_PLACE_BACKEND").unwrap_or_else(|_|"auto".into());
