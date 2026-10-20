@@ -26,6 +26,22 @@ pub fn violation(depth: f32) -> f32 {
     result
 }
 
+/// `to - from` for two edges. Grid edges are F32 approximations of whole
+/// ticks, off by up to half an ULP each, and the subtraction rounds once more,
+/// so their difference depends on where the boxes are. Within that error the
+/// gap is the whole tick: the same grid boxes give the same gap after any
+/// translation.
+#[cfg_attr(feature = "gpu", cube)]
+fn edge_gap(to: f32, from: f32) -> f32 {
+    let gap = to - from;
+    let tick = crate::numerics::rp(gap);
+    let mut result = gap;
+    if (gap - tick).abs() <= (to.abs() + from.abs() + gap.abs()) * (f32::EPSILON * 0.5) {
+        result = tick;
+    }
+    result
+}
+
 #[cfg_attr(feature = "gpu", cube)]
 pub fn overlap(
     al: f32,
@@ -41,7 +57,7 @@ pub fn overlap(
     // Compare the gap before calculating severity: adding clearance to an
     // absolute edge can flip a boundary after centering. Allow the F32 rounding
     // of the clearance subtraction (one relative machine epsilon, not mm).
-    let gap = (bl - ar).max(al - br).max((bt - ab).max(at - bb));
+    let gap = edge_gap(bl, ar).max(edge_gap(al, br)).max(edge_gap(bt, ab).max(edge_gap(at, bb)));
     let mut result = 0.0;
     let roundoff = clearance.abs() * f32::EPSILON;
     if gap < (clearance - epsilon()) - roundoff {
@@ -170,11 +186,33 @@ mod tests {
         for (ar, bl) in [(2.180000067, 2.529000044), (-2.319999933, -1.970999956)] {
             assert_eq!(overlap(ar - 4.359, ar, -2.179, 2.179,
                 bl, bl + 3.928, -0.679, 1.179, 0.35), 0.0);
+            // A sub-tick shift beyond the F32 representation error of these edges
+            // (about 3e-7 near 2.5 mm) still counts.
             assert!(overlap(ar - 4.359, ar, -2.179, 2.179,
-                bl - 0.0000002, bl + 3.928, -0.679, 1.179, 0.35) > epsilon());
+                bl - 0.0000006, bl + 3.928, -0.679, 1.179, 0.35) > epsilon());
             let depth = overlap(ar - 4.359, ar, -2.179, 2.179,
                 bl - 0.001, bl + 3.927, -0.679, 1.179, 0.35);
             assert!(depth > 0.0019 && depth < 0.0021);
+        }
+    }
+    #[test]
+    fn grid_clearance_boundary_does_not_depend_on_the_position() {
+        // H743 buck_5: C23 and C24 end 0.099 mm apart with 0.1 mm clearance.
+        // Centring moved them from y = -0.218 / -0.317 to -0.718 / -0.817.
+        let mm = |ticks: i32| (ticks as f64 / 1000.0) as f32;
+        for (top, bottom) in [(-218, -317), (-718, -817)] {
+            assert_eq!(overlap(mm(-10005), mm(-7225), mm(top), mm(top + 1420),
+                mm(-10005), mm(-7225), mm(bottom - 1420), mm(bottom), 0.1), 0.0);
+        }
+        // Grid boxes `ticks` apart give one result wherever they are placed.
+        for ticks in [97, 98, 99, 100, 101] {
+            let at = |origin: i32| overlap(mm(origin - 2780), mm(origin), 0.0, 1.0,
+                mm(origin + ticks), mm(origin + ticks + 1420), 0.0, 1.0, 0.1);
+            let expected = at(0);
+            assert_eq!(expected > 0.0, ticks < 99, "{ticks} ticks");
+            for origin in (-50_000..50_000).step_by(37) {
+                assert_eq!(at(origin), expected, "{ticks} ticks at {origin}");
+            }
         }
     }
     #[test]

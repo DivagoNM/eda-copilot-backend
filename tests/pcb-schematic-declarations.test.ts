@@ -72,7 +72,8 @@ test('the skeleton reports unusable roles and attachments and never throws', () 
     assert.deepEqual(pcbLayoutDslSkeleton(undefined), { code: '', diagnostics: [] });
     const broken = pcbLayoutDslSkeleton({ blocks: [{ name: 'a', components: null as never }] });
     assert.equal(broken.code, '');
-    assert.equal(broken.diagnostics[0].code, 'PCB_SCHEMATIC_DECLARATION_CHECK');
+    assert.equal(broken.diagnostics[0].code, 'PCB_SCHEMATIC_DECLARATION_ENTRY');
+    assert.equal(pcbLayoutDslSkeleton({ blocks: null as never }).diagnostics[0].code, 'PCB_SCHEMATIC_DECLARATION_CHECK');
 });
 
 test('a component declared in several blocks gets one conflict warning and stays out of the skeleton', () => {
@@ -86,4 +87,60 @@ test('a component declared in several blocks gets one conflict warning and stays
     assert.deepEqual(skeleton.diagnostics.map(d => d.code), ['PCB_SCHEMATIC_DECLARED_BLOCK_CONFLICT']);
     const result = validatePcbLayoutIntent({ code: skeleton.code, circuit: { components: circuit.components.filter(c => c.designator !== 'C1') } });
     assert.equal(result.some(d => d.severity === 'error'), false);
+});
+
+test('a block preview checks the declarations against the authored DSL, not the filtered one', () => {
+    // The preview drops modules and the root's attachment; neither contradicts the declarations.
+    for (const root of ['ldo', 'ldo_caps']) assert.deepEqual(own(declared(matching), code + 'solver({previewBlock:"' + root + '"});'), [], root);
+    const wrong = own(declared([{ name: 'ldo_caps', components: ['C1', 'C2'], module: 'core', attachTo: 'load' }]), code + 'solver({previewBlock:"ldo_caps"});');
+    assert.deepEqual(wrong.map(d => d.code).sort(), ['PCB_SCHEMATIC_DECLARED_BLOCK_ATTACH', 'PCB_SCHEMATIC_DECLARED_BLOCK_MODULE']);
+});
+
+test('preserved components that no DSL block owns keep their declarations unchecked', () => {
+    const existingPlacement = { components: ['U2', 'C3'].map((designator, i) => ({ designator, x: i * 5, y: 0, rotate: 0, layer: 'top' as const })) };
+    const dsl = 'block("ldo",["U1"],"power"); block("ldo_caps",["C1","C2"],"power",{placement:"satellite",attachTo:"ldo"});'
+        + 'module("supply",["ldo","ldo_caps"]); preserve({components:["U2","C3"]});';
+    const findings = (groups: PcbSchematicGroups, code: string) => validatePcbLayoutIntent({ code, circuit, existingPlacement }, groups)
+        .filter(d => d.code.startsWith('PCB_SCHEMATIC_DECLAR'));
+    assert.deepEqual(findings(declared(matching), dsl), []);
+    // A preserved component that the DSL also assigns is still checked.
+    const assigned = findings(declared(matching), dsl + 'component("C3").block("ldo");');
+    assert.deepEqual(assigned.map(d => d.code), ['PCB_SCHEMATIC_DECLARED_BLOCK_MEMBERS']);
+    assert.deepEqual(assigned[0].context?.components, ['C3']);
+});
+
+test('a satellite belongs to its parent module, as in placement', () => {
+    const parentOnly = code.replace('module("supply",["ldo","ldo_caps"]);', 'module("supply",["ldo"]);');
+    assert.deepEqual(own(declared(matching), parentOnly), []);
+    const other = own(declared([{ name: 'ldo_caps', components: ['C1', 'C2'], module: 'other', attachTo: 'ldo' }]), parentOnly);
+    assert.deepEqual(other.map(d => d.code), ['PCB_SCHEMATIC_DECLARED_BLOCK_MODULE']);
+    assert.ok(other[0].message.includes('puts it in supply through its parent ldo'), other[0].message);
+});
+
+test('a malformed declared block is skipped on its own; the others are still checked', () => {
+    const findings = own(declared([...matching.slice(0, 2), { name: 'load', components: ['C3', 'U2'], role: 'mcu' },
+        { name: 'bad', components: null as never }, { components: ['U2'] } as never]));
+    // load's declared role still disagrees with the DSL's default role.
+    assert.deepEqual(findings.map(d => d.code).sort(), ['PCB_SCHEMATIC_DECLARATION_ENTRY', 'PCB_SCHEMATIC_DECLARATION_ENTRY', 'PCB_SCHEMATIC_DECLARED_BLOCK_ROLE']);
+    const skipped = findings.filter(d => d.code === 'PCB_SCHEMATIC_DECLARATION_ENTRY').map(d => d.message);
+    assert.ok(skipped.some(m => m.includes('bad')) && skipped.some(m => m.includes('#5')), skipped.join(' | '));
+    // The well-formed blocks keep their findings next to the skipped entries.
+    const contradicted = own(declared([{ name: 'ldo', components: ['U1'], module: 'core' }, { name: 'bad', components: [1] as never }]));
+    assert.deepEqual(contradicted.map(d => d.code).sort(), ['PCB_SCHEMATIC_DECLARATION_ENTRY', 'PCB_SCHEMATIC_DECLARED_BLOCK_MODULE']);
+});
+
+test('the skeleton breaks attachment cycles and flags oversized blocks', () => {
+    const cycle = pcbLayoutDslSkeleton({ blocks: [{ name: 'b', components: ['C1'], attachTo: 'a' }, { name: 'a', components: ['U1'], attachTo: 'c' },
+        { name: 'c', components: ['C2'], attachTo: 'b' }, { name: 'load', components: ['U2', 'C3'] }] });
+    assert.equal(cycle.code, [
+        'block("a", ["U1"], "generic");',
+        'block("b", ["C1"], "generic", { placement: "satellite", attachTo: "a" });',
+        'block("c", ["C2"], "generic", { placement: "satellite", attachTo: "b" });',
+        'block("load", ["C3","U2"], "generic");',
+    ].join('\n') + '\n');
+    assert.deepEqual(cycle.diagnostics.map(d => d.code), ['PCB_SCHEMATIC_DECLARED_BLOCK_ATTACH']);
+    assert.ok(cycle.diagnostics[0].message.includes('a -> c -> b -> a'), cycle.diagnostics[0].message);
+    assert.equal(validatePcbLayoutIntent({ code: cycle.code, circuit }).some(d => d.severity === 'error'), false);
+    const big = pcbLayoutDslSkeleton({ blocks: [{ name: 'big', components: Array.from({ length: 13 }, (_, i) => 'R' + i) }] });
+    assert.deepEqual(big.diagnostics.map(d => [d.code, d.severity]), [['PCB_SCHEMATIC_DECLARED_BLOCK_SIZE', 'warning']]);
 });

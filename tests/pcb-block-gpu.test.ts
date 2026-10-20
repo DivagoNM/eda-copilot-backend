@@ -201,6 +201,41 @@ test('ordinary bus preserves every net and long distances on block CPU/GPU', { s
     assert.deepEqual(gpu.solution, cpu.solution);
 });
 
+test('block CPU/GPU agree in both compactness modes with large-block ground and signal nets', { skip: !gpuEnabled }, () => {
+    for (const compactness of ['normal', 'high'] as const) {
+        const p = problem();
+        p.compactness = compactness;
+        // A fifth component selects the large-block net weights.
+        const host = p.primitives[1];
+        host.placements.push({ designator: 'C4', x: 0, y: 1, rotate: 0, layer: 'top', score: 0 });
+        host.bbox.bottom = 1.5; host.height = 2;
+        host.collisionBoxes.push({ left: -.5, right: .5, top: .75, bottom: 1.25 });
+        p.components.push({ ...structuredClone(p.components[1]), designator: 'C4', bodyBox: { left: -.5, right: .5, top: .75, bottom: 1.25 } });
+        const n = p.components.length;
+        p.componentConflict = Array.from({ length: n * n }, (_, i) => Number(Math.floor(i / n) !== i % n));
+        p.componentPairClearance = Array.from({ length: n * n }, (_, i) => Math.floor(i / n) === i % n ? 0 : .25);
+        addOrdinaryBus(p);
+        p.primitives.forEach((primitive, i) => primitive.connectionPoints.push(
+            { ref: `${primitive.placements[0].designator}.gnd`, net: 'GND', x: primitive.placements[0].x + i * 3, y: primitive.placements[0].y + 1 }));
+        const cpu = run(p, 'cpu');
+        const gpu = run(p, 'cubecl', { PCB_BLOCK_GPU_VERIFY: '1' });
+        assert.match(gpu.log, /"backend":"cubecl"/);
+        assert.doesNotMatch(gpu.log, /block-gpu-fallback|validation failed/);
+        assert.deepEqual(gpu.solution, cpu.solution);
+    }
+});
+
+test('captured USB block keeps CPU/GPU external-port terms with high compactness', { skip: !gpuEnabled }, () => {
+    const captured = JSON.parse(readFileSync(new URL('./fixtures/block-placement/Telemetry/block-23.json', import.meta.url), 'utf8'));
+    const p = { ...captured.problem, version: 4, searchWidth: 1, experiments: {}, compactness: 'high' } as NativeBlockSolveProblemV4;
+    const cpu = run(p, 'cpu');
+    const gpu = run(p, 'cubecl', { PCB_BLOCK_GPU_VERIFY: '1' });
+    assert.match(gpu.log, /"backend":"cubecl"/);
+    assert.doesNotMatch(gpu.log, /block-gpu-fallback|validation failed/);
+    checkGeometry(p, gpu.solution);
+    assert.ok(gpu.solution.rank.score <= cpu.solution.rank.score * 1.01 + .01);
+});
+
 test('block GPU unavailable preserves the complete CPU result for a composite block', () => {
     const p = problem();
     const cpu = run(p, 'cpu');
