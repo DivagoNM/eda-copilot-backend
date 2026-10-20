@@ -82,6 +82,16 @@ test('native pass matches the TypeScript pass when the native validator rejects 
     assert.ok(assertParity(c).rejected.native > 0);
 });
 
+// Review counterexample: four identical parts, the first two in a module with a
+// 13.5 mm hard height limit. A later move is valid only on top of an earlier
+// accepted one, so validation must see the accumulated layout.
+test('native validation keeps earlier accepted moves', () => {
+    const result = assertParity(gz('tests/fixtures/board-alignment/consecutive-module-moves.json.gz'));
+    assert.equal(result.moves.length, 5);
+    assert.equal(result.rejected.native, 0);
+    assert.deepEqual(result.placements.map(p => p.y), [1.5, 1.625, 1.875, 2]);
+});
+
 test('native pass matches the TypeScript pass on STM32G0, with accepted moves', () => {
     const result = assertParity(gz('tests/fixtures/board-alignment/STM32G0_CAN_RS485.json.gz'));
     assert.ok(result.moves.length > 0 && result.rejected.geometry > 0 && result.rejected.electrical > 0);

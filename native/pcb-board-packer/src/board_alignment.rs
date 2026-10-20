@@ -845,6 +845,13 @@ impl Pass {
         result
     }
 
+    /// Candidate moves as (pose index, x, y) in the `ChangeCheck` frame.
+    fn check_moves(&self, moved: &[(usize, f64, f64)]) -> Vec<(usize, f32, f32)> {
+        moved.iter().map(|&(i, x, y)| {
+            (self.p.components[i].pose_index, (x - self.check_origin[0]) as f32, (y - self.check_origin[1]) as f32)
+        }).collect()
+    }
+
     /// Every check of one candidate, in the original order. `limit` only
     /// decides the objective stage; later stages never depend on it.
     fn evaluate(&self, routes: &Routes, scratch: &mut Scratch, candidate: &Candidate, limit: f64, penalty_limit: f64, timing: &mut Timing) -> Result<Outcome, String> {
@@ -875,10 +882,7 @@ impl Pass {
         if !ok { return done(Stage::Geometry); }
         if !hints { return done(Stage::HardHint); }
         let started = Instant::now();
-        let moved: Vec<_> = candidate.moved.iter().map(|&(i, x, y)| {
-            (self.p.components[i].pose_index, (x - self.check_origin[0]) as f32, (y - self.check_origin[1]) as f32)
-        }).collect();
-        let valid = self.check.check(&mut scratch.change, &moved)?;
+        let valid = self.check.check(&mut scratch.change, &self.check_moves(&candidate.moved))?;
         timing.native += 1; timing.native_ms += elapsed(started);
         if !valid { return done(Stage::Native); }
         done(Stage::Accepted)
@@ -909,10 +913,12 @@ fn evaluate_pair(pass: &Pass, routes: &Routes, current: &World, scratch: &mut Sc
     let limit = AtomicU64::new(limit_after(None).to_bits());
     let prefix = Mutex::new((0usize, None::<f32>));
     let workers = threads.min(candidates.len());
+    let shared = &scratch.change;
     let timings = std::thread::scope(|scope| {
         let handles: Vec<_> = (0..workers).map(|_| scope.spawn(|| -> Result<Timing, String> {
             let _float_env = crate::float_env::Guard::enter();
-            let mut scratch = Scratch { world: current.clone(), change: pass.check.scratch() };
+            // Workers start from the accepted layout, like the serial scratch.
+            let mut scratch = Scratch { world: current.clone(), change: shared.clone() };
             let mut timing = Timing::default();
             loop {
                 let i = next.fetch_add(1, Ordering::Relaxed);
@@ -1084,6 +1090,7 @@ pub fn solve(mut problem: Value) -> Result<Value, String> {
                 "scoreBefore":score,"scoreAfter":next}));
             pass.apply(&mut current, &candidate.moved);
             pass.apply(&mut scratch.world, &candidate.moved);
+            pass.check.accept(&mut scratch.change, &pass.check_moves(&candidate.moved))?;
             routes = pass.routes(&current);
             score = next;
             accepted = true;
