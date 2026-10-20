@@ -269,7 +269,7 @@ function gpuRefine(problem: object, backend: string, options: Record<string,stri
     return {value,profile,log:child.stderr};
 }
 
-test('post-place GPU preserves full scores, paths, layers, clearance and stable winners', {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
+for (const shape of ['straight','flexible'] as const) test(`post-place GPU preserves full scores, ${shape} paths, layers, clearance and stable winners`, {skip:process.env.PCB_POST_PLACE_GPU_TESTS!=='1'}, () => {
     const input=pairInput();
     const problem=encodeNativePostPlaceRefineProblem(input,pairPlacements(),1);
     const target=(component:number)=>({kind:'component' as const,component});
@@ -280,7 +280,7 @@ test('post-place GPU preserves full scores, paths, layers, clearance and stable 
         {kind:'prefer_layer',source:{kind:'group',members:[0,1]},target:{kind:'missing'},all:false,weight:7,layer:'bottom'},
         {kind:'edge',source:{kind:'group',members:[0,1]},target:{kind:'missing'},all:false,weight:3,edge:'right'},
     );
-    problem.paths=[{id:'probe',shape:'straight',priority:'high',preferFacingPads:true,
+    problem.paths=[{id:'probe',shape,priority:'high',preferFacingPads:true,
         ports:[0,2,1,3].map((component,order)=>({target:{kind:'pin',component,pad:0},order,ref:`p${order}`,role:'endpoint'}))}];
     problem.nets.push({name:'mst-ties',weight:0.65,points:[0,1,2,3].map(component=>({component,pad:0}))});
     const cpu=gpuRefine(problem,'cpu');

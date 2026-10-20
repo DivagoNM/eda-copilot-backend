@@ -4,7 +4,7 @@ import { matchCircuitPattern, groupRailMatches } from './recognition/match.ts';
 import { LayoutRulesSchema, type PlacementRules } from '../../types/pcb/layout-rules.ts';
 import { runPcbLayoutDsl } from '../pcb-layout-dsl/spec.ts';
 import { instrumentLocalLayoutDsl, extractLocalLayouts, stripLocalLayoutCarriers, validateLocalLayouts, scopeLocalLayouts } from '../pcb-auto-place-v2/local-layout.ts';
-import { applyExistingBoard, ensurePreservedComponentBlocks } from '../existing-placement.ts';
+import { applyExistingBoard, ensurePreservedComponentBlocks, resolvePreservedComponentDesignators } from '../existing-placement.ts';
 import { applyPlacementPreviewFilter } from '../placement-input.ts';
 import { validatePlacementRulesForCircuit } from '../placement-validation.ts';
 import { createIntentContext } from './context.ts';
@@ -59,6 +59,7 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput,
     if (!schema.success) return schema.error.issues.map(issue => ({ code: 'PCB_DSL_SCHEMA', severity: 'error',
         message: issue.path.join('.') + ': ' + issue.message }));
     let rules = schema.data;
+    const authoredRules = rules;
     if (rules.preserve && (rules.preserve.board || rules.preserve.components !== undefined) &&
         (!data.existingPlacement || ((rules.preserve.board || rules.preserve.components === 'all') && !data.existingPlacement.board)))
         return [{ code: 'PCB_PRESERVE_CONTEXT', severity: 'error', message: 'preserve(...) requires the referenced existing placement and board.' }];
@@ -88,8 +89,19 @@ export function validatePcbLayoutIntent(input: ValidatePcbLayoutIntentInput,
         diagnostics.push(...(pattern.check ? pattern.check(match, context) : checkPattern(pattern, match, context)));
     }
     diagnostics.push(...checkSchematicGroups(schematicGroups, recognition));
-    diagnostics.push(...checkSchematicDeclarations(schematicGroups?.declarations, rules, effectiveCircuit.components.map(c => c.designator)));
+    diagnostics.push(...checkSchematicDeclarations(schematicGroups?.declarations, authoredRules,
+        declarationScope(effectiveCircuit, authoredRules, data.existingPlacement)));
     return finish(diagnostics);
+}
+/** Components this run places from the DSL. Preview filters already removed the
+ * rest; preserved components that no DSL block owns keep their existing pose,
+ * so their schematic declarations are not contradicted. */
+function declarationScope(circuit: ValidatePcbLayoutIntentInput['circuit'], rules: PlacementRules,
+    existingPlacement: ValidatePcbLayoutIntentInput['existingPlacement']) {
+    const owned = new Set([...rules.blocks.flatMap(block => block.component_designators),
+        ...rules.component_rules.flatMap(rule => rule.block_name ? [rule.designator] : [])]);
+    const preserved = resolvePreservedComponentDesignators(rules.preserve, existingPlacement);
+    return circuit.components.map(c => c.designator).filter(name => owned.has(name) || !preserved.has(name));
 }
 function collectRefs(circuit: ValidatePcbLayoutIntentInput['circuit'], rules: PlacementRules): PcbIntentDiagnostic[] {
     const allComponents = circuit.components;
