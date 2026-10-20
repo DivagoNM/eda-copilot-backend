@@ -272,6 +272,27 @@ test('ordinary bus preserves every net and long distances on board CPU/GPU', { s
     }
 });
 
+test('large primitives keep the CPU edge bias on board GPU', { skip: !gpuEnabled }, () => {
+    const p = minimalProblem();
+    const large = structuredClone(p.primitives[0]);
+    large.id = 'primitive:large'; large.placements[0].designator = 'U2';
+    large.connectionPoints[0].ref = 'U2.1';
+    // 8 % of the board area; the edge bias applies from 5.5 %.
+    large.bbox = { left: -2, right: 2, top: -1, bottom: 1 }; large.width = 4; large.height = 2;
+    large.collisionBoxes = [{ ...large.bbox }];
+    p.primitives.push(large);
+    p.components.push({ ...structuredClone(p.components[0]), primitiveId: large.id, designator: 'U2', bodyBox: large.bbox });
+    p.componentConflict = [0, 1, 1, 0]; p.componentPairClearance = [0, .2, .2, 0];
+    for (const compactness of ['normal', 'high'] as const) {
+        p.compactness = compactness;
+        const cpu = run(p, 'cpu');
+        const gpu = run(p, 'cubecl', { PCB_BOARD_GPU_VERIFY: '1', PCB_BOARD_GPU_VERIFY_SHORTLIST: '1' });
+        assert.match(gpu.log, /"backend":"cubecl"/);
+        assert.doesNotMatch(gpu.log, /board-gpu-fallback|validation failed/);
+        assert.deepEqual(gpu.solution, cpu.solution);
+    }
+});
+
 test('GPU failure at every board stage restarts the original CPU input', { skip: !gpuEnabled }, () => {
     const p = minimalProblem();
     const cpu = run(p, 'cpu');
